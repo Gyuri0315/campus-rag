@@ -1,0 +1,602 @@
+"""
+부경대학교 컴퓨터·인공지능공학부 홈페이지 크롤러
+https://ce.pknu.ac.kr/ce/1
+
+크롤링 대상:
+  - 공지사항: 학과공지, 대학원공지, 산업대학원공지, 교육대학원공지, 자료실
+  - 학부안내: 학부소개(전공별 포함), 교육목적및인재상, 교수진, 졸업및진로, 찾아오시는길
+  - 학사안내: 교육과정(전공별 포함), 모듈형 교육과정, 졸업요건
+
+저장 형식:
+  - output/json/<category>/<slug>.json
+  - output/html/<category>/<slug>.html
+
+증분 크롤링:
+  - state.json 에 게시판별 마지막으로 수집한 게시글 번호를 저장
+  - 재실행 시 이미 수집한 게시글 이후부터만 크롤링 (신규 게시글만 수집)
+  - 최초 실행은 INITIAL_MAX_PAGES 페이지까지만 수집
+
+자동 스케줄링:
+  - 매일 오전 09:00 자동 실행 (schedule 라이브러리)
+  - --once 옵션으로 1회 즉시 실행 가능
+"""
+
+import argparse
+import hashlib
+import json
+import logging
+import re
+import sys
+import time
+from datetime import datetime
+from pathlib import Path
+from urllib.parse import urljoin
+
+import requests
+import schedule
+from bs4 import BeautifulSoup
+
+# ─── 로깅 설정 ────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("crawler.log", encoding="utf-8"),
+    ],
+)
+log = logging.getLogger(__name__)
+
+# ─── 경로 및 상수 ─────────────────────────────────────────────────────────────
+BASE_URL = "https://ce.pknu.ac.kr"
+OUTPUT_JSON = Path("output/json")
+OUTPUT_HTML = Path("output/html")
+STATE_FILE = Path("state.json")
+
+REQUEST_DELAY = 0.8      # 게시글 상세 요청 간 딜레이(초)
+LIST_DELAY = 0.5         # 목록 페이지 요청 간 딜레이(초)
+REQUEST_TIMEOUT = 20     # HTTP 타임아웃(초)
+INITIAL_MAX_PAGES = 10   # 최초 실행 시 게시판별 최대 크롤링 페이지 수
+INCREMENTAL_MAX_PAGES = 3  # 증분 실행 시 최대 확인 페이지 수
+
+# ─── 섹션 설정 ────────────────────────────────────────────────────────────────
+# is_board=True  → 게시판 (목록+상세 페이지, 페이지네이션 있음)
+# is_board=False → 정적 페이지 (단일 페이지, 매번 재수집)
+SECTIONS = [
+    # ── 공지사항 ────────────────────────────────────────────────────────────
+    {
+        "name": "학과공지",
+        "category": "공지사항",
+        "url": f"{BASE_URL}/ce/1814",
+        "bbs_id": "2400536",
+        "type": "notice",
+        "is_board": True,
+    },
+    {
+        "name": "대학원공지",
+        "category": "공지사항",
+        "url": f"{BASE_URL}/ce/1815",
+        "bbs_id": "2400537",
+        "type": "notice",
+        "is_board": True,
+    },
+    {
+        "name": "산업대학원공지",
+        "category": "공지사항",
+        "url": f"{BASE_URL}/ce/2425",
+        "bbs_id": "2400690",
+        "type": "notice",
+        "is_board": True,
+    },
+    {
+        "name": "교육대학원공지",
+        "category": "공지사항",
+        "url": f"{BASE_URL}/ce/2426",
+        "bbs_id": "2400691",
+        "type": "notice",
+        "is_board": True,
+    },
+    {
+        "name": "자료실",
+        "category": "공지사항",
+        "url": f"{BASE_URL}/ce/1817",
+        "bbs_id": "2400539",
+        "type": "resource",
+        "is_board": True,
+    },
+    # ── 학부안내 ────────────────────────────────────────────────────────────
+    {
+        "name": "학부소개",
+        "category": "학부안내",
+        "url": f"{BASE_URL}/ce/1803",
+        "type": "guide",
+        "is_board": False,
+    },
+    {
+        "name": "컴퓨터공학전공소개",
+        "category": "학부안내",
+        "url": f"{BASE_URL}/ce/4942",
+        "type": "guide",
+        "is_board": False,
+    },
+    {
+        "name": "인공지능전공소개",
+        "category": "학부안내",
+        "url": f"{BASE_URL}/ce/4943",
+        "type": "guide",
+        "is_board": False,
+    },
+    {
+        "name": "교육목적및인재상",
+        "category": "학부안내",
+        "url": f"{BASE_URL}/ce/1804",
+        "type": "guide",
+        "is_board": False,
+    },
+    {
+        "name": "교수진",
+        "category": "학부안내",
+        "url": f"{BASE_URL}/ce/1805",
+        "type": "guide",
+        "is_board": False,
+    },
+    {
+        "name": "졸업후진로",
+        "category": "학부안내",
+        "url": f"{BASE_URL}/ce/1806",
+        "type": "guide",
+        "is_board": False,
+    },
+    {
+        "name": "찾아오시는길",
+        "category": "학부안내",
+        "url": f"{BASE_URL}/ce/1807",
+        "type": "guide",
+        "is_board": False,
+    },
+    # ── 학사안내 ────────────────────────────────────────────────────────────
+    {
+        "name": "교육과정",
+        "category": "학사안내",
+        "url": f"{BASE_URL}/ce/4945",
+        "type": "curriculum",
+        "is_board": False,
+    },
+    {
+        "name": "컴퓨터공학전공교육과정",
+        "category": "학사안내",
+        "url": f"{BASE_URL}/ce/1808",
+        "type": "curriculum",
+        "is_board": False,
+    },
+    {
+        "name": "인공지능전공교육과정",
+        "category": "학사안내",
+        "url": f"{BASE_URL}/ce/6933",
+        "type": "curriculum",
+        "is_board": False,
+    },
+    {
+        "name": "모듈형교육과정",
+        "category": "학사안내",
+        "url": f"{BASE_URL}/ce/7086",
+        "type": "curriculum",
+        "is_board": False,
+    },
+    {
+        "name": "졸업요건",
+        "category": "학사안내",
+        "url": f"{BASE_URL}/ce/2889",
+        "type": "curriculum",
+        "is_board": False,
+    },
+]
+
+
+# ─── HTTP 세션 ────────────────────────────────────────────────────────────────
+def build_session() -> requests.Session:
+    session = requests.Session()
+    session.headers.update(
+        {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
+            "Referer": BASE_URL,
+        }
+    )
+    return session
+
+
+# ─── 상태 관리 (증분 크롤링) ──────────────────────────────────────────────────
+def load_state() -> dict:
+    if STATE_FILE.exists():
+        try:
+            return json.loads(STATE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {}
+
+
+def save_state(state: dict) -> None:
+    STATE_FILE.write_text(json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+# ─── 유틸리티 ─────────────────────────────────────────────────────────────────
+def make_slug(url: str, extra: str = "") -> str:
+    """URL + 추가 키로 고유 파일명 생성 (MD5 앞 12자)"""
+    return hashlib.md5(f"{url}|{extra}".encode()).hexdigest()[:12]
+
+
+def safe_text(el) -> str:
+    return el.get_text(" ", strip=True) if el else ""
+
+
+def ensure_dirs(category: str) -> tuple[Path, Path]:
+    jd = OUTPUT_JSON / category
+    hd = OUTPUT_HTML / category
+    jd.mkdir(parents=True, exist_ok=True)
+    hd.mkdir(parents=True, exist_ok=True)
+    return jd, hd
+
+
+def save_document(doc: dict, raw_html: str) -> None:
+    json_dir, html_dir = ensure_dirs(doc["category"])
+    slug = doc["slug"]
+    (json_dir / f"{slug}.json").write_text(
+        json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+    (html_dir / f"{slug}.html").write_text(raw_html, encoding="utf-8")
+
+
+# ─── HTTP 요청 ────────────────────────────────────────────────────────────────
+def fetch(
+    session: requests.Session,
+    url: str,
+    params: dict | None = None,
+    delay: float = REQUEST_DELAY,
+) -> requests.Response | None:
+    time.sleep(delay)
+    try:
+        resp = session.get(url, params=params, timeout=REQUEST_TIMEOUT)
+        resp.encoding = "utf-8"
+        if resp.status_code == 200:
+            return resp
+        log.warning("HTTP %d → %s", resp.status_code, url)
+    except requests.RequestException as exc:
+        log.error("요청 실패 %s: %s", url, exc)
+    return None
+
+
+# ─── 게시판 파싱 ──────────────────────────────────────────────────────────────
+def parse_list_page(soup: BeautifulSoup, board_url: str) -> list[dict]:
+    """게시판 목록에서 게시글 정보(번호·제목·날짜·URL) 추출"""
+    items: list[dict] = []
+    for row in soup.select(".a_brdList tr"):
+        tds = row.select("td")
+        link_el = row.select_one("td a[href]")
+        if not tds or not link_el:
+            continue
+
+        num_text = tds[0].get_text(strip=True)
+        is_notice = num_text.upper() == "NOTICE"
+        post_no: int | None = None
+        if not is_notice:
+            try:
+                post_no = int(num_text)
+            except ValueError:
+                pass
+
+        href = link_el.get("href", "")
+        post_url = urljoin(board_url, href)
+        date_text = tds[-2].get_text(strip=True) if len(tds) >= 2 else ""
+
+        items.append(
+            {
+                "post_url": post_url,
+                "num": num_text,
+                "post_no": post_no,       # 정수 번호 (고정글은 None)
+                "is_notice": is_notice,
+                "date": date_text,
+            }
+        )
+    return items
+
+
+def extract_body_content(content_el) -> str:
+    """
+    .a_bdCont 요소에서 메타데이터 테이블(작성자/작성일 등)을 제외하고
+    실제 본문 텍스트만 반환한다.
+    """
+    if content_el is None:
+        return ""
+
+    # 메타데이터 테이블 제거를 위해 복사본 사용
+    soup_copy = BeautifulSoup(str(content_el), "lxml")
+
+    # 첫 번째 table (메타 정보 테이블) 제거
+    first_table = soup_copy.select_one("table")
+    if first_table:
+        first_table.decompose()
+
+    text = soup_copy.get_text(" ", strip=True)
+    # 연속 공백·개행 정리
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def parse_view_page(soup: BeautifulSoup, post_url: str, item: dict) -> dict | None:
+    """게시글 상세 페이지에서 문서 필드 추출"""
+    title_el = soup.select_one(".bdvTitle")
+    content_el = soup.select_one(".a_bdCont")
+
+    if not title_el and not content_el:
+        return None
+
+    title = safe_text(title_el)
+    body = extract_body_content(content_el)
+
+    # 날짜: 본문 메타 테이블에서 추출 시도
+    date = item.get("date", "")
+    if content_el and not date:
+        m = re.search(r"\d{4}-\d{2}-\d{2}", safe_text(content_el))
+        if m:
+            date = m.group()
+
+    # 첨부파일
+    attachments: list[dict] = []
+    if content_el:
+        for a in content_el.select("a[href]"):
+            href = a.get("href", "")
+            if href and not href.startswith("javascript"):
+                attachments.append(
+                    {"name": a.get_text(strip=True), "url": urljoin(BASE_URL, href)}
+                )
+
+    return {
+        "slug": make_slug(post_url, title),
+        "title": title,
+        "date": date,
+        "url": post_url,
+        "is_notice": item.get("is_notice", False),
+        "body": body,
+        "attachments": attachments,
+    }
+
+
+# ─── 게시판 크롤러 ────────────────────────────────────────────────────────────
+def crawl_board(
+    session: requests.Session,
+    section: dict,
+    state: dict,
+    is_initial: bool,
+) -> tuple[int, int]:
+    """
+    게시판을 크롤링한다.
+    - 증분 모드: state에 저장된 마지막 게시글 번호 이후의 새 게시글만 수집
+    - 초기 모드: INITIAL_MAX_PAGES 페이지까지 수집
+    반환: (저장 건수, 최고 게시글 번호)
+    """
+    board_url = section["url"]
+    bbs_id = section.get("bbs_id", "")
+    category = section["category"]
+    name = section["name"]
+    doc_type = section["type"]
+
+    state_key = board_url
+    last_known_no: int = state.get(state_key, {}).get("last_no", 0)
+    max_pages = INITIAL_MAX_PAGES if is_initial else INCREMENTAL_MAX_PAGES
+
+    log.info(
+        "[게시판] %s | last_no=%d | max_pages=%d",
+        name, last_known_no, max_pages
+    )
+
+    saved = 0
+    new_max_no = last_known_no
+
+    for page in range(1, max_pages + 1):
+        params: dict = {"pageIndex": page}
+        if bbs_id:
+            params["bbsId"] = bbs_id
+
+        resp = fetch(session, board_url, params=params, delay=LIST_DELAY)
+        if resp is None:
+            break
+
+        soup = BeautifulSoup(resp.text, "lxml")
+        items = parse_list_page(soup, board_url)
+        if not items:
+            log.info("  p%d: 게시글 없음 → 종료", page)
+            break
+
+        # 이번 페이지의 일반 게시글 번호 목록 (고정글 제외)
+        regular = [it for it in items if not it["is_notice"] and it["post_no"] is not None]
+        if not regular:
+            log.info("  p%d: 일반 게시글 없음 → 종료", page)
+            break
+
+        page_max_no = max(it["post_no"] for it in regular)
+        page_min_no = min(it["post_no"] for it in regular)
+        log.info("  p%d: %d개 (no %d~%d)", page, len(regular), page_min_no, page_max_no)
+
+        # 이미 수집한 게시글만 있으면 중단
+        if page_max_no <= last_known_no:
+            log.info("  p%d: 모두 기수집 → 종료 (last_no=%d)", page, last_known_no)
+            break
+
+        new_max_no = max(new_max_no, page_max_no)
+
+        # 신규 게시글만 상세 크롤링
+        for item in items:
+            # 고정글(NOTICE) 포함 수집
+            post_no = item["post_no"]
+            if post_no is not None and post_no <= last_known_no:
+                continue  # 이미 수집함
+
+            post_resp = fetch(session, item["post_url"])
+            if post_resp is None:
+                continue
+
+            post_soup = BeautifulSoup(post_resp.text, "lxml")
+            view = parse_view_page(post_soup, item["post_url"], item)
+            if view is None:
+                continue
+
+            doc = {
+                **view,
+                "category": category,
+                "subcategory": name,
+                "type": doc_type,
+                "content": view.pop("body"),
+                "crawled_at": datetime.now().isoformat(),
+            }
+            save_document(doc, post_resp.text)
+            saved += 1
+
+        # 이번 페이지에 last_known_no 이하의 번호가 포함됐으면 다음 페이지는 불필요
+        if page_min_no <= last_known_no:
+            log.info("  p%d: 일부 기수집 → 다음 페이지 불필요", page)
+            break
+
+    log.info("[게시판] %s 완료 → 신규 %d건 | new_max_no=%d", name, saved, new_max_no)
+    return saved, new_max_no
+
+
+# ─── 정적 페이지 크롤러 ───────────────────────────────────────────────────────
+def crawl_static(session: requests.Session, section: dict) -> int:
+    """정적 소개/안내 페이지를 크롤링해 저장한다."""
+    page_url = section["url"]
+    category = section["category"]
+    name = section["name"]
+    doc_type = section["type"]
+
+    log.info("[정적] %s (%s)", name, page_url)
+    resp = fetch(session, page_url, delay=LIST_DELAY)
+    if resp is None:
+        return 0
+
+    soup = BeautifulSoup(resp.text, "lxml")
+
+    # 제목: breadcrumb 마지막 항목 또는 <title>
+    breadcrumb = soup.select(".a_sbtNav dd")
+    title = breadcrumb[-1].get_text(strip=True) if breadcrumb else name
+    if not title:
+        title = safe_text(soup.select_one("title")) or name
+
+    # 본문: 우선순위 순으로 탐색
+    content_el = (
+        soup.select_one(".a_bdCont")
+        or soup.select_one("#contents")
+        or soup.select_one(".contents")
+        or soup.select_one("main")
+        or soup.select_one(".container")
+    )
+    content_text = extract_body_content(content_el) if content_el else safe_text(soup.body)
+
+    slug = make_slug(page_url, name)
+    doc = {
+        "slug": slug,
+        "title": title,
+        "date": "",
+        "url": page_url,
+        "category": category,
+        "subcategory": name,
+        "type": doc_type,
+        "is_notice": False,
+        "content": content_text,
+        "attachments": [],
+        "crawled_at": datetime.now().isoformat(),
+    }
+    save_document(doc, resp.text)
+    log.info("[정적] %s 완료", name)
+    return 1
+
+
+# ─── 전체 크롤링 실행 ─────────────────────────────────────────────────────────
+def run_crawl() -> None:
+    start = datetime.now()
+    log.info("=" * 60)
+    log.info("크롤링 시작: %s", start.strftime("%Y-%m-%d %H:%M:%S"))
+
+    state = load_state()
+    is_initial = not bool(state)  # state.json 없으면 최초 실행
+    if is_initial:
+        log.info("최초 실행: 게시판당 최대 %d페이지 수집", INITIAL_MAX_PAGES)
+    else:
+        log.info("증분 실행: 신규 게시글만 수집 (최대 %d페이지)", INCREMENTAL_MAX_PAGES)
+    log.info("=" * 60)
+
+    session = build_session()
+    total_saved = 0
+    new_state = dict(state)
+
+    for section in SECTIONS:
+        try:
+            if section["is_board"]:
+                saved, new_max_no = crawl_board(session, section, state, is_initial)
+                total_saved += saved
+                # 상태 갱신 (max_no 증가 시에만)
+                key = section["url"]
+                prev_no = state.get(key, {}).get("last_no", 0)
+                if new_max_no > prev_no:
+                    new_state[key] = {
+                        "last_no": new_max_no,
+                        "name": section["name"],
+                        "updated_at": datetime.now().isoformat(),
+                    }
+            else:
+                saved = crawl_static(session, section)
+                total_saved += saved
+        except Exception as exc:
+            log.error("섹션 오류 [%s]: %s", section["name"], exc, exc_info=True)
+
+    save_state(new_state)
+    elapsed = (datetime.now() - start).total_seconds()
+    log.info("=" * 60)
+    log.info(
+        "크롤링 완료: 총 %d건 저장 | 소요 %.1f초 | state 저장됨",
+        total_saved, elapsed,
+    )
+    log.info("=" * 60)
+
+
+# ─── 스케줄러 ─────────────────────────────────────────────────────────────────
+def run_scheduler() -> None:
+    log.info("스케줄러 시작: 매일 오전 09:00 자동 크롤링")
+    schedule.every().day.at("09:00").do(run_crawl)
+    run_crawl()          # 시작 즉시 1회 실행
+    while True:
+        schedule.run_pending()
+        time.sleep(30)
+
+
+# ─── 진입점 ───────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="부경대 컴퓨터·인공지능공학부 홈페이지 크롤러"
+    )
+    parser.add_argument(
+        "--once",
+        action="store_true",
+        help="스케줄링 없이 즉시 1회만 실행",
+    )
+    parser.add_argument(
+        "--reset-state",
+        action="store_true",
+        help="state.json 초기화 후 처음부터 다시 수집",
+    )
+    args = parser.parse_args()
+
+    if args.reset_state and STATE_FILE.exists():
+        STATE_FILE.unlink()
+        log.info("state.json 초기화 완료")
+
+    if args.once:
+        run_crawl()
+    else:
+        run_scheduler()
