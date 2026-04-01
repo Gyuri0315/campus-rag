@@ -30,7 +30,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 import schedule
@@ -51,6 +51,7 @@ log = logging.getLogger(__name__)
 BASE_URL = "https://ce.pknu.ac.kr"
 OUTPUT_JSON = Path("output/json")
 OUTPUT_HTML = Path("output/html")
+OUTPUT_FILES = Path("output/files")
 STATE_FILE = Path("state.json")
 
 REQUEST_DELAY = 0.8      # 게시글 상세 요청 간 딜레이(초)
@@ -196,6 +197,8 @@ SECTIONS = [
 # ─── HTTP 세션 ────────────────────────────────────────────────────────────────
 def build_session() -> requests.Session:
     session = requests.Session()
+    # OS/쉘의 잘못된 HTTP(S)_PROXY 설정이 있더라도 직접 접속하도록 고정
+    session.trust_env = False
     session.headers.update(
         {
             "User-Agent": (
@@ -243,6 +246,12 @@ def ensure_dirs(category: str) -> tuple[Path, Path]:
     return jd, hd
 
 
+def ensure_file_dir(category: str, slug: str) -> Path:
+    fd = OUTPUT_FILES / category / slug
+    fd.mkdir(parents=True, exist_ok=True)
+    return fd
+
+
 def save_document(doc: dict, raw_html: str) -> None:
     json_dir, html_dir = ensure_dirs(doc["category"])
     slug = doc["slug"]
@@ -272,6 +281,159 @@ def fetch(
 
 
 # ─── 게시판 파싱 ──────────────────────────────────────────────────────────────
+def sanitize_filename(filename: str) -> str:
+    cleaned = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename).strip(" .")
+    return cleaned or "attachment"
+
+
+def extract_filename(resp: requests.Response, url: str, fallback_name: str) -> str:
+    content_disposition = resp.headers.get("Content-Disposition", "")
+    if content_disposition:
+        m = re.search(r"filename\*=UTF-8''([^;]+)", content_disposition, re.I)
+        if m:
+            return sanitize_filename(unquote(m.group(1)))
+        m = re.search(r'filename="?([^";]+)"?', content_disposition, re.I)
+        if m:
+            return sanitize_filename(unquote(m.group(1)))
+
+    parsed = urlparse(resp.url or url)
+    basename = Path(parsed.path).name
+    if basename:
+        return sanitize_filename(unquote(basename))
+
+    if fallback_name:
+        return sanitize_filename(fallback_name)
+
+    return "attachment"
+
+
+def is_attachment_candidate(href: str, name: str = "") -> bool:
+    href_l = href.lower()
+    name_l = name.lower()
+
+    blocked_exts = (".html", ".htm", ".shtml", ".php", ".asp", ".aspx", ".jsp")
+    if href_l.endswith(blocked_exts) or name_l.endswith(blocked_exts):
+        return False
+
+    file_ext_pattern = (
+        r"\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z|txt|csv|png|jpg|jpeg|gif)$"
+    )
+    if re.search(file_ext_pattern, href_l) or re.search(file_ext_pattern, name_l):
+        return True
+
+    if any(k in href_l for k in ("download", "down", "attach", "file", "atchfile")):
+        return True
+
+    return False
+
+
+def save_attachments(
+    session: requests.Session,
+    attachments: list[dict],
+    category: str,
+    slug: str,
+    source_page_url: str,
+) -> list[dict]:
+    if not attachments:
+        return []
+
+    file_dir = ensure_file_dir(category, slug)
+    results: list[dict] = []
+    used_names: set[str] = set()
+
+    for idx, attachment in enumerate(attachments, start=1):
+        file_url = attachment.get("url", "").strip()
+        if not file_url:
+            continue
+
+        try:
+            time.sleep(0.2)
+            resp = session.get(
+                file_url,
+                timeout=REQUEST_TIMEOUT,
+                stream=True,
+                headers={"Referer": source_page_url or BASE_URL},
+            )
+        except requests.RequestException as exc:
+            log.warning("첨부파일 다운로드 실패 %s: %s", file_url, exc)
+            results.append(
+                {
+                    **attachment,
+                    "saved_path": "",
+                    "downloaded": False,
+                    "source_page_url": source_page_url,
+                    "source_site": BASE_URL,
+                }
+            )
+            continue
+
+        if resp.status_code != 200:
+            log.warning("첨부파일 HTTP %d %s", resp.status_code, file_url)
+            resp.close()
+            results.append(
+                {
+                    **attachment,
+                    "saved_path": "",
+                    "downloaded": False,
+                    "source_page_url": source_page_url,
+                    "source_site": BASE_URL,
+                }
+            )
+            continue
+
+        filename = extract_filename(resp, file_url, attachment.get("name", ""))
+        content_type = (resp.headers.get("Content-Type", "") or "").lower()
+        if "text/html" in content_type or "application/xhtml+xml" in content_type:
+            log.info("HTML 응답은 첨부로 저장하지 않음: %s", file_url)
+            resp.close()
+            continue
+
+        if filename.lower().endswith((".html", ".htm", ".shtml")):
+            log.info("HTML 파일명은 첨부로 저장하지 않음: %s", filename)
+            resp.close()
+            continue
+
+        if "." not in filename:
+            fallback_ext = Path(urlparse(resp.url).path).suffix
+            if fallback_ext:
+                filename = f"{filename}{fallback_ext}"
+
+        if filename in used_names:
+            base = Path(filename).stem
+            ext = Path(filename).suffix
+            filename = f"{base}_{idx}{ext}"
+        used_names.add(filename)
+
+        output_file = file_dir / filename
+        try:
+            with output_file.open("wb") as f:
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            saved_path = str(output_file.as_posix())
+            downloaded = True
+        except OSError as exc:
+            log.warning("첨부파일 저장 실패 %s: %s", output_file, exc)
+            saved_path = ""
+            downloaded = False
+        finally:
+            resp.close()
+
+        results.append(
+            {
+                **attachment,
+                "saved_path": saved_path,
+                "downloaded": downloaded,
+                "source_page_url": source_page_url,
+                "source_site": BASE_URL,
+                "downloaded_from_url": resp.url,
+                "content_type": content_type,
+            }
+        )
+
+    return results
+
+
 def parse_list_page(soup: BeautifulSoup, board_url: str) -> list[dict]:
     """게시판 목록에서 게시글 정보(번호·제목·날짜·URL) 추출"""
     items: list[dict] = []
@@ -352,9 +514,10 @@ def parse_view_page(soup: BeautifulSoup, post_url: str, item: dict) -> dict | No
     if content_el:
         for a in content_el.select("a[href]"):
             href = a.get("href", "")
-            if href and not href.startswith("javascript"):
+            name = a.get_text(strip=True)
+            if href and not href.startswith("javascript") and is_attachment_candidate(href, name):
                 attachments.append(
-                    {"name": a.get_text(strip=True), "url": urljoin(BASE_URL, href)}
+                    {"name": name, "url": urljoin(BASE_URL, href)}
                 )
 
     return {
@@ -446,6 +609,14 @@ def crawl_board(
             view = parse_view_page(post_soup, item["post_url"], item)
             if view is None:
                 continue
+
+            view["attachments"] = save_attachments(
+                session=session,
+                attachments=view.get("attachments", []),
+                category=category,
+                slug=view["slug"],
+                source_page_url=item["post_url"],
+            )
 
             doc = {
                 **view,
