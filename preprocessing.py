@@ -5,10 +5,18 @@ import csv
 import hashlib
 import json
 import logging
+import os
+import re
+import site
 import shutil
 import subprocess
+import sys
+import sysconfig
+import tempfile
+import uuid
 import xml.etree.ElementTree as ET
 import zipfile
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -48,7 +56,8 @@ def make_slug(rel_path: str) -> str:
 
 def ensure_output_path(input_file: Path, input_root: Path, output_root: Path) -> Path:
     rel = input_file.resolve().relative_to(input_root.resolve())
-    return (output_root / rel).with_suffix(".json")
+    ext_dir = input_file.suffix.lower().lstrip(".") or "unknown"
+    return (output_root / ext_dir / rel).with_suffix(".json")
 
 
 def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[str, dict]:
@@ -87,10 +96,116 @@ def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[st
 
 def extract_pdf_blocks(path: Path) -> list[dict]:
     try:
-        from preprocessing_pdf import extract_pdf_paragraph_blocks
+        import fitz  # type: ignore
     except Exception as exc:
-        raise RuntimeError(f"PDF extractor import failed: {exc}") from exc
-    return extract_pdf_paragraph_blocks(str(path))
+        raise RuntimeError(f"PDF parser import failed (PyMuPDF/fitz required): {exc}") from exc
+
+    def is_likely_page_number(line: str) -> bool:
+        line = line.strip()
+        return bool(re.fullmatch(r"-?\s*\d+\s*-?", line))
+
+    def detect_repeated_headers_footers(
+        page_lines_list: list[list[str]], min_repeat: int = 3
+    ) -> set[str]:
+        candidates: list[str] = []
+        for lines in page_lines_list:
+            if not lines:
+                continue
+            top = lines[:2]
+            bottom = lines[-2:] if len(lines) >= 2 else lines
+            for line in top + bottom:
+                line = normalize_text(line)
+                if line:
+                    candidates.append(line)
+        counter = Counter(candidates)
+        return {line for line, count in counter.items() if count >= min_repeat}
+
+    def should_merge(prev_line: str, curr_line: str) -> bool:
+        prev_line = prev_line.strip()
+        curr_line = curr_line.strip()
+        if not prev_line or not curr_line:
+            return False
+        if prev_line.endswith((".", "!", "?", ":", ";")):
+            return False
+        if len(prev_line) < 20:
+            return False
+        if re.match(r"^[a-z0-9(\[\-]", curr_line):
+            return True
+        return True
+
+    def merge_lines_into_paragraphs(lines: list[str]) -> list[str]:
+        paragraphs: list[str] = []
+        buffer: list[str] = []
+        for line in lines:
+            line = normalize_text(line)
+            if not line:
+                if buffer:
+                    paragraphs.append(" ".join(buffer).strip())
+                    buffer = []
+                continue
+            if is_likely_page_number(line):
+                continue
+            if not buffer:
+                buffer.append(line)
+                continue
+            prev_line = buffer[-1]
+            if should_merge(prev_line, line):
+                buffer.append(line)
+            else:
+                paragraphs.append(" ".join(buffer).strip())
+                buffer = [line]
+        if buffer:
+            paragraphs.append(" ".join(buffer).strip())
+        return paragraphs
+
+    def remove_consecutive_duplicate_paragraphs(paragraphs: list[str]) -> list[str]:
+        cleaned: list[str] = []
+        prev = None
+        for para in paragraphs:
+            para = normalize_text(para)
+            if not para:
+                continue
+            if para != prev:
+                cleaned.append(para)
+            prev = para
+        return cleaned
+
+    doc = fitz.open(str(path))
+    all_page_lines: list[list[str]] = []
+    for page in doc:
+        text = page.get_text("text")
+        lines = [normalize_text(line) for line in text.splitlines()]
+        lines = [line for line in lines if line]
+        all_page_lines.append(lines)
+
+    repeated_headers_footers = detect_repeated_headers_footers(all_page_lines)
+    blocks: list[dict] = []
+    for page_num, lines in enumerate(all_page_lines, start=1):
+        cleaned_lines: list[str] = []
+        for line in lines:
+            line = normalize_text(line)
+            if not line:
+                continue
+            if line in repeated_headers_footers:
+                continue
+            if is_likely_page_number(line):
+                continue
+            cleaned_lines.append(line)
+
+        paragraphs = merge_lines_into_paragraphs(cleaned_lines)
+        paragraphs = remove_consecutive_duplicate_paragraphs(paragraphs)
+        for para in paragraphs:
+            blocks.append(
+                {
+                    "type": "paragraph",
+                    "style": "Normal",
+                    "page": page_num,
+                    "text": para,
+                }
+            )
+
+    doc.close()
+    return blocks
 
 
 def extract_docx_like_blocks(path: Path) -> list[dict]:
@@ -212,9 +327,149 @@ def extract_hwpx_blocks(path: Path) -> list[dict]:
 
 
 def extract_hwp_blocks(path: Path) -> list[dict]:
-    hwp5txt = shutil.which("hwp5txt")
+    def resolve_hwp_command(command_name: str) -> str | None:
+        resolved = shutil.which(command_name)
+        if resolved:
+            return resolved
+
+        if os.name != "nt":
+            return None
+
+        exe_name = f"{command_name}.exe"
+        candidate_paths = [
+            Path(sys.executable).resolve().parent / "Scripts" / exe_name,
+            Path(sys.executable).resolve().parent / exe_name,
+            Path(sysconfig.get_path("scripts")) / exe_name,
+            Path(site.getuserbase()) / "Python313" / "Scripts" / exe_name,
+        ]
+        for candidate in candidate_paths:
+            if candidate.exists():
+                return str(candidate)
+        return None
+
+    def extract_hwp_blocks_from_html(path: Path) -> list[dict]:
+        hwp5html = resolve_hwp_command("hwp5html")
+        if not hwp5html:
+            return []
+
+        tmp_base = Path(tempfile.gettempdir()) / "campus_rag_hwp5html"
+        tmp_base.mkdir(parents=True, exist_ok=True)
+        token = uuid.uuid4().hex
+        copied_hwp = tmp_base / f"{token}.hwp"
+        html_file = tmp_base / f"{token}.xhtml"
+        try:
+            shutil.copy2(path, copied_hwp)
+            proc = subprocess.run(
+                [hwp5html, "--html", "--output", str(html_file), str(copied_hwp)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                check=False,
+            )
+            if proc.returncode != 0:
+                return []
+
+            if not html_file.exists():
+                return []
+
+            try:
+                root = ET.fromstring(html_file.read_text(encoding="utf-8", errors="ignore"))
+            except ET.ParseError:
+                return []
+
+            def tag_name(elem: ET.Element) -> str:
+                return elem.tag.rsplit("}", 1)[-1] if "}" in elem.tag else elem.tag
+
+            def collect_text(elem: ET.Element) -> str:
+                return normalize_text("".join(elem.itertext()))
+
+            def table_to_text(table_elem: ET.Element) -> str:
+                rows: list[str] = []
+                for tr in table_elem.iter():
+                    if tag_name(tr) != "tr":
+                        continue
+                    cells: list[str] = []
+                    for child in list(tr):
+                        if tag_name(child) not in {"td", "th"}:
+                            continue
+                        cell_text = collect_text(child)
+                        if cell_text:
+                            cells.append(cell_text)
+                    if cells:
+                        rows.append(" | ".join(cells))
+                return "\n".join(rows)
+
+            body = None
+            for elem in root.iter():
+                if tag_name(elem) == "body":
+                    body = elem
+                    break
+            if body is None:
+                return []
+
+            blocks: list[dict] = []
+
+            def collect_text_without_tables(elem: ET.Element) -> str:
+                parts: list[str] = []
+                if elem.text:
+                    parts.append(elem.text)
+                for child in list(elem):
+                    if tag_name(child) != "table":
+                        parts.append(collect_text_without_tables(child))
+                    if child.tail:
+                        parts.append(child.tail)
+                return "".join(parts)
+
+            def walk(elem: ET.Element) -> None:
+                name = tag_name(elem)
+                if name == "table":
+                    table_text = table_to_text(elem)
+                    if table_text:
+                        blocks.append(
+                            {
+                                "type": "table",
+                                "style": "HWP",
+                                "text": table_text,
+                            }
+                        )
+                    return
+                if name == "p":
+                    text = normalize_text(collect_text_without_tables(elem))
+                    if text:
+                        blocks.append(
+                            {
+                                "type": "paragraph",
+                                "style": "HWP",
+                                "text": text,
+                            }
+                        )
+                for child in list(elem):
+                    walk(child)
+
+            walk(body)
+            return blocks
+        finally:
+            try:
+                copied_hwp.unlink(missing_ok=True)
+            except Exception:
+                pass
+            try:
+                html_file.unlink(missing_ok=True)
+            except Exception:
+                pass
+
+    hwp5txt = resolve_hwp_command("hwp5txt")
+
     if not hwp5txt:
-        raise RuntimeError("hwp5txt command not found. Install pyhwp to parse .hwp")
+        raise RuntimeError(
+            "hwp5txt command not found in PATH/current Python environment. "
+            "Install pyhwp in the same interpreter and add its Scripts directory to PATH."
+        )
+
+    html_blocks = extract_hwp_blocks_from_html(path)
+    if html_blocks:
+        return html_blocks
 
     proc = subprocess.run(
         [hwp5txt, str(path)],
@@ -230,6 +485,7 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
 
     lines = [normalize_text(line) for line in proc.stdout.splitlines()]
     lines = [line for line in lines if line]
+
     blocks = []
     for idx, line in enumerate(lines, start=1):
         blocks.append(
@@ -429,7 +685,7 @@ def main() -> None:
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("output/preprocessed_files"),
+        default=Path("preprocessed"),
         help="전처리 JSON 출력 루트 경로",
     )
     parser.add_argument(
