@@ -143,12 +143,8 @@ export default function HomePage() {
                 <button
                   key={tag}
                   onClick={() => handleTag(tag)}
-                  className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold transition-all hover:opacity-80"
-                  style={{
-                    background: "rgba(255,255,255,0.7)",
-                    border: "1px solid rgba(37,52,139,0.15)",
-                    color: NAVY,
-                  }}
+                  className="glass-tag px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold"
+                  style={{ color: NAVY }}
                 >
                   {tag}
                 </button>
