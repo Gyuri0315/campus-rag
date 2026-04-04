@@ -556,7 +556,7 @@ export default function ChatContent() {
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
               placeholder=""
               disabled={chatState === "loading"}
-              className="flex-1 min-w-0 bg-transparent outline-none text-xs sm:text-sm py-1.5 sm:py-2 placeholder:text-gray-400 disabled:opacity-60"
+              className="flex-1 min-w-0 bg-transparent outline-none text-xs sm:text-sm py-1.5 sm:py-2 font-semibold placeholder:text-gray-400 disabled:opacity-60"
               style={{ color: "var(--clr-text)" }}
             />
 

@@ -119,7 +119,7 @@ export default function HomePage() {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
                 placeholder={search.placeholder}
-                className="flex-1 min-w-0 bg-transparent outline-none text-xs sm:text-sm py-2 sm:py-2.5"
+                className="flex-1 min-w-0 bg-transparent outline-none text-xs sm:text-sm py-2 sm:py-2.5 font-semibold"
                 style={{ color: NAVY, caretColor: NAVY }}
               />
               <button
@@ -143,11 +143,11 @@ export default function HomePage() {
                 <button
                   key={tag}
                   onClick={() => handleTag(tag)}
-                  className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-all hover:opacity-80"
+                  className="px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold transition-all hover:opacity-80"
                   style={{
                     background: "rgba(255,255,255,0.7)",
                     border: "1px solid rgba(37,52,139,0.15)",
-                    color: "rgba(37,52,139,0.65)",
+                    color: NAVY,
                   }}
                 >
                   {tag}
