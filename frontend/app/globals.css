@@ -1,26 +1,66 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --clr-navy: #25348B;
+  --clr-navy-hover: #1c2870;
+  --clr-text: #25348B;
+  --clr-text-muted: #7b90b8;
+  --clr-glass-bg: rgba(255, 255, 255, 0.62);
+  --clr-glass-border: rgba(255, 255, 255, 0.82);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* ── 배경 그라데이션 (이미지 기준) ─────────────────── */
+.bg-app {
+  background:
+    radial-gradient(ellipse 68% 68% at 26% 58%, rgba(255, 255, 255, 0.95) 0%, rgba(220, 238, 255, 0.35) 55%, transparent 100%),
+    radial-gradient(ellipse 58% 58% at 74% 37%, rgba(148, 196, 236, 0.85) 0%, rgba(195, 224, 248, 0.2) 55%, transparent 100%),
+    linear-gradient(145deg, #c6daf0 0%, #b6cae4 40%, #b2c8e2 65%, #c3d4ea 100%);
+  min-height: 100vh;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── 홈 카드 ─────────────────────────────────────── */
+.home-card {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
+  box-shadow: 0 2px 40px rgba(37, 52, 139, 0.06);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ── 글래스 카드 (채팅용) ────────────────────────── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.88);
 }
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.80);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.95);
+}
+
+/* ── 타이핑 애니메이션 ───────────────────────────── */
+@keyframes blink {
+  0%, 80%, 100% { opacity: 0.15; transform: scale(0.85); }
+  40%           { opacity: 1;    transform: scale(1); }
+}
+
+.typing-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #25348B;
+  opacity: 0.4;
+  animation: blink 1.4s infinite ease-in-out;
+}
+.typing-dot:nth-child(2) { animation-delay: 0.2s; }
+.typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* ── 스크롤바 ────────────────────────────────────── */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(37, 52, 139, 0.2); border-radius: 4px; }
