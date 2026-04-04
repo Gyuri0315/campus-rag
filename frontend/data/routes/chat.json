@@ -1,0 +1,31 @@
+{
+  "__mock": { "mode": "success" },
+  "sidebar": {
+    "actions": ["+ 새 채팅", "검색"],
+    "recentLabel": "최근 항목",
+    "history": [
+      { "id": "chat-001", "title": "졸업요건 질문" },
+      { "id": "chat-002", "title": "컴퓨터공학과 교수진 목록" },
+      { "id": "chat-003", "title": "캡스톤 디자인 질문" }
+    ],
+    "contextMenu": ["즐겨찾기", "이름 변경", "삭제"]
+  },
+  "chat": {
+    "messages": [
+      {
+        "role": "user",
+        "content": "졸업 요건을 알려주세요."
+      },
+      {
+        "role": "assistant",
+        "content": "답변입니다.",
+        "attachments": [
+          { "name": "졸업 요건 안내 HWP", "url": "#" },
+          { "name": "학사 규정 PDF", "url": "#" }
+        ]
+      }
+    ],
+    "inputPlaceholder": "",
+    "disclaimer": "이 답변은 AI가 작성했어요. 중요한 내용은 출처 문서에서 확인하는 걸 추천해요."
+  }
+}
