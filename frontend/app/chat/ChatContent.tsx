@@ -96,6 +96,12 @@ const IconDownload = () => (
     <line x1="2" y1="11" x2="10" y2="11" />
   </svg>
 );
+const IconUser = () => (
+  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <circle cx="7" cy="4.5" r="2.5" />
+    <path d="M2 12.5c0-2.76 2.24-5 5-5s5 2.24 5 5" />
+  </svg>
+);
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 export default function ChatContent() {
@@ -118,6 +124,8 @@ export default function ChatContent() {
   const [chatTitle, setChatTitle] = useState("졸업요건 질문");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [userMenuPos, setUserMenuPos] = useState<{ bottom: number; left: number } | null>(null);
 
   const closeContextMenu = () => {
     setContextMenuId(null);
@@ -127,6 +135,7 @@ export default function ChatContent() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   // AI 응답 타이머 — 중복 실행 방지용
   const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -162,16 +171,25 @@ export default function ChatContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 외부 클릭 / ESC → 컨텍스트 메뉴 닫기 ─────────────────────
+  // ── 외부 클릭 / ESC → 컨텍스트 메뉴 + 사용자 메뉴 닫기 ───────
   useEffect(() => {
     const onMouse = (e: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
         setContextMenuId(null);
         setContextMenuPos(null);
       }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+        setUserMenuPos(null);
+      }
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { setContextMenuId(null); setContextMenuPos(null); }
+      if (e.key === "Escape") {
+        setContextMenuId(null);
+        setContextMenuPos(null);
+        setUserMenuOpen(false);
+        setUserMenuPos(null);
+      }
     };
     document.addEventListener("mousedown", onMouse);
     document.addEventListener("keydown", onKey);
@@ -265,6 +283,21 @@ export default function ChatContent() {
   // ── 사이드바 너비 ─────────────────────────────────────────────
   const sidebarWidth = sidebarOpen ? (isMobile ? "min(280px, 80vw)" : "210px") : "0px";
 
+  // ── 사용자 메뉴 토글 ──────────────────────────────────────────
+  const handleUserMenuToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    // 팝업이 오른쪽 화면 밖으로 나가지 않도록 left 클램핑
+    const left = Math.min(rect.left, window.innerWidth - 204);
+    setUserMenuOpen((prev) => {
+      if (prev) {
+        setUserMenuPos(null);
+        return false;
+      }
+      setUserMenuPos({ bottom: window.innerHeight - rect.top + 6, left });
+      return true;
+    });
+  };
+
   return (
     <div className="bg-app flex h-screen overflow-hidden relative">
 
@@ -295,9 +328,22 @@ export default function ChatContent() {
       >
         {sidebarOpen && (
           <div
-            className="flex flex-col h-full px-3 py-4 gap-1 overflow-hidden"
+            className="flex flex-col h-full px-3 py-4 overflow-hidden"
             style={{ minWidth: isMobile ? "min(280px, 80vw)" : "210px" }}
           >
+            {/* ── 상단 로고 ── */}
+            <div
+              className="pb-3 mb-2 flex-shrink-0"
+              style={{ borderBottom: "1px solid rgba(255,255,255,0.5)" }}
+            >
+              <span
+                className="text-[10px] font-bold whitespace-nowrap block overflow-hidden"
+                style={{ color: "var(--clr-navy)" }}
+              >
+                부경대학교 | 컴퓨터·인공지능공학부
+              </span>
+            </div>
+
             {/* 새 채팅 */}
             <button
               onClick={handleNewChat}
@@ -393,6 +439,30 @@ export default function ChatContent() {
                 </div>
               ))}
             </div>
+
+            {/* ── 하단 사용자 영역 ── */}
+            <div
+              className="flex-shrink-0 pt-2 mt-1"
+              style={{ borderTop: "1px solid rgba(255,255,255,0.5)" }}
+            >
+              <button
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={handleUserMenuToggle}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm transition-colors hover:bg-white/50"
+                style={{
+                  color: "var(--clr-text)",
+                  background: userMenuOpen ? "rgba(255,255,255,0.5)" : "transparent",
+                }}
+              >
+                <div
+                  className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-white"
+                  style={{ background: "var(--clr-navy)" }}
+                >
+                  <IconUser />
+                </div>
+                <span className="font-medium text-sm">Guest</span>
+              </button>
+            </div>
           </div>
         )}
       </aside>
@@ -443,10 +513,66 @@ export default function ChatContent() {
         );
       })()}
 
+      {/* ── 사용자 팝업 메뉴 (fixed — 버튼 위쪽에 표시) ── */}
+      {userMenuOpen && userMenuPos && (
+        <>
+          {/* 투명 백드롭 — 외부 클릭 시 메뉴 닫기 (ref 체크보다 신뢰성 높음) */}
+          <div
+            className="fixed inset-0 z-[9998]"
+            onMouseDown={() => { setUserMenuOpen(false); setUserMenuPos(null); }}
+          />
+          <div
+            ref={userMenuRef}
+            className="fixed z-[9999] rounded-xl overflow-hidden"
+            style={{
+              bottom: userMenuPos.bottom,
+              left: userMenuPos.left,
+              minWidth: "180px",
+              maxWidth: "min(220px, calc(100vw - 16px))",
+              background: "rgba(255,255,255,0.97)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              border: "1px solid rgba(200,210,230,0.7)",
+              boxShadow: "0 -4px 24px rgba(0,0,0,0.10), 0 8px 28px rgba(0,0,0,0.10)",
+            }}
+          >
+            {/* 계정 레이블 */}
+            <div
+              className="px-4 py-2.5 text-xs font-semibold"
+              style={{
+                color: "var(--clr-text-muted)",
+                borderBottom: "1px solid rgba(0,0,0,0.06)",
+              }}
+            >
+              계정
+            </div>
+            {/* 버튼 영역 */}
+            <div className="p-2 flex flex-col gap-1">
+              <button
+                className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-75"
+                style={{
+                  color: "var(--clr-navy)",
+                  border: "1.5px solid var(--clr-navy)",
+                  background: "transparent",
+                }}
+              >
+                Sign Up
+              </button>
+              <button
+                className="w-full px-3 py-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-80"
+                style={{ background: "var(--clr-navy)" }}
+              >
+                Login
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       {/* ── 채팅 영역 ────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
 
-        {/* 헤더 */}
+        {/* 채팅 툴바 — 사이드바 토글 + 현재 대화 제목 */}
         <div
           className="flex items-center gap-2.5 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3 flex-shrink-0"
           style={{ borderBottom: "1px solid rgba(255,255,255,0.5)" }}
