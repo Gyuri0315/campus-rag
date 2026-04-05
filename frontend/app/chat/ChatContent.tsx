@@ -11,11 +11,24 @@ interface Attachment {
   url: string;
 }
 
+interface Source {
+  id: number;
+  title: string;
+  category: string;
+  date: string;
+  excerpt: string;
+  quote: string;
+  quoteSource: string;
+  url: string;
+  attachments: Attachment[];
+}
+
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
   attachments?: Attachment[];
+  sources?: Source[];
 }
 
 interface HistoryItem {
@@ -30,10 +43,11 @@ let _seq = 0;
 const uid = () => `${Date.now()}-${++_seq}`;
 
 // ── 더미 응답 ─────────────────────────────────────────────────────────────────
-const DUMMY_REPLY = chatData.chat.messages[1] as {
+const DUMMY_REPLY = chatData.chat.messages[1] as unknown as {
   role: "assistant";
   content: string;
   attachments: Attachment[];
+  sources: Source[];
 };
 
 const { sidebar, chat: chatMeta } = chatData;
@@ -102,6 +116,220 @@ const IconUser = () => (
     <path d="M2 12.5c0-2.76 2.24-5 5-5s5 2.24 5 5" />
   </svg>
 );
+const IconExternalLink = () => (
+  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7" />
+    <polyline points="8,1 11,1 11,4" />
+    <line x1="6" y1="6" x2="11" y2="1" />
+  </svg>
+);
+const IconDocument = () => (
+  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
+    <path d="M3 1h6l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" />
+    <polyline points="9,1 9,4 12,4" />
+    <line x1="4" y1="7" x2="10" y2="7" />
+    <line x1="4" y1="9.5" x2="7.5" y2="9.5" />
+  </svg>
+);
+const IconChevron = ({ open }: { open: boolean }) => (
+  <svg
+    width="12" height="12" viewBox="0 0 12 12" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+    style={{ transition: "transform 0.25s ease", transform: open ? "rotate(0deg)" : "rotate(180deg)" }}
+  >
+    <polyline points="2,8 6,4 10,8" />
+  </svg>
+);
+
+
+// ── 출처 카드 컴포넌트 ────────────────────────────────────────────────────────
+function SourceCard({ source }: { source: Source }) {
+  return (
+    <div
+      className="rounded-xl overflow-hidden"
+      style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.82)" }}
+    >
+      {/* 헤더 행 */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2.5 sm:px-3.5">
+        {/* 번호 뱃지 + 제목 */}
+        <div className="flex items-center gap-1.5 min-w-0 flex-1 basis-full sm:basis-auto">
+          <span
+            className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white"
+            style={{ background: "var(--clr-navy)" }}
+          >
+            {source.id}
+          </span>
+          <span className="text-xs sm:text-[13px] font-bold leading-snug truncate" style={{ color: "var(--clr-navy)" }}>
+            {source.title}
+          </span>
+        </div>
+
+        {/* 날짜 + 첨부 + 원문 보기 */}
+        <div className="flex items-center gap-1.5 ml-auto flex-shrink-0 flex-wrap">
+          <span className="text-[10px] sm:text-[11px]" style={{ color: "var(--clr-text-muted)" }}>
+            {source.date}
+          </span>
+          {source.attachments && source.attachments.length > 0 && (
+            <div className="flex items-center gap-0.5" style={{ color: "var(--clr-navy)" }}>
+              <IconDownload />
+              {source.attachments.map((att, i) => (
+                <span key={att.name} className="flex items-center">
+                  {i > 0 && (
+                    <span className="text-[10px] mx-0.5" style={{ color: "var(--clr-text-muted)" }}>|</span>
+                  )}
+                  <a href={att.url} className="text-[10px] sm:text-[11px] font-bold hover:underline" style={{ color: "var(--clr-navy)" }}>
+                    {att.name}
+                  </a>
+                </span>
+              ))}
+            </div>
+          )}
+          <a
+            href={source.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-0.5 text-[11px] sm:text-xs font-semibold hover:opacity-70 transition-opacity"
+            style={{ color: "var(--clr-navy)" }}
+          >
+            <IconExternalLink />
+            <span>원문 보기</span>
+          </a>
+        </div>
+      </div>
+
+      {/* 본문 — 항상 표시 */}
+      <div className="flex flex-col gap-2 px-3 pb-3 sm:px-3.5 sm:pb-3.5">
+        <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />
+
+        {/* 발췌문 */}
+        <p className="text-[11px] sm:text-xs leading-relaxed" style={{ color: "var(--clr-text)" }}>
+          {source.excerpt}
+        </p>
+
+        {/* 인용 박스 */}
+        {source.quote && (
+          <div
+            className="rounded-lg flex overflow-hidden"
+            style={{ background: "#fafaf8", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)" }}
+          >
+            <div
+              className="flex-shrink-0 w-8 sm:w-9 flex flex-col gap-[3px] justify-center px-1.5 py-2.5"
+              style={{ background: "#f0f0ed", borderRight: "1px solid rgba(0,0,0,0.06)" }}
+            >
+              {[80, 60, 90, 50, 75, 55, 85, 45, 70].map((w, i) => (
+                <div key={i} className="rounded-full" style={{ height: "2px", width: `${w}%`, background: i === 2 || i === 3 || i === 4 ? "rgba(255,200,0,0.55)" : "rgba(0,0,0,0.12)" }} />
+              ))}
+            </div>
+            <div className="flex-1 flex flex-col gap-1.5 py-2.5 pr-2.5 pl-2 min-w-0">
+              <p className="text-[10px] sm:text-[11px] leading-[1.8]" style={{ color: "#2a2a2a" }}>
+                <mark style={{ background: "rgba(255,235,59,0.45)", color: "inherit", padding: "0.05em 0.15em", borderRadius: "2px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties}>
+                  {source.quote}
+                </mark>
+              </p>
+              <p className="text-[9px] sm:text-[10px] text-right" style={{ color: "#888", fontStyle: "italic" }}>
+                — {source.quoteSource}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── AI 답변 메시지 컴포넌트 ───────────────────────────────────────────────────
+function AssistantMessage({ msg }: { msg: Message }) {
+  const [sourcesOpen, setSourcesOpen] = useState(true);
+  const hasSources = msg.sources && msg.sources.length > 0;
+
+  return (
+    <div className="flex justify-start w-full">
+      <div className="flex flex-col items-start max-w-[88%] sm:max-w-lg w-full">
+
+        {/* 답변 카드 */}
+        <div className="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3 sm:gap-4 w-full">
+          <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "var(--clr-text)" }}>
+            {msg.content}
+          </p>
+
+          {/* 메시지 레벨 첨부파일 */}
+          {msg.attachments && msg.attachments.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {msg.attachments.map((att) => (
+                <a
+                  key={att.name}
+                  href={att.url}
+                  className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-colors hover:bg-white/80"
+                  style={{ background: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.85)", color: "var(--clr-navy)" }}
+                >
+                  {att.name}
+                  <IconDownload />
+                </a>
+              ))}
+            </div>
+          )}
+
+          {/* 출처 카운터 */}
+          {hasSources && (
+            <div className="flex items-center gap-1.5 pt-1" style={{ borderTop: "1px solid rgba(37,52,139,0.1)" }}>
+              <span style={{ color: "var(--clr-text-muted)" }}><IconDocument /></span>
+              {msg.sources!.map((src) => (
+                <span key={src.id} className="inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold" style={{ background: "rgba(37,52,139,0.1)", color: "var(--clr-navy)" }}>
+                  {src.id}
+                </span>
+              ))}
+              <span className="text-[10px] sm:text-[11px]" style={{ color: "var(--clr-text-muted)" }}>
+                {msg.sources!.length}건
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* 전체 토글 버튼 */}
+        {hasSources && (
+          <div className="flex justify-center w-full py-0.5">
+            <button
+              onClick={() => setSourcesOpen((v) => !v)}
+              className="flex items-center justify-center w-7 h-7 rounded-full transition-colors hover:bg-white/60"
+              style={{
+                background: "rgba(255,255,255,0.4)",
+                border: "1px solid rgba(255,255,255,0.7)",
+                color: "var(--clr-text-muted)",
+              }}
+              aria-label={sourcesOpen ? "출처 접기" : "출처 펼치기"}
+            >
+              <IconChevron open={sourcesOpen} />
+            </button>
+          </div>
+        )}
+
+        {/* 출처 카드 + 면책 문구 — 접힘 영역 */}
+        {hasSources && (
+          <div
+            className="w-full"
+            style={{ display: "grid", gridTemplateRows: sourcesOpen ? "1fr" : "0fr", transition: "grid-template-rows 0.28s ease" }}
+          >
+            <div className="overflow-hidden">
+              <div className="flex flex-col gap-2 sm:gap-2.5">
+                {msg.sources!.map((src) => (
+                  <SourceCard key={src.id} source={src} />
+                ))}
+                <div
+                  className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg text-[9px] sm:text-[10px] leading-relaxed"
+                  style={{ background: "rgba(37,52,139,0.06)", color: "var(--clr-text-muted)" }}
+                >
+                  <span className="flex-shrink-0 mt-px">ⓘ</span>
+                  <span>답변은 AI가 작성했으며, 제공된 문서를 바탕으로 작성되었습니다. 정확한 내용은 원문을 확인해주세요.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 export default function ChatContent() {
@@ -212,7 +440,7 @@ export default function ChatContent() {
     aiTimerRef.current = setTimeout(() => {
       setMessages((prev) => [
         ...prev,
-        { id: uid(), role: "assistant", content: DUMMY_REPLY.content, attachments: DUMMY_REPLY.attachments },
+        { id: uid(), role: "assistant", content: DUMMY_REPLY.content, attachments: DUMMY_REPLY.attachments, sources: DUMMY_REPLY.sources },
       ]);
       setChatState("success");
       aiTimerRef.current = null;
@@ -575,7 +803,6 @@ export default function ChatContent() {
         {/* 채팅 툴바 — 사이드바 토글 + 현재 대화 제목 */}
         <div
           className="flex items-center gap-2.5 sm:gap-3 px-3 py-2.5 sm:px-5 sm:py-3 flex-shrink-0"
-          style={{ borderBottom: "1px solid rgba(255,255,255,0.5)" }}
         >
           {/* 사이드바 토글 — 항상 표시 (모바일: 열기 버튼) */}
           <button
@@ -624,37 +851,7 @@ export default function ChatContent() {
                 </span>
               </div>
             ) : (
-              /* ── AI 답변 카드 ── */
-              <div key={msg.id} className="flex justify-start">
-                <div
-                  className="glass-card rounded-2xl p-4 sm:p-5 max-w-[88%] sm:max-w-lg shadow-sm flex flex-col gap-3 sm:gap-4"
-                >
-                  <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "var(--clr-text)" }}>
-                    {msg.content}
-                  </p>
-
-                  {/* 첨부파일 */}
-                  {msg.attachments && msg.attachments.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                      {msg.attachments.map((att) => (
-                        <a
-                          key={att.name}
-                          href={att.url}
-                          className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-medium transition-colors hover:bg-white/80"
-                          style={{
-                            background: "rgba(255,255,255,0.55)",
-                            border: "1px solid rgba(255,255,255,0.85)",
-                            color: "var(--clr-navy)",
-                          }}
-                        >
-                          {att.name}
-                          <IconDownload />
-                        </a>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
+              <AssistantMessage key={msg.id} msg={msg} />
             )
           )}
 
