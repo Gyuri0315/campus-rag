@@ -54,7 +54,7 @@ export default function HomePage() {
         >
           {/* 로고 — 좁은 화면에서 잘림 방지 */}
           <span
-            className="text-[11px] sm:text-sm font-semibold truncate min-w-0 flex-1 mr-2"
+            className="text-sm sm:text-base font-semibold truncate min-w-0 flex-1 mr-2"
             style={{ color: NAVY }}
           >
             {header.logo}

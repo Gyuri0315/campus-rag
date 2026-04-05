@@ -337,10 +337,10 @@ export default function ChatContent() {
               style={{ borderBottom: "1px solid rgba(255,255,255,0.5)" }}
             >
               <span
-                className="text-[10px] font-bold whitespace-nowrap block overflow-hidden"
+                className="text-xs sm:text-sm font-bold leading-snug block"
                 style={{ color: "var(--clr-navy)" }}
               >
-                부경대학교 | 컴퓨터·인공지능공학부
+                부경대학교<br />컴퓨터·인공지능공학부
               </span>
             </div>
 
