@@ -1,0 +1,44 @@
+{
+  "__mock": { "mode": "success" },
+  "meta": {
+    "lastCrawledAt": "2026-04-05T09:00:00",
+    "totalCount": 5
+  },
+  "documents": [
+    {
+      "id": "doc-001",
+      "title": "2026학년도 졸업예비사정 결과 확인 안내",
+      "category": "공지사항",
+      "date": "2026-03-25",
+      "url": "https://ce.pknu.ac.kr/ce/1814?action=view&no=9985579"
+    },
+    {
+      "id": "doc-002",
+      "title": "2026학년도 1학기 수강취소 기간 및 방법 안내",
+      "category": "공지사항",
+      "date": "2026-03-16",
+      "url": "https://ce.pknu.ac.kr/ce/1814?action=view&no=9985146"
+    },
+    {
+      "id": "doc-003",
+      "title": "졸업요건",
+      "category": "학사안내",
+      "date": "",
+      "url": "https://ce.pknu.ac.kr/ce/2889"
+    },
+    {
+      "id": "doc-004",
+      "title": "컴퓨터공학전공 교육과정",
+      "category": "학부안내",
+      "date": "",
+      "url": "https://ce.pknu.ac.kr/ce/1808"
+    },
+    {
+      "id": "doc-005",
+      "title": "학부 소개",
+      "category": "학부안내",
+      "date": "",
+      "url": "https://ce.pknu.ac.kr/ce/1803"
+    }
+  ]
+}

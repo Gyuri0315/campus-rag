@@ -670,9 +670,22 @@ export default function ChatContent() {
 
             {/* ── 하단 사용자 영역 ── */}
             <div
-              className="flex-shrink-0 pt-2 mt-1"
+              className="flex-shrink-0 pt-2 mt-1 flex flex-col gap-0.5"
               style={{ borderTop: "1px solid rgba(255,255,255,0.5)" }}
             >
+              <button
+                onClick={() => router.push("/docs")}
+                className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors hover:bg-white/50"
+                style={{ color: "var(--clr-text-muted)" }}
+              >
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
+                  <path d="M3 1h6l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" />
+                  <polyline points="9,1 9,4 12,4" />
+                  <line x1="4" y1="7" x2="10" y2="7" />
+                  <line x1="4" y1="9.5" x2="7.5" y2="9.5" />
+                </svg>
+                수집 문서 현황
+              </button>
               <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={handleUserMenuToggle}

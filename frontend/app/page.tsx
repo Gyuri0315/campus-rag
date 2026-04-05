@@ -155,10 +155,17 @@ export default function HomePage() {
 
         {/* ── Footer ── */}
         <footer
-          className="py-4 sm:py-5 text-center text-[10px] sm:text-xs"
+          className="py-4 sm:py-5 text-center text-[10px] sm:text-xs flex flex-col items-center gap-1.5"
           style={{ color: NAVY_MUTED }}
         >
-          {footer}
+          <span>{footer}</span>
+          <a
+            href="/docs"
+            className="underline underline-offset-2 hover:opacity-70 transition-opacity"
+            style={{ color: NAVY_MUTED }}
+          >
+            수집 문서 현황
+          </a>
         </footer>
       </div>
     </div>
