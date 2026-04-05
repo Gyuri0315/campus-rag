@@ -26,6 +26,7 @@ import hashlib
 import json
 import logging
 import re
+import ssl
 import sys
 import time
 from datetime import datetime
@@ -34,7 +35,11 @@ from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 import schedule
+import urllib3
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # ─── 로깅 설정 ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -195,10 +200,44 @@ SECTIONS = [
 
 
 # ─── HTTP 세션 ────────────────────────────────────────────────────────────────
+class _LegacySSLAdapter(HTTPAdapter):
+    """
+    SSLV3_ALERT_HANDSHAKE_FAILURE 등 레거시 SSL 핸드셰이크 오류를 우회하기 위한
+    커스텀 어댑터. 낮은 보안 레벨의 사이퍼 허용 + 인증서 검증 비활성화.
+    """
+
+    def init_poolmanager(self, *args, **kwargs):
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        # 레거시 사이퍼 스위트 허용 (SECLEVEL=1)
+        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+        # Python 3.12+ 에서 사용 가능한 레거시 재협상 허용 옵션
+        if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
+            ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
+        kwargs["ssl_context"] = ctx
+        super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
+        if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
+            ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
+        proxy_kwargs["ssl_context"] = ctx
+        return super().proxy_manager_for(proxy, **proxy_kwargs)
+
+
 def build_session() -> requests.Session:
     session = requests.Session()
     # OS/쉘의 잘못된 HTTP(S)_PROXY 설정이 있더라도 직접 접속하도록 고정
     session.trust_env = False
+    session.verify = False
+    # 레거시 SSL 핸드셰이크 오류 우회 어댑터 적용
+    _adapter = _LegacySSLAdapter()
+    session.mount("https://", _adapter)
+    session.mount("http://", _adapter)
     session.headers.update(
         {
             "User-Agent": (
@@ -270,7 +309,7 @@ def fetch(
 ) -> requests.Response | None:
     time.sleep(delay)
     try:
-        resp = session.get(url, params=params, timeout=REQUEST_TIMEOUT)
+        resp = session.get(url, params=params, timeout=REQUEST_TIMEOUT, verify=False)
         resp.encoding = "utf-8"
         if resp.status_code == 200:
             return resp
@@ -468,26 +507,68 @@ def parse_list_page(soup: BeautifulSoup, board_url: str) -> list[dict]:
     return items
 
 
+_NAV_TEXTS = {"목록보기", "다음", "이전", "next", "prev"}
+
+# 텍스트 후처리에서 제거할 네비게이션 문구 패턴
+_NAV_PHRASE_RE = re.compile(
+    r"(다음\s*게시글이\s*없습니다\.?|이전\s*게시글이\s*없습니다\.?)",
+    re.IGNORECASE,
+)
+
+
+def _is_nav_only_token(token: str) -> bool:
+    """토큰이 네비게이션 단어만으로 구성되어 있으면 True"""
+    words = token.lower().split()
+    return bool(words) and all(w in _NAV_TEXTS for w in words)
+
+
 def extract_body_content(content_el) -> str:
     """
-    .a_bdCont 요소에서 메타데이터 테이블(작성자/작성일 등)을 제외하고
-    실제 본문 텍스트만 반환한다.
+    .a_bdCont 요소에서 실제 본문(.bdvEdit)만 추출한다.
+    - .c_bdvBtn (목록보기), .c_bdvNav (이전글/다음글) 제거 후
+    - .bdvEdit 영역이 있으면 해당 텍스트만 사용
+    - 없으면 메타 테이블 제거 후 전체 텍스트로 폴백
     """
     if content_el is None:
         return ""
 
-    # 메타데이터 테이블 제거를 위해 복사본 사용
     soup_copy = BeautifulSoup(str(content_el), "lxml")
 
-    # 첫 번째 table (메타 정보 테이블) 제거
-    first_table = soup_copy.select_one("table")
-    if first_table:
-        first_table.decompose()
+    # 목록보기 버튼 영역 제거
+    for el in soup_copy.select(".c_bdvBtn"):
+        el.decompose()
 
-    text = soup_copy.get_text(" ", strip=True)
+    # 이전글/다음글 네비게이션 테이블 제거
+    for el in soup_copy.select(".c_bdvNav"):
+        el.decompose()
+
+    # 기타 네비게이션 관련 클래스 요소 제거
+    for nav_sel in (".a_bdPaging", ".board-nav", ".btn-list"):
+        for el in soup_copy.select(nav_sel):
+            el.decompose()
+
+    # 실제 본문 영역(.bdvEdit)이 있으면 해당 텍스트만 추출
+    body_el = soup_copy.select_one(".bdvEdit")
+    if body_el:
+        text = body_el.get_text(" ", strip=True)
+    else:
+        # 폴백: 첫 번째 메타 테이블 제거 후 전체 텍스트 사용
+        first_table = soup_copy.select_one("table")
+        if first_table:
+            first_table.decompose()
+        # 남은 네비게이션 텍스트 a 태그 제거
+        for a in soup_copy.select("a"):
+            if a.get_text(strip=True).lower() in _NAV_TEXTS:
+                a.decompose()
+        text = soup_copy.get_text(" ", strip=True)
+
+    # 고정 네비게이션 문구 제거
+    text = _NAV_PHRASE_RE.sub("", text)
+
     # 연속 공백·개행 정리
     text = re.sub(r"[ \t]{2,}", " ", text)
     text = re.sub(r"\n{3,}", "\n\n", text)
+
     return text.strip()
 
 
@@ -515,10 +596,28 @@ def parse_view_page(soup: BeautifulSoup, post_url: str, item: dict) -> dict | No
         for a in content_el.select("a[href]"):
             href = a.get("href", "")
             name = a.get_text(strip=True)
-            if href and not href.startswith("javascript") and is_attachment_candidate(href, name):
-                attachments.append(
-                    {"name": name, "url": urljoin(BASE_URL, href)}
-                )
+            if not href or href.startswith("javascript"):
+                continue
+
+            # 네비게이션 텍스트 링크 제외 ("목록보기", "다음", "이전" 등)
+            if name.lower() in _NAV_TEXTS:
+                continue
+
+            abs_url = urljoin(BASE_URL, href)
+            parsed_href = urlparse(abs_url)
+
+            # action=view 파라미터가 포함된 게시판 뷰 링크 제외
+            if "action=view" in parsed_href.query:
+                continue
+
+            # ce.pknu.ac.kr/ce/<숫자> 형태의 게시판 내부 링크 제외
+            if re.fullmatch(
+                r"https?://ce\.pknu\.ac\.kr/ce/\d+", abs_url.split("?")[0]
+            ):
+                continue
+
+            if is_attachment_candidate(href, name):
+                attachments.append({"name": name, "url": abs_url})
 
     return {
         "slug": make_slug(post_url, title),
