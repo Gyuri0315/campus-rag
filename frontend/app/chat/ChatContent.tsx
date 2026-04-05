@@ -114,9 +114,15 @@ export default function ChatContent() {
   const [isMobile, setIsMobile] = useState(false);
 
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
+  const [contextMenuPos, setContextMenuPos] = useState<{ top: number; left: number } | null>(null);
   const [chatTitle, setChatTitle] = useState("졸업요건 질문");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  const closeContextMenu = () => {
+    setContextMenuId(null);
+    setContextMenuPos(null);
+  };
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -156,15 +162,23 @@ export default function ChatContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── 외부 클릭 → 컨텍스트 메뉴 닫기 ───────────────────────────
+  // ── 외부 클릭 / ESC → 컨텍스트 메뉴 닫기 ─────────────────────
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const onMouse = (e: MouseEvent) => {
       if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
         setContextMenuId(null);
+        setContextMenuPos(null);
       }
     };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setContextMenuId(null); setContextMenuPos(null); }
+    };
+    document.addEventListener("mousedown", onMouse);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onMouse);
+      document.removeEventListener("keydown", onKey);
+    };
   }, []);
 
   // ── 자동 스크롤 ───────────────────────────────────────────────
@@ -209,7 +223,7 @@ export default function ChatContent() {
     setInputValue("");
     setActiveId("");
     setChatTitle("새 채팅");
-    setContextMenuId(null);
+    closeContextMenu();
     if (isMobile) setSidebarOpen(false);
     router.replace("/chat");
   };
@@ -218,7 +232,7 @@ export default function ChatContent() {
   const handleLoadHistory = (item: HistoryItem) => {
     setActiveId(item.id);
     setChatTitle(item.title);
-    setContextMenuId(null);
+    closeContextMenu();
     if (isMobile) setSidebarOpen(false); // 모바일: 선택 후 사이드바 닫기
     const q =
       item.id === "chat-001" ? "졸업 요건을 알려주세요."
@@ -230,7 +244,7 @@ export default function ChatContent() {
   // ── DELETE ────────────────────────────────────────────────────
   const handleDelete = (id: string) => {
     setHistory((prev) => prev.filter((h) => h.id !== id));
-    setContextMenuId(null);
+    closeContextMenu();
     if (activeId === id) handleNewChat();
   };
 
@@ -238,7 +252,7 @@ export default function ChatContent() {
   const handleRenameStart = (item: HistoryItem) => {
     setRenameId(item.id);
     setRenameValue(item.title);
-    setContextMenuId(null);
+    closeContextMenu();
   };
   const handleRenameConfirm = (id: string) => {
     if (renameValue.trim()) {
@@ -344,62 +358,37 @@ export default function ChatContent() {
                     >
                       <span className="truncate flex-1">{item.title}</span>
 
-                      {/* ··· 버튼 */}
+                      {/* ··· 버튼 — 메뉴가 열린 항목은 항상 표시 */}
                       <span
-                        className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 px-1 rounded hover:bg-white/60 text-base leading-none"
+                        className={`transition-opacity ml-1 px-1 py-0.5 rounded text-sm leading-none flex-shrink-0 ${
+                          contextMenuId === item.id
+                            ? "opacity-100 bg-white/40"
+                            : "opacity-0 group-hover:opacity-100"
+                        }`}
                         style={{ color: "var(--clr-text-muted)" }}
+                        onMouseDown={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setContextMenuId(contextMenuId === item.id ? null : item.id);
+                          if (contextMenuId === item.id) {
+                            closeContextMenu();
+                            return;
+                          }
+                          const itemEl = (e.currentTarget as HTMLElement).closest("div.group");
+                          const rect = itemEl
+                            ? itemEl.getBoundingClientRect()
+                            : (e.currentTarget as HTMLElement).getBoundingClientRect();
+                          const menuWidth = 148;
+                          const left = Math.min(
+                            rect.left,
+                            window.innerWidth - menuWidth - 8
+                          );
+                          setContextMenuPos({ top: rect.bottom + 2, left });
+                          setContextMenuId(item.id);
                         }}
                       >
                         ···
                       </span>
                     </button>
-                  )}
-
-                  {/* 컨텍스트 메뉴
-                      모바일: 항목 아래(top-full left-0)
-                      데스크톱: 항목 오른쪽(left-full top-0)
-                  */}
-                  {contextMenuId === item.id && (
-                    <div
-                      ref={contextMenuRef}
-                      className="absolute z-50 rounded-xl shadow-lg overflow-hidden"
-                      style={{
-                        top: isMobile ? "100%" : 0,
-                        left: isMobile ? 0 : "100%",
-                        marginTop: isMobile ? "4px" : 0,
-                        marginLeft: isMobile ? 0 : "4px",
-                        background: "rgba(255,255,255,0.95)",
-                        backdropFilter: "blur(16px)",
-                        WebkitBackdropFilter: "blur(16px)",
-                        border: "1px solid rgba(255,255,255,0.9)",
-                        minWidth: "130px",
-                      }}
-                    >
-                      <button
-                        onClick={() => setContextMenuId(null)}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-white/60 transition-colors"
-                        style={{ color: "var(--clr-text)" }}
-                      >
-                        <IconStar /> 즐겨찾기
-                      </button>
-                      <button
-                        onClick={() => handleRenameStart(item)}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-white/60 transition-colors"
-                        style={{ color: "var(--clr-text)" }}
-                      >
-                        <IconPencil /> 이름 변경
-                      </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm hover:bg-red-50 transition-colors"
-                        style={{ color: "#c0392b" }}
-                      >
-                        <IconTrash /> 삭제
-                      </button>
-                    </div>
                   )}
                 </div>
               ))}
@@ -407,6 +396,52 @@ export default function ChatContent() {
           </div>
         )}
       </aside>
+
+      {/* ── 컨텍스트 메뉴 (fixed — aside overflow:hidden 클리핑 회피) ── */}
+      {contextMenuId && contextMenuPos && (() => {
+        const menuItem = history.find((h) => h.id === contextMenuId);
+        if (!menuItem) return null;
+        return (
+          <div
+            ref={contextMenuRef}
+            className="fixed z-[9999] rounded-xl overflow-hidden"
+            style={{
+              top: contextMenuPos.top,
+              left: contextMenuPos.left,
+              minWidth: "148px",
+              background: "rgba(255,255,255,0.96)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              border: "1px solid rgba(200,210,230,0.7)",
+              boxShadow: "0 8px 28px rgba(0,0,0,0.13), 0 1.5px 6px rgba(0,0,0,0.07)",
+            }}
+          >
+            <button
+              onClick={closeContextMenu}
+              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+              style={{ color: "var(--clr-text)" }}
+            >
+              <IconStar /> 즐겨찾기
+            </button>
+            <div style={{ height: "1px", background: "rgba(0,0,0,0.06)", margin: "0 12px" }} />
+            <button
+              onClick={() => handleRenameStart(menuItem)}
+              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm transition-colors hover:bg-gray-50"
+              style={{ color: "var(--clr-text)" }}
+            >
+              <IconPencil /> 이름 변경
+            </button>
+            <div style={{ height: "1px", background: "rgba(0,0,0,0.06)", margin: "0 12px" }} />
+            <button
+              onClick={() => handleDelete(menuItem.id)}
+              className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm transition-colors hover:bg-red-50"
+              style={{ color: "#e53e3e" }}
+            >
+              <IconTrash /> 삭제
+            </button>
+          </div>
+        );
+      })()}
 
       {/* ── 채팅 영역 ────────────────────────────────────────── */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
