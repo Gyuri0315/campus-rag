@@ -1,12 +1,6 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "./context/QueryContext";
-
-const geist = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
   title: "Campus RAG | 부경대학교 컴퓨터·인공지능공학부",
@@ -19,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={`${geist.variable} h-full`}>
-      <body className="h-full font-[var(--font-geist-sans)] antialiased">
+    <html lang="ko" className="h-full">
+      <body className="h-full antialiased" style={{ fontFamily: "'YUniverse', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" }}>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>

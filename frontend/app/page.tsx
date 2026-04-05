@@ -54,7 +54,7 @@ export default function HomePage() {
         >
           {/* 로고 — 좁은 화면에서 잘림 방지 */}
           <span
-            className="text-[11px] sm:text-sm font-semibold truncate min-w-0 flex-1 mr-2"
+            className="text-sm sm:text-base font-semibold truncate min-w-0 flex-1 mr-2"
             style={{ color: NAVY }}
           >
             {header.logo}
@@ -155,10 +155,17 @@ export default function HomePage() {
 
         {/* ── Footer ── */}
         <footer
-          className="py-4 sm:py-5 text-center text-[10px] sm:text-xs"
+          className="py-4 sm:py-5 text-center text-[10px] sm:text-xs flex flex-col items-center gap-1.5"
           style={{ color: NAVY_MUTED }}
         >
-          {footer}
+          <span>{footer}</span>
+          <a
+            href="/docs"
+            className="underline underline-offset-2 hover:opacity-70 transition-opacity"
+            style={{ color: NAVY_MUTED }}
+          >
+            수집 문서 현황
+          </a>
         </footer>
       </div>
     </div>
