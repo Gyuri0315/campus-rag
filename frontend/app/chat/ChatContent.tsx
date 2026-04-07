@@ -140,7 +140,155 @@ const IconChevron = ({ open }: { open: boolean }) => (
     <polyline points="2,8 6,4 10,8" />
   </svg>
 );
+const IconCopy = () => (
+  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4.5" y="4.5" width="8" height="8.5" rx="1.2" />
+    <path d="M2 9.5V2a1 1 0 011-1h7" />
+  </svg>
+);
+const IconCheckSm = () => (
+  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="2,7 5.5,10.5 12,4" />
+  </svg>
+);
+const IconThumbUp = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+  </svg>
+);
+const IconThumbDown = () => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
+  </svg>
+);
 
+
+// ── 싫어요 피드백 모달 ────────────────────────────────────────────────────────
+const FEEDBACK_TYPES = [
+  "정보가 부정확해요",
+  "출처가 잘못됐어요",
+  "답변이 너무 짧아요",
+  "원하는 답변이 아니에요",
+];
+
+function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => void }) {
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [comment, setComment] = useState("");
+
+  const toggle = (type: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+
+  const handleSubmit = () => {
+    onSubmit();
+    onClose();
+  };
+
+  return (
+    <>
+      {/* 백드롭 */}
+      <div
+        className="fixed inset-0 z-[9990] bg-black/20 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      {/* 모달 */}
+      <div
+        className="fixed z-[9991] left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-2xl flex flex-col gap-4 p-5 sm:p-6 w-[min(92vw,380px)]"
+        style={{
+          background: "rgba(255,255,255,0.97)",
+          backdropFilter: "blur(24px)",
+          WebkitBackdropFilter: "blur(24px)",
+          border: "1px solid rgba(200,210,230,0.7)",
+          boxShadow: "0 16px 48px rgba(0,0,0,0.16), 0 2px 8px rgba(0,0,0,0.07)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* 제목 */}
+        <p className="text-sm sm:text-base font-bold" style={{ color: "var(--clr-navy)" }}>
+          답변이 도움이 되지 않으셨나요?
+        </p>
+
+        {/* 피드백 유형 */}
+        <div className="flex flex-col gap-2">
+          {FEEDBACK_TYPES.map((type) => {
+            const active = selected.has(type);
+            return (
+              <button
+                key={type}
+                onClick={() => toggle(type)}
+                className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-xs sm:text-[13px] text-left transition-all"
+                style={{
+                  background: active ? "rgba(37,52,139,0.09)" : "rgba(0,0,0,0.03)",
+                  border: active ? "1.5px solid rgba(37,52,139,0.35)" : "1.5px solid rgba(0,0,0,0.07)",
+                  color: active ? "var(--clr-navy)" : "var(--clr-text)",
+                  fontWeight: active ? 600 : 400,
+                }}
+              >
+                <span
+                  className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center"
+                  style={{
+                    background: active ? "var(--clr-navy)" : "rgba(0,0,0,0.08)",
+                    border: active ? "none" : "1px solid rgba(0,0,0,0.12)",
+                  }}
+                >
+                  {active && (
+                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round">
+                      <polyline points="1.5,5 4,7.5 8.5,2.5" />
+                    </svg>
+                  )}
+                </span>
+                {type}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* 추가 의견 */}
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="추가 의견을 입력해 주세요 (선택)"
+          rows={3}
+          className="w-full resize-none rounded-xl px-3 py-2.5 text-xs sm:text-[13px] outline-none placeholder:text-gray-400 leading-relaxed"
+          style={{
+            background: "rgba(0,0,0,0.03)",
+            border: "1.5px solid rgba(0,0,0,0.08)",
+            color: "var(--clr-text)",
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(37,52,139,0.35)"; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(0,0,0,0.08)"; }}
+        />
+
+        {/* 버튼 */}
+        <div className="flex gap-2">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-xl text-xs sm:text-[13px] font-medium transition-opacity hover:opacity-75"
+            style={{
+              border: "1.5px solid rgba(0,0,0,0.12)",
+              color: "var(--clr-text-muted)",
+              background: "transparent",
+            }}
+          >
+            취소
+          </button>
+          <button
+            onClick={handleSubmit}
+            className="flex-1 py-2 rounded-xl text-xs sm:text-[13px] font-semibold text-white transition-opacity hover:opacity-85"
+            style={{ background: "var(--clr-navy)" }}
+          >
+            제출
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
 
 // ── 출처 카드 컴포넌트 ────────────────────────────────────────────────────────
 function SourceCard({ source }: { source: Source }) {
@@ -238,9 +386,18 @@ function SourceCard({ source }: { source: Source }) {
 }
 
 // ── AI 답변 메시지 컴포넌트 ───────────────────────────────────────────────────
-function AssistantMessage({ msg }: { msg: Message }) {
+function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () => void }) {
   const [sourcesOpen, setSourcesOpen] = useState(true);
+  const [copied, setCopied] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [dislikeOpen, setDislikeOpen] = useState(false);
   const hasSources = msg.sources && msg.sources.length > 0;
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(msg.content).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div className="flex justify-start w-full">
@@ -283,7 +440,54 @@ function AssistantMessage({ msg }: { msg: Message }) {
               </span>
             </div>
           )}
+
+          {/* 액션 버튼 */}
+          <div className="flex items-center gap-1" style={{ borderTop: "1px solid rgba(37,52,139,0.07)", paddingTop: "8px" }}>
+            {/* 복사 버튼 */}
+            <button
+              onClick={handleCopy}
+              title="답변 복사"
+              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+              style={{
+                color: copied ? "var(--clr-navy)" : "var(--clr-text-muted)",
+                background: copied ? "rgba(37,52,139,0.08)" : "transparent",
+              }}
+            >
+              {copied ? <IconCheckSm /> : <IconCopy />}
+            </button>
+
+            {/* 좋아요 버튼 */}
+            <button
+              onClick={() => setLiked((v) => !v)}
+              title="도움이 됐어요"
+              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+              style={{
+                color: liked ? "var(--clr-navy)" : "var(--clr-text-muted)",
+                background: liked ? "rgba(37,52,139,0.08)" : "transparent",
+              }}
+            >
+              <IconThumbUp />
+            </button>
+
+            {/* 싫어요 버튼 */}
+            <button
+              onClick={() => setDislikeOpen(true)}
+              title="도움이 안 됐어요"
+              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+              style={{ color: "var(--clr-text-muted)" }}
+            >
+              <IconThumbDown />
+            </button>
+          </div>
         </div>
+
+        {/* 싫어요 피드백 모달 */}
+        {dislikeOpen && (
+          <DislikeFeedbackModal
+            onClose={() => setDislikeOpen(false)}
+            onSubmit={onFeedback}
+          />
+        )}
 
         {/* 전체 토글 버튼 */}
         {hasSources && (
@@ -354,6 +558,14 @@ export default function ChatContent() {
   const [renameValue, setRenameValue] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [userMenuPos, setUserMenuPos] = useState<{ bottom: number; left: number } | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showToast = (msg: string) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast(msg);
+    toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  };
 
   const closeContextMenu = () => {
     setContextMenuId(null);
@@ -864,7 +1076,7 @@ export default function ChatContent() {
                 </span>
               </div>
             ) : (
-              <AssistantMessage key={msg.id} msg={msg} />
+              <AssistantMessage key={msg.id} msg={msg} onFeedback={() => showToast("피드백 감사합니다")} />
             )
           )}
 
@@ -910,14 +1122,6 @@ export default function ChatContent() {
         {/* ── 입력창 + 면책 문구 ──────────────────────────────── */}
         <div className="flex-shrink-0 px-3 pb-3 sm:px-5 sm:pb-4 flex flex-col gap-1.5 sm:gap-2">
           <div className="glass-input flex items-center rounded-xl sm:rounded-2xl px-3 sm:px-4 py-1.5 sm:py-2 shadow-sm gap-1.5 sm:gap-2">
-            {/* 첨부 버튼 */}
-            <button
-              className="flex-shrink-0 p-1 sm:p-1.5 rounded-lg hover:bg-white/50 transition-colors"
-              style={{ color: "var(--clr-text-muted)" }}
-            >
-              <IconAttach />
-            </button>
-
             {/* 텍스트 입력 */}
             <input
               ref={inputRef}
@@ -951,6 +1155,23 @@ export default function ChatContent() {
           </p>
         </div>
       </div>
+
+      {/* ── 토스트 ── */}
+      {toast && (
+        <div
+          className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[9999] px-4 py-2.5 rounded-xl text-xs sm:text-[13px] font-semibold pointer-events-none"
+          style={{
+            background: "rgba(37,52,139,0.92)",
+            color: "white",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.18)",
+            animation: "fadeInUp 0.2s ease",
+          }}
+        >
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
