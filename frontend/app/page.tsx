@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import homeData from "@/data/routes/home.json";
 import { useQueryContext } from "./context/QueryContext";
 
@@ -53,12 +54,22 @@ export default function HomePage() {
           style={{ borderBottom: "1px solid rgba(37,52,139,0.1)" }}
         >
           {/* 로고 — 좁은 화면에서 잘림 방지 */}
-          <span
-            className="text-sm sm:text-base font-semibold truncate min-w-0 flex-1 mr-2"
-            style={{ color: NAVY }}
-          >
-            {header.logo}
-          </span>
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0 flex-1 mr-2">
+            <Image
+              src="/pukyong_logo.png"
+              alt="부경대학교 로고"
+              width={32}
+              height={32}
+              className="flex-shrink-0 object-contain sm:w-9 sm:h-9"
+              style={{ width: 32, height: 32 }}
+            />
+            <span
+              className="text-sm sm:text-base font-semibold truncate min-w-0"
+              style={{ color: NAVY }}
+            >
+              {header.logo}
+            </span>
+          </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {/* Sign Up — 모바일(< sm)에서 숨김 */}

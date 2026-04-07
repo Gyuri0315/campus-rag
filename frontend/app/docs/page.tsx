@@ -1,15 +1,23 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import docsData from "@/data/routes/docs.json";
 
 const NAVY = "#25348B";
 const NAVY_MUTED = "rgba(37,52,139,0.45)";
 
-const CATEGORIES = ["전체", "공지사항", "학부안내", "학사안내"] as const;
-type Category = (typeof CATEGORIES)[number];
+const CATEGORY_OPTIONS = ["공지사항", "학부안내", "학사안내"] as const;
+const ATTACHMENT_OPTIONS = ["전체", "첨부파일 있음", "첨부파일 없음"] as const;
+const SORT_OPTIONS = ["최신순", "오래된순"] as const;
 
+const CATEGORY_COLORS: Record<string, string> = {
+  공지사항: "rgba(37,52,139,0.12)",
+  학부안내: "rgba(37,120,139,0.12)",
+  학사안내: "rgba(120,37,139,0.1)",
+};
+
+// ── 아이콘 ─────────────────────────────────────────────────────────────────────
 const IconArrowLeft = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <line x1="13" y1="8" x2="3" y2="8" />
@@ -37,6 +45,53 @@ const IconDocument = () => (
     <line x1="4" y1="9.5" x2="7.5" y2="9.5" />
   </svg>
 );
+const IconDownload = () => (
+  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
+    <line x1="6" y1="1" x2="6" y2="8" />
+    <polyline points="3,5.5 6,8 9,5.5" />
+    <line x1="2" y1="11" x2="10" y2="11" />
+  </svg>
+);
+const IconChevronDown = ({ open }: { open: boolean }) => (
+  <svg
+    width="11" height="11" viewBox="0 0 12 12" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+    style={{ transition: "transform 0.2s ease", transform: open ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}
+  >
+    <polyline points="2,4 6,8 10,4" />
+  </svg>
+);
+const IconX = () => (
+  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <line x1="2" y1="2" x2="8" y2="8" />
+    <line x1="8" y1="2" x2="2" y2="8" />
+  </svg>
+);
+const IconRefresh = () => (
+  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+    <path d="M12 7A5 5 0 1 1 7 2" />
+    <polyline points="7,1 9,3 7,5" />
+  </svg>
+);
+
+function CheckBox({ checked }: { checked: boolean }) {
+  return (
+    <span
+      className="flex-shrink-0 w-3.5 h-3.5 rounded flex items-center justify-center"
+      style={{
+        background: checked ? NAVY : "transparent",
+        border: checked ? "none" : "1.5px solid rgba(0,0,0,0.22)",
+        transition: "background 0.15s ease",
+      }}
+    >
+      {checked && (
+        <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="1.5,5 4,7.5 8.5,2.5" />
+        </svg>
+      )}
+    </span>
+  );
+}
 
 function formatDate(iso: string) {
   if (!iso) return null;
@@ -45,25 +100,373 @@ function formatDate(iso: string) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  공지사항: "rgba(37,52,139,0.12)",
-  학부안내: "rgba(37,120,139,0.12)",
-  학사안내: "rgba(120,37,139,0.1)",
-};
+// ── 일반 드롭다운 ──────────────────────────────────────────────────────────────
+function FilterDropdown({
+  label,
+  value,
+  defaultValue,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  defaultValue: string;
+  options: readonly string[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isActive = value !== defaultValue;
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap"
+        style={{
+          background: isActive ? NAVY : "rgba(255,255,255,0.72)",
+          color: isActive ? "white" : NAVY,
+          border: `1px solid ${isActive ? NAVY : "rgba(255,255,255,0.9)"}`,
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
+        {isActive ? value : label}
+        <IconChevronDown open={open} />
+      </button>
+      {open && (
+        <div
+          className="absolute top-full left-0 z-50 mt-1.5 rounded-xl overflow-hidden"
+          style={{
+            minWidth: "130px",
+            background: "rgba(255,255,255,0.97)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(200,210,230,0.7)",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.13), 0 1.5px 6px rgba(0,0,0,0.07)",
+          }}
+        >
+          {options.map((opt, i) => (
+            <button
+              key={opt}
+              onClick={() => { onChange(opt); setOpen(false); }}
+              className="w-full text-left px-4 py-2.5 text-xs transition-colors hover:bg-gray-50"
+              style={{
+                color: opt === value ? NAVY : "#555",
+                fontWeight: opt === value ? 700 : 400,
+                borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : "none",
+              }}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 카테고리 멀티셀렉트 드롭다운 ──────────────────────────────────────────────
+function CategoryDropdown({
+  selected,
+  onChange,
+}: {
+  selected: Set<string>;
+  onChange: (v: Set<string>) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isActive = selected.size > 0;
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (cat: string) => {
+    const next = new Set(selected);
+    if (next.has(cat)) next.delete(cat);
+    else next.add(cat);
+    onChange(next);
+  };
+
+  const buttonLabel = isActive ? `카테고리 (${selected.size})` : "카테고리";
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap"
+        style={{
+          background: isActive ? NAVY : "rgba(255,255,255,0.72)",
+          color: isActive ? "white" : NAVY,
+          border: `1px solid ${isActive ? NAVY : "rgba(255,255,255,0.9)"}`,
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
+        {buttonLabel}
+        <IconChevronDown open={open} />
+      </button>
+      {open && (
+        <div
+          className="absolute top-full left-0 z-50 mt-1.5 rounded-xl overflow-hidden"
+          style={{
+            minWidth: "150px",
+            background: "rgba(255,255,255,0.97)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(200,210,230,0.7)",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.13), 0 1.5px 6px rgba(0,0,0,0.07)",
+          }}
+        >
+          {/* 전체 (전체 해제) */}
+          <button
+            onClick={() => onChange(new Set())}
+            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition-colors hover:bg-gray-50"
+            style={{
+              color: !isActive ? NAVY : "#555",
+              fontWeight: !isActive ? 700 : 400,
+              borderBottom: "1px solid rgba(0,0,0,0.05)",
+            }}
+          >
+            <CheckBox checked={!isActive} />
+            전체
+          </button>
+          {CATEGORY_OPTIONS.map((cat, i) => {
+            const checked = selected.has(cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => toggle(cat)}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 text-xs transition-colors hover:bg-gray-50"
+                style={{
+                  color: checked ? NAVY : "#555",
+                  fontWeight: checked ? 700 : 400,
+                  borderTop: i > 0 ? "1px solid rgba(0,0,0,0.05)" : "none",
+                }}
+              >
+                <CheckBox checked={checked} />
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 날짜 범위 드롭다운 ─────────────────────────────────────────────────────────
+function DateRangeDropdown({
+  dateStart,
+  dateEnd,
+  onChangeStart,
+  onChangeEnd,
+}: {
+  dateStart: string;
+  dateEnd: string;
+  onChangeStart: (v: string) => void;
+  onChangeEnd: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const isActive = !!(dateStart || dateEnd);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const label = isActive
+    ? [dateStart || "시작일", dateEnd || "종료일"].join(" ~ ")
+    : "날짜 범위";
+
+  return (
+    <div ref={ref} className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all whitespace-nowrap"
+        style={{
+          background: isActive ? NAVY : "rgba(255,255,255,0.72)",
+          color: isActive ? "white" : NAVY,
+          border: `1px solid ${isActive ? NAVY : "rgba(255,255,255,0.9)"}`,
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+        }}
+      >
+        {label}
+        <IconChevronDown open={open} />
+      </button>
+      {open && (
+        <div
+          className="absolute top-full left-0 z-50 mt-1.5 rounded-xl p-3 flex flex-col gap-2"
+          style={{
+            minWidth: "260px",
+            background: "rgba(255,255,255,0.97)",
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            border: "1px solid rgba(200,210,230,0.7)",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.13), 0 1.5px 6px rgba(0,0,0,0.07)",
+          }}
+        >
+          <p className="text-[10px] font-semibold px-1" style={{ color: NAVY_MUTED }}>날짜 범위 선택</p>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateStart}
+              onChange={(e) => onChangeStart(e.target.value)}
+              max={dateEnd || undefined}
+              className="flex-1 px-2.5 py-1.5 rounded-lg text-[11px] outline-none font-semibold"
+              style={{
+                background: "rgba(37,52,139,0.05)",
+                border: "1.5px solid rgba(37,52,139,0.15)",
+                color: NAVY,
+                colorScheme: "light",
+              }}
+            />
+            <span className="text-xs flex-shrink-0" style={{ color: NAVY_MUTED }}>~</span>
+            <input
+              type="date"
+              value={dateEnd}
+              onChange={(e) => onChangeEnd(e.target.value)}
+              min={dateStart || undefined}
+              className="flex-1 px-2.5 py-1.5 rounded-lg text-[11px] outline-none font-semibold"
+              style={{
+                background: "rgba(37,52,139,0.05)",
+                border: "1.5px solid rgba(37,52,139,0.15)",
+                color: NAVY,
+                colorScheme: "light",
+              }}
+            />
+          </div>
+          {isActive && (
+            <button
+              onClick={() => { onChangeStart(""); onChangeEnd(""); }}
+              className="text-[10px] font-medium text-left px-1 transition-opacity hover:opacity-70"
+              style={{ color: NAVY_MUTED }}
+            >
+              날짜 초기화
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 활성 필터 태그 ─────────────────────────────────────────────────────────────
+function FilterTag({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+      style={{
+        background: "rgba(37,52,139,0.1)",
+        color: NAVY,
+        border: "1px solid rgba(37,52,139,0.2)",
+      }}
+    >
+      {label}
+      <button
+        onClick={onRemove}
+        className="flex items-center justify-center hover:opacity-60 transition-opacity"
+        style={{ color: NAVY }}
+        aria-label={`${label} 필터 해제`}
+      >
+        <IconX />
+      </button>
+    </span>
+  );
+}
+
+// ── 메인 페이지 ────────────────────────────────────────────────────────────────
 export default function DocsPage() {
   const router = useRouter();
-  const [activeCategory, setActiveCategory] = useState<Category>("전체");
   const [query, setQuery] = useState("");
+  const [filterCategories, setFilterCategories] = useState<Set<string>>(new Set());
+  const [filterDateStart, setFilterDateStart] = useState("");
+  const [filterDateEnd, setFilterDateEnd] = useState("");
+  const [filterAttachment, setFilterAttachment] = useState("전체");
+  const [filterSort, setFilterSort] = useState("최신순");
+
+  const resetFilters = () => {
+    setQuery("");
+    setFilterCategories(new Set());
+    setFilterDateStart("");
+    setFilterDateEnd("");
+    setFilterAttachment("전체");
+    setFilterSort("최신순");
+  };
+
+  const hasActiveFilters =
+    filterCategories.size > 0 ||
+    !!filterDateStart ||
+    !!filterDateEnd ||
+    filterAttachment !== "전체" ||
+    filterSort !== "최신순";
 
   const filtered = useMemo(() => {
-    return docsData.documents.filter((doc) => {
-      const matchCat = activeCategory === "전체" || doc.category === activeCategory;
-      const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, "");
-      const matchQ = normalize(doc.title).includes(normalize(query));
-      return matchCat && matchQ;
+    const normalize = (s: string) => s.toLowerCase().replace(/\s+/g, "");
+    let docs = docsData.documents.filter((doc) => {
+      if (filterCategories.size > 0 && !filterCategories.has(doc.category)) return false;
+      if (query && !normalize(doc.title).includes(normalize(query))) return false;
+      if (filterDateStart && doc.date && doc.date < filterDateStart) return false;
+      if (filterDateEnd && doc.date && doc.date > filterDateEnd) return false;
+      if (filterAttachment === "첨부파일 있음" && (!doc.attachments || doc.attachments.length === 0)) return false;
+      if (filterAttachment === "첨부파일 없음" && doc.attachments && doc.attachments.length > 0) return false;
+      return true;
     });
-  }, [activeCategory, query]);
+
+    docs = [...docs].sort((a, b) => {
+      const da = a.date || "";
+      const db = b.date || "";
+      return filterSort === "최신순" ? db.localeCompare(da) : da.localeCompare(db);
+    });
+
+    return docs;
+  }, [query, filterCategories, filterDateStart, filterDateEnd, filterAttachment, filterSort]);
+
+  // 활성 필터 태그 목록
+  const activeTags: { key: string; label: string; onRemove: () => void }[] = [];
+  filterCategories.forEach((cat) => {
+    activeTags.push({
+      key: `cat-${cat}`,
+      label: cat,
+      onRemove: () => {
+        const next = new Set(filterCategories);
+        next.delete(cat);
+        setFilterCategories(next);
+      },
+    });
+  });
+  if (filterDateStart || filterDateEnd) {
+    const dateLabel = [filterDateStart || "시작일", filterDateEnd || "종료일"].join(" ~ ");
+    activeTags.push({
+      key: "date",
+      label: dateLabel,
+      onRemove: () => { setFilterDateStart(""); setFilterDateEnd(""); },
+    });
+  }
+  if (filterAttachment !== "전체") {
+    activeTags.push({ key: "att", label: filterAttachment, onRemove: () => setFilterAttachment("전체") });
+  }
+  if (filterSort !== "최신순") {
+    activeTags.push({ key: "sort", label: filterSort, onRemove: () => setFilterSort("최신순") });
+  }
 
   return (
     <div className="bg-app min-h-screen flex flex-col">
@@ -102,50 +505,101 @@ export default function DocsPage() {
           </div>
         </div>
 
-        {/* 필터 + 검색 */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* 카테고리 탭 */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                onClick={() => setActiveCategory(cat)}
-                className="px-3 py-1 rounded-full text-xs font-semibold transition-all"
-                style={{
-                  background: activeCategory === cat ? NAVY : "rgba(255,255,255,0.55)",
-                  color: activeCategory === cat ? "white" : NAVY,
-                  border: `1px solid ${activeCategory === cat ? NAVY : "rgba(255,255,255,0.85)"}`,
-                  backdropFilter: "blur(8px)",
-                }}
-              >
-                {cat}
-              </button>
+        {/* 검색창 */}
+        <div
+          className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm w-full"
+          style={{
+            background: "rgba(255,255,255,0.72)",
+            border: "1px solid rgba(255,255,255,0.9)",
+            backdropFilter: "blur(12px)",
+            WebkitBackdropFilter: "blur(12px)",
+          }}
+        >
+          <span style={{ color: NAVY_MUTED }}><IconSearch /></span>
+          <input
+            type="text"
+            placeholder="문서 제목 검색"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="flex-1 bg-transparent outline-none text-xs sm:text-sm placeholder:text-[rgba(37,52,139,0.35)] font-semibold"
+            style={{ color: NAVY }}
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="flex items-center justify-center hover:opacity-60 transition-opacity"
+              style={{ color: NAVY_MUTED }}
+              aria-label="검색어 지우기"
+            >
+              <IconX />
+            </button>
+          )}
+        </div>
+
+        {/* 필터 드롭다운 행 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <CategoryDropdown
+            selected={filterCategories}
+            onChange={setFilterCategories}
+          />
+          <DateRangeDropdown
+            dateStart={filterDateStart}
+            dateEnd={filterDateEnd}
+            onChangeStart={setFilterDateStart}
+            onChangeEnd={setFilterDateEnd}
+          />
+          <FilterDropdown
+            label="첨부파일"
+            value={filterAttachment}
+            defaultValue="전체"
+            options={ATTACHMENT_OPTIONS}
+            onChange={setFilterAttachment}
+          />
+          <FilterDropdown
+            label="정렬"
+            value={filterSort}
+            defaultValue="최신순"
+            options={SORT_OPTIONS}
+            onChange={setFilterSort}
+          />
+
+          {/* 필터 초기화 */}
+          {hasActiveFilters && (
+            <button
+              onClick={resetFilters}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all hover:opacity-75"
+              style={{
+                color: NAVY_MUTED,
+                background: "rgba(255,255,255,0.6)",
+                border: "1px solid rgba(255,255,255,0.85)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+              }}
+            >
+              <IconRefresh />
+              초기화
+            </button>
+          )}
+        </div>
+
+        {/* 활성 필터 태그 */}
+        {activeTags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 -mt-3">
+            {activeTags.map((tag) => (
+              <FilterTag key={tag.key} label={tag.label} onRemove={tag.onRemove} />
             ))}
           </div>
+        )}
 
-          {/* 검색창 */}
-          <div
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm flex-1 sm:max-w-xs"
-            style={{
-              background: "rgba(255,255,255,0.72)",
-              border: "1px solid rgba(255,255,255,0.9)",
-              backdropFilter: "blur(12px)",
-            }}
-          >
-            <span style={{ color: NAVY_MUTED }}><IconSearch /></span>
-            <input
-              type="text"
-              placeholder="문서 제목 검색"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none text-xs sm:text-sm placeholder:text-[rgba(37,52,139,0.35)]"
-              style={{ color: NAVY }}
-            />
-          </div>
+        {/* 결과 카운트 */}
+        <div className="flex items-center justify-between -mt-2">
+          <p className="text-[11px] sm:text-xs font-medium" style={{ color: NAVY_MUTED }}>
+            {filtered.length}건 표시 중
+          </p>
         </div>
 
         {/* 문서 목록 */}
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2.5 -mt-2">
           {filtered.length === 0 ? (
             <div
               className="rounded-2xl p-8 text-center text-sm"
@@ -175,7 +629,7 @@ export default function DocsPage() {
 
                 {/* 정보 */}
                 <div className="flex-1 min-w-0 flex flex-col gap-1">
-                  <span className="text-xs sm:text-sm font-semibold leading-snug truncate" style={{ color: NAVY }}>
+                  <span className="text-xs sm:text-sm font-semibold leading-snug" style={{ color: NAVY }}>
                     {doc.title}
                   </span>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -191,6 +645,25 @@ export default function DocsPage() {
                     {doc.date && (
                       <span className="text-[10px] sm:text-[11px]" style={{ color: NAVY_MUTED }}>
                         {doc.date}
+                      </span>
+                    )}
+                    {doc.attachments && doc.attachments.length > 0 && (
+                      <span className="flex items-center gap-0.5" style={{ color: NAVY_MUTED }}>
+                        <IconDownload />
+                        {doc.attachments.map((att, i) => (
+                          <span key={att.name} className="flex items-center">
+                            {i > 0 && (
+                              <span className="text-[10px] mx-0.5" style={{ color: NAVY_MUTED }}>|</span>
+                            )}
+                            <a
+                              href={att.url}
+                              className="text-[10px] sm:text-[11px] font-bold hover:underline"
+                              style={{ color: NAVY }}
+                            >
+                              {att.name}
+                            </a>
+                          </span>
+                        ))}
                       </span>
                     )}
                   </div>
