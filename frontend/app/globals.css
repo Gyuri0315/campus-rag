@@ -1,21 +1,21 @@
 @import "tailwindcss";
 
 @font-face {
-  font-family: 'YUniverse';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_yuniverse@1.0/YUniverse-L.woff2') format('woff2');
-  font-weight: 300;
+  font-family: 'LaundryGothic';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2403-2@1.0/TTLaundryGothicR.woff2') format('woff2');
+  font-weight: 400;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'YUniverse';
-  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_yuniverse@1.0/YUniverse-B.woff2') format('woff2');
+  font-family: 'LaundryGothic';
+  src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2403-2@1.0/TTLaundryGothicB.woff2') format('woff2');
   font-weight: 700;
   font-display: swap;
 }
 
 :root {
-  --font-family-sans: 'YUniverse', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  --font-family-sans: 'LaundryGothic', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   --clr-navy: #25348B;
   --clr-navy-hover: #1c2870;
   --clr-text: #25348B;
@@ -26,11 +26,19 @@
 
 html,
 body {
-  font-family: 'YUniverse', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
-  font-weight: 700;
-  font-size: 17px;
-  letter-spacing: 0.04em;
+  font-family: 'LaundryGothic', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-weight: 400;
+  font-size: 15px;
+  letter-spacing: 0.03em;
   line-height: 1.75;
+}
+
+@media (min-width: 640px) {
+  html, body { font-size: 16px; }
+}
+
+@media (min-width: 1024px) {
+  html, body { font-size: 17px; }
 }
 
 /* ── 배경 그라데이션 (이미지 기준) ─────────────────── */

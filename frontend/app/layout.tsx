@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="h-full">
-      <body className="h-full antialiased" style={{ fontFamily: "'YUniverse', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" }}>
+      <body className="h-full antialiased" style={{ fontFamily: "'LaundryGothic', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif" }}>
         <QueryProvider>{children}</QueryProvider>
       </body>
     </html>
