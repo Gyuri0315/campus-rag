@@ -123,23 +123,6 @@ const IconExternalLink = () => (
     <line x1="6" y1="6" x2="11" y2="1" />
   </svg>
 );
-const IconDocument = () => (
-  <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
-    <path d="M3 1h6l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" />
-    <polyline points="9,1 9,4 12,4" />
-    <line x1="4" y1="7" x2="10" y2="7" />
-    <line x1="4" y1="9.5" x2="7.5" y2="9.5" />
-  </svg>
-);
-const IconChevron = ({ open }: { open: boolean }) => (
-  <svg
-    width="12" height="12" viewBox="0 0 12 12" fill="none"
-    stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-    style={{ transition: "transform 0.25s ease", transform: open ? "rotate(0deg)" : "rotate(180deg)" }}
-  >
-    <polyline points="2,8 6,4 10,8" />
-  </svg>
-);
 const IconCopy = () => (
   <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
     <rect x="4.5" y="4.5" width="8" height="8.5" rx="1.2" />
@@ -385,9 +368,15 @@ function SourceCard({ source }: { source: Source }) {
   );
 }
 
+/** ①②… for source ids 1–20; fallback to plain number string */
+function circledSourceIndex(id: number): string {
+  if (id >= 1 && id <= 20) return String.fromCodePoint(0x2460 + (id - 1));
+  return String(id);
+}
+
 // ── AI 답변 메시지 컴포넌트 ───────────────────────────────────────────────────
 function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () => void }) {
-  const [sourcesOpen, setSourcesOpen] = useState(true);
+  const [activeSourceIds, setActiveSourceIds] = useState<Set<number>>(() => new Set());
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(false);
   const [dislikeOpen, setDislikeOpen] = useState(false);
@@ -398,6 +387,22 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  const toggleSourceId = (id: number) => {
+    setActiveSourceIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const visibleSources =
+    hasSources && activeSourceIds.size > 0
+      ? msg.sources!.filter((s) => activeSourceIds.has(s.id))
+      : [];
+
+  const navyToggle = "#25348B";
 
   return (
     <div className="flex justify-start w-full">
@@ -426,59 +431,90 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
             </div>
           )}
 
-          {/* 출처 카운터 */}
-          {hasSources && (
-            <div className="flex items-center gap-1.5 pt-1" style={{ borderTop: "1px solid rgba(37,52,139,0.1)" }}>
-              <span style={{ color: "var(--clr-text-muted)" }}><IconDocument /></span>
-              {msg.sources!.map((src) => (
-                <span key={src.id} className="inline-flex items-center justify-center w-4 h-4 rounded text-[9px] font-bold" style={{ background: "rgba(37,52,139,0.1)", color: "var(--clr-navy)" }}>
-                  {src.id}
-                </span>
+          {/* 하단 바: 좌측 액션 · 우측 출처 토글 */}
+          <div
+            className="flex items-center justify-between gap-2 flex-wrap pt-2"
+            style={{ borderTop: "1px solid rgba(37,52,139,0.1)" }}
+          >
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleCopy}
+                title="답변 복사"
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+                style={{
+                  color: copied ? "var(--clr-navy)" : "var(--clr-text-muted)",
+                  background: copied ? "rgba(37,52,139,0.08)" : "transparent",
+                }}
+              >
+                {copied ? <IconCheckSm /> : <IconCopy />}
+              </button>
+              <button
+                onClick={() => setLiked((v) => !v)}
+                title="도움이 됐어요"
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+                style={{
+                  color: liked ? "var(--clr-navy)" : "var(--clr-text-muted)",
+                  background: liked ? "rgba(37,52,139,0.08)" : "transparent",
+                }}
+              >
+                <IconThumbUp />
+              </button>
+              <button
+                onClick={() => setDislikeOpen(true)}
+                title="도움이 안 됐어요"
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+                style={{ color: "var(--clr-text-muted)" }}
+              >
+                <IconThumbDown />
+              </button>
+            </div>
+
+            {hasSources && (
+              <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
+                {msg.sources!.map((src) => {
+                  const active = activeSourceIds.has(src.id);
+                  return (
+                    <button
+                      key={src.id}
+                      type="button"
+                      onClick={() => toggleSourceId(src.id)}
+                      aria-pressed={active}
+                      aria-label={active ? `출처 ${src.id} 숨기기` : `출처 ${src.id} 보기`}
+                      title={`출처 ${circledSourceIndex(src.id)}`}
+                      className="flex items-center justify-center min-w-[1.75rem] h-7 px-1.5 rounded-lg text-[13px] font-semibold leading-none transition-colors"
+                      style={{
+                        background: active ? navyToggle : "rgba(0,0,0,0.04)",
+                        color: active ? "#fff" : "var(--clr-text-muted)",
+                        border: active ? `1px solid ${navyToggle}` : "1px solid rgba(0,0,0,0.1)",
+                        boxShadow: active ? undefined : "inset 0 1px 0 rgba(255,255,255,0.65)",
+                      }}
+                    >
+                      {circledSourceIndex(src.id)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 인라인 출처 — 토글 시에만, 상단과 구분선으로 분리 */}
+          {visibleSources.length > 0 && (
+            <div
+              className="flex flex-col gap-2 sm:gap-2.5 pt-1"
+              style={{ borderTop: "1px solid rgba(37,52,139,0.14)" }}
+            >
+              {visibleSources.map((src) => (
+                <SourceCard key={src.id} source={src} />
               ))}
-              <span className="text-[10px] sm:text-[11px]" style={{ color: "var(--clr-text-muted)" }}>
-                {msg.sources!.length}건
-              </span>
+              <div
+                className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg text-[9px] sm:text-[10px] leading-relaxed"
+                style={{ background: "rgba(37,52,139,0.06)", color: "var(--clr-text-muted)" }}
+              >
+                <span className="flex-shrink-0 mt-px">ⓘ</span>
+                <span>답변은 AI가 작성했으며, 제공된 문서를 바탕으로 작성되었습니다. 정확한 내용은 원문을 확인해주세요.</span>
+              </div>
             </div>
           )}
-
-          {/* 액션 버튼 */}
-          <div className="flex items-center gap-1" style={{ borderTop: "1px solid rgba(37,52,139,0.07)", paddingTop: "8px" }}>
-            {/* 복사 버튼 */}
-            <button
-              onClick={handleCopy}
-              title="답변 복사"
-              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
-              style={{
-                color: copied ? "var(--clr-navy)" : "var(--clr-text-muted)",
-                background: copied ? "rgba(37,52,139,0.08)" : "transparent",
-              }}
-            >
-              {copied ? <IconCheckSm /> : <IconCopy />}
-            </button>
-
-            {/* 좋아요 버튼 */}
-            <button
-              onClick={() => setLiked((v) => !v)}
-              title="도움이 됐어요"
-              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
-              style={{
-                color: liked ? "var(--clr-navy)" : "var(--clr-text-muted)",
-                background: liked ? "rgba(37,52,139,0.08)" : "transparent",
-              }}
-            >
-              <IconThumbUp />
-            </button>
-
-            {/* 싫어요 버튼 */}
-            <button
-              onClick={() => setDislikeOpen(true)}
-              title="도움이 안 됐어요"
-              className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
-              style={{ color: "var(--clr-text-muted)" }}
-            >
-              <IconThumbDown />
-            </button>
-          </div>
         </div>
 
         {/* 싫어요 피드백 모달 */}
@@ -487,47 +523,6 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
             onClose={() => setDislikeOpen(false)}
             onSubmit={onFeedback}
           />
-        )}
-
-        {/* 전체 토글 버튼 */}
-        {hasSources && (
-          <div className="flex justify-center w-full py-0.5">
-            <button
-              onClick={() => setSourcesOpen((v) => !v)}
-              className="flex items-center justify-center w-7 h-7 rounded-full transition-colors hover:bg-white/60"
-              style={{
-                background: "rgba(255,255,255,0.4)",
-                border: "1px solid rgba(255,255,255,0.7)",
-                color: "var(--clr-text-muted)",
-              }}
-              aria-label={sourcesOpen ? "출처 접기" : "출처 펼치기"}
-            >
-              <IconChevron open={sourcesOpen} />
-            </button>
-          </div>
-        )}
-
-        {/* 출처 카드 + 면책 문구 — 접힘 영역 */}
-        {hasSources && (
-          <div
-            className="w-full"
-            style={{ display: "grid", gridTemplateRows: sourcesOpen ? "1fr" : "0fr", transition: "grid-template-rows 0.28s ease" }}
-          >
-            <div className="overflow-hidden">
-              <div className="flex flex-col gap-2 sm:gap-2.5">
-                {msg.sources!.map((src) => (
-                  <SourceCard key={src.id} source={src} />
-                ))}
-                <div
-                  className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg text-[9px] sm:text-[10px] leading-relaxed"
-                  style={{ background: "rgba(37,52,139,0.06)", color: "var(--clr-text-muted)" }}
-                >
-                  <span className="flex-shrink-0 mt-px">ⓘ</span>
-                  <span>답변은 AI가 작성했으며, 제공된 문서를 바탕으로 작성되었습니다. 정확한 내용은 원문을 확인해주세요.</span>
-                </div>
-              </div>
-            </div>
-          </div>
         )}
 
       </div>
