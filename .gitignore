@@ -1,8 +1,13 @@
 output/
 preprocessed/
+vectorized/
+FILES/
 venv/
 __pycache__/
+supabase/
 *.log
 state.json
 inspect_site.py
 nav_output.txt
+.env
+.env.example
