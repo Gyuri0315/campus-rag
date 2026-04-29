@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
@@ -15,10 +15,12 @@ interface Source {
   id: number;
   title: string;
   category: string;
-  date: string;
-  excerpt: string;
+  /** e.g. "학과 홈페이지 · 공지사항" — falls back to 학과 홈페이지 · {category} */
+  chipMeta?: string;
+  /** Header chip: WEB | PDF | HWP — inferred from attachments when omitted */
+  formatChip?: "WEB" | "PDF" | "HWP";
   quote: string;
-  quoteSource: string;
+  quoteSource?: string;
   url: string;
   attachments: Attachment[];
 }
@@ -114,13 +116,6 @@ const IconUser = () => (
   <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.8">
     <circle cx="7" cy="4.5" r="2.5" />
     <path d="M2 12.5c0-2.76 2.24-5 5-5s5 2.24 5 5" />
-  </svg>
-);
-const IconExternalLink = () => (
-  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <path d="M5 2H2a1 1 0 00-1 1v7a1 1 0 001 1h7a1 1 0 001-1V7" />
-    <polyline points="8,1 11,1 11,4" />
-    <line x1="6" y1="6" x2="11" y2="1" />
   </svg>
 );
 const IconCopy = () => (
@@ -273,105 +268,126 @@ function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSu
   );
 }
 
-// ── 출처 카드 컴포넌트 ────────────────────────────────────────────────────────
-function SourceCard({ source }: { source: Source }) {
-  return (
-    <div
-      className="rounded-xl overflow-hidden"
-      style={{ background: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.82)" }}
-    >
-      {/* 헤더 행 */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 px-3 py-2.5 sm:px-3.5">
-        {/* 번호 뱃지 + 제목 */}
-        <div className="flex items-center gap-1.5 min-w-0 flex-1 basis-full sm:basis-auto">
-          <span
-            className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-white"
-            style={{ background: "var(--clr-navy)" }}
-          >
-            {source.id}
-          </span>
-          <span className="text-xs sm:text-[13px] font-bold leading-snug truncate" style={{ color: "var(--clr-navy)" }}>
-            {source.title}
-          </span>
-        </div>
-
-        {/* 날짜 + 첨부 + 원문 보기 */}
-        <div className="flex items-center gap-1.5 ml-auto flex-shrink-0 flex-wrap">
-          <span className="text-[10px] sm:text-[11px]" style={{ color: "var(--clr-text-muted)" }}>
-            {source.date}
-          </span>
-          {source.attachments && source.attachments.length > 0 && (
-            <div className="flex items-center gap-0.5" style={{ color: "var(--clr-navy)" }}>
-              <IconDownload />
-              {source.attachments.map((att, i) => (
-                <span key={att.name} className="flex items-center">
-                  {i > 0 && (
-                    <span className="text-[10px] mx-0.5" style={{ color: "var(--clr-text-muted)" }}>|</span>
-                  )}
-                  <a href={att.url} className="text-[10px] sm:text-[11px] font-bold hover:underline" style={{ color: "var(--clr-navy)" }}>
-                    {att.name}
-                  </a>
-                </span>
-              ))}
-            </div>
-          )}
-          <a
-            href={source.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-0.5 text-[11px] sm:text-xs font-semibold hover:opacity-70 transition-opacity"
-            style={{ color: "var(--clr-navy)" }}
-          >
-            <IconExternalLink />
-            <span>원문 보기</span>
-          </a>
-        </div>
-      </div>
-
-      {/* 본문 — 항상 표시 */}
-      <div className="flex flex-col gap-2 px-3 pb-3 sm:px-3.5 sm:pb-3.5">
-        <div style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }} />
-
-        {/* 발췌문 */}
-        <p className="text-[11px] sm:text-xs leading-relaxed" style={{ color: "var(--clr-text)" }}>
-          {source.excerpt}
-        </p>
-
-        {/* 인용 박스 */}
-        {source.quote && (
-          <div
-            className="rounded-lg flex overflow-hidden"
-            style={{ background: "#fafaf8", border: "1px solid rgba(0,0,0,0.08)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.8)" }}
-          >
-            <div
-              className="flex-shrink-0 w-8 sm:w-9 flex flex-col gap-[3px] justify-center px-1.5 py-2.5"
-              style={{ background: "#f0f0ed", borderRight: "1px solid rgba(0,0,0,0.06)" }}
-            >
-              {[80, 60, 90, 50, 75, 55, 85, 45, 70].map((w, i) => (
-                <div key={i} className="rounded-full" style={{ height: "2px", width: `${w}%`, background: i === 2 || i === 3 || i === 4 ? "rgba(255,200,0,0.55)" : "rgba(0,0,0,0.12)" }} />
-              ))}
-            </div>
-            <div className="flex-1 flex flex-col gap-1.5 py-2.5 pr-2.5 pl-2 min-w-0">
-              <p className="text-[10px] sm:text-[11px] leading-[1.8]" style={{ color: "#2a2a2a" }}>
-                <mark style={{ background: "rgba(255,235,59,0.45)", color: "inherit", padding: "0.05em 0.15em", borderRadius: "2px", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone" } as React.CSSProperties}>
-                  {source.quote}
-                </mark>
-              </p>
-              <p className="text-[9px] sm:text-[10px] text-right" style={{ color: "#888", fontStyle: "italic" }}>
-                — {source.quoteSource}
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
+const SOURCE_CARD_NAVY = "#25348B";
 
 /** ①②… for source ids 1–20; fallback to plain number string */
 function circledSourceIndex(id: number): string {
   if (id >= 1 && id <= 20) return String.fromCodePoint(0x2460 + (id - 1));
   return String(id);
+}
+
+function chipMetaFromSource(source: Source): string {
+  return source.chipMeta ?? `학과 홈페이지 · ${source.category}`;
+}
+
+function findAttachment(source: Source, needle: "PDF" | "HWP") {
+  return source.attachments?.find((a) => a.name.toUpperCase().includes(needle));
+}
+
+// ── 출처 카드 컴포넌트 ────────────────────────────────────────────────────────
+function SourceCard({ source }: { source: Source }) {
+  const circled = circledSourceIndex(source.id);
+  const chip1 = chipMetaFromSource(source);
+  const pdfAtt = findAttachment(source, "PDF");
+  const hwpAtt = findAttachment(source, "HWP");
+
+  const chipClass =
+    "inline-flex items-center max-w-full rounded-full px-2.5 py-1 text-[10px] sm:text-[11px] font-medium leading-tight truncate";
+  const chipStyle: CSSProperties = {
+    background: "rgba(0,0,0,0.045)",
+    border: "1px solid rgba(0,0,0,0.08)",
+    color: "var(--clr-text-muted)",
+  };
+  const formatChipAccentStyle: CSSProperties = {
+    ...chipStyle,
+    color: SOURCE_CARD_NAVY,
+    background: "rgba(37,52,139,0.06)",
+    borderColor: "rgba(37,52,139,0.14)",
+    textDecoration: "none",
+  };
+
+  return (
+    <div
+      className="rounded-xl overflow-hidden bg-white/95"
+      style={{
+        border: "1px solid rgba(37,52,139,0.12)",
+        boxShadow: "0 2px 14px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04)",
+      }}
+    >
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-3.5 pt-3.5 pb-2 sm:px-4 sm:pt-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="shrink-0 text-[15px] font-semibold tabular-nums leading-none" style={{ color: SOURCE_CARD_NAVY }}>
+            {circled}
+          </span>
+          <span className={chipClass} style={chipStyle} title={chip1}>
+            {chip1}
+          </span>
+          {pdfAtt && (
+            <a
+              href={pdfAtt.url}
+              download
+              className={`${chipClass} cursor-pointer transition-opacity hover:opacity-85`}
+              style={formatChipAccentStyle}
+              aria-label="PDF 파일 다운로드"
+            >
+              PDF ↓
+            </a>
+          )}
+          {hwpAtt && (
+            <a
+              href={hwpAtt.url}
+              download
+              className={`${chipClass} cursor-pointer transition-opacity hover:opacity-85`}
+              style={formatChipAccentStyle}
+              aria-label="HWP 파일 다운로드"
+            >
+              HWP ↓
+            </a>
+          )}
+          {!pdfAtt && !hwpAtt && (
+            <span className={chipClass} style={formatChipAccentStyle}>
+              WEB
+            </span>
+          )}
+        </div>
+        <a
+          href={source.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 text-[11px] sm:text-xs font-semibold transition-opacity hover:opacity-75"
+          style={{ color: SOURCE_CARD_NAVY }}
+        >
+          원문 보기 ↗
+        </a>
+      </div>
+
+      {/* Body */}
+      <div className="px-3.5 pb-3 sm:px-4 sm:pb-3.5">
+        <h3 className="mb-2.5 text-sm font-bold leading-snug sm:text-[15px]" style={{ color: "var(--clr-text)" }}>
+          {source.title}
+        </h3>
+        {source.quote && (
+          <blockquote
+            className="rounded-r-md border-l-[3px] py-2.5 pl-3 pr-2.5"
+            style={{
+              borderColor: SOURCE_CARD_NAVY,
+              background: "rgba(37,52,139,0.04)",
+            }}
+          >
+            <p className="text-[11px] sm:text-sm leading-relaxed" style={{ color: "#334155" }}>
+              {source.quote}
+            </p>
+            {source.quoteSource && (
+              <p className="mt-2.5 text-[10px] sm:text-[11px] leading-snug not-italic" style={{ color: "var(--clr-text-muted)" }}>
+                — {source.quoteSource}
+              </p>
+            )}
+          </blockquote>
+        )}
+      </div>
+    </div>
+  );
 }
 
 // ── AI 답변 메시지 컴포넌트 ───────────────────────────────────────────────────
@@ -433,8 +449,7 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
 
           {/* 하단 바: 좌측 액션 · 우측 출처 토글 */}
           <div
-            className="flex items-center justify-between gap-2 flex-wrap pt-2"
-            style={{ borderTop: "1px solid rgba(37,52,139,0.1)" }}
+            className="flex items-center justify-between gap-2 flex-wrap -mt-1 pt-0"
           >
             <div className="flex items-center gap-1">
               <button
@@ -499,20 +514,10 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
 
           {/* 인라인 출처 — 토글 시에만, 상단과 구분선으로 분리 */}
           {visibleSources.length > 0 && (
-            <div
-              className="flex flex-col gap-2 sm:gap-2.5 pt-1"
-              style={{ borderTop: "1px solid rgba(37,52,139,0.14)" }}
-            >
+            <div className="flex flex-col gap-2 sm:gap-2.5 pt-1">
               {visibleSources.map((src) => (
                 <SourceCard key={src.id} source={src} />
               ))}
-              <div
-                className="flex items-start gap-1.5 px-2.5 py-2 rounded-lg text-[9px] sm:text-[10px] leading-relaxed"
-                style={{ background: "rgba(37,52,139,0.06)", color: "var(--clr-text-muted)" }}
-              >
-                <span className="flex-shrink-0 mt-px">ⓘ</span>
-                <span>답변은 AI가 작성했으며, 제공된 문서를 바탕으로 작성되었습니다. 정확한 내용은 원문을 확인해주세요.</span>
-              </div>
             </div>
           )}
         </div>
