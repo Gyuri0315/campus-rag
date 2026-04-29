@@ -33,6 +33,10 @@ SUPPORTED_EXTS = {
 }
 DEFAULT_CHUNK_SIZE = 900
 DEFAULT_CHUNK_OVERLAP = 120
+DEFAULT_PDF_OCR_MODE = "auto"
+DEFAULT_OCR_LANGUAGE = "kor+eng"
+DEFAULT_OCR_DPI = 200
+MIN_USEFUL_PDF_TEXT_CHARS = 80
 
 
 def normalize_text(text: str) -> str:
@@ -41,6 +45,23 @@ def normalize_text(text: str) -> str:
     text = text.replace("\u00a0", " ")
     text = " ".join(text.split())
     return text.strip()
+
+
+def is_likely_broken_korean_text(text: str) -> bool:
+    normalized = normalize_text(text)
+    if len(normalized) < MIN_USEFUL_PDF_TEXT_CHARS:
+        return False
+    letters = re.findall(r"[A-Za-z\uac00-\ud7a3\u4e00-\u9fff]", normalized)
+    if not letters:
+        return False
+    hangul_count = len(re.findall(r"[\uac00-\ud7a3]", normalized))
+    cjk_count = len(re.findall(r"[\u4e00-\u9fff]", normalized))
+    replacement_count = normalized.count("\ufffd") + normalized.count("?")
+    return (
+        (cjk_count / len(letters) >= 0.15 and hangul_count / len(letters) <= 0.10)
+        or replacement_count / max(1, len(normalized)) >= 0.08
+        or normalized.count("??") >= 8
+    )
 
 
 def rel_project_path(path: Path, root: Path) -> str:
@@ -94,7 +115,7 @@ def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[st
     return index
 
 
-def extract_pdf_blocks(path: Path) -> list[dict]:
+def extract_pdf_text_blocks(path: Path) -> list[dict]:
     try:
         import fitz  # type: ignore
     except Exception as exc:
@@ -208,6 +229,84 @@ def extract_pdf_blocks(path: Path) -> list[dict]:
     return blocks
 
 
+def extract_pdf_ocr_blocks(
+    path: Path,
+    ocr_language: str = DEFAULT_OCR_LANGUAGE,
+    ocr_dpi: int = DEFAULT_OCR_DPI,
+) -> list[dict]:
+    try:
+        import fitz  # type: ignore
+    except Exception as exc:
+        raise RuntimeError(f"PDF parser import failed (PyMuPDF/fitz required): {exc}") from exc
+
+    tesseract = shutil.which("tesseract")
+    if not tesseract:
+        log.warning("[OCR-SKIP] tesseract command not found: %s", path)
+        return []
+
+    blocks: list[dict] = []
+    doc = fitz.open(str(path))
+    temp_dir = Path(tempfile.mkdtemp(prefix="campus_rag_ocr_"))
+    try:
+        zoom = max(72, ocr_dpi) / 72
+        matrix = fitz.Matrix(zoom, zoom)
+        for page_num, page in enumerate(doc, start=1):
+            image_path = temp_dir / f"page-{page_num:04d}.png"
+            page.get_pixmap(matrix=matrix, alpha=False).save(str(image_path))
+            proc = subprocess.run(
+                [tesseract, str(image_path), "stdout", "-l", ocr_language, "--psm", "6"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="ignore",
+                check=False,
+            )
+            if proc.returncode != 0:
+                err = normalize_text(proc.stderr) or "unknown error"
+                log.warning("[OCR-FAIL] %s page %d (%s)", path, page_num, err)
+                continue
+            text = normalize_text(proc.stdout)
+            if text:
+                blocks.append(
+                    {
+                        "type": "ocr_paragraph",
+                        "style": "Tesseract",
+                        "page": page_num,
+                        "text": text,
+                    }
+                )
+    finally:
+        doc.close()
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    return blocks
+
+
+def extract_pdf_blocks(
+    path: Path,
+    ocr_mode: str = DEFAULT_PDF_OCR_MODE,
+    ocr_language: str = DEFAULT_OCR_LANGUAGE,
+    ocr_dpi: int = DEFAULT_OCR_DPI,
+) -> list[dict]:
+    blocks = extract_pdf_text_blocks(path)
+    text = "\n".join(normalize_text(b.get("text", "")) for b in blocks)
+    needs_ocr = (
+        ocr_mode == "always"
+        or (
+            ocr_mode == "auto"
+            and (
+                len(normalize_text(text)) < MIN_USEFUL_PDF_TEXT_CHARS
+                or is_likely_broken_korean_text(text)
+            )
+        )
+    )
+    if not needs_ocr:
+        return blocks
+    reason = "empty/short text" if len(normalize_text(text)) < MIN_USEFUL_PDF_TEXT_CHARS else "broken text"
+    log.info("[OCR] %s (%s)", path, reason)
+    ocr_blocks = extract_pdf_ocr_blocks(path, ocr_language=ocr_language, ocr_dpi=ocr_dpi)
+    return ocr_blocks or blocks
+
+
 def extract_docx_like_blocks(path: Path) -> list[dict]:
     suffix = path.suffix.lower()
     work_path = path
@@ -298,6 +397,164 @@ def extract_txt_blocks(path: Path) -> list[dict]:
     return blocks
 
 
+def extract_html_blocks(path: Path) -> list[dict]:
+    try:
+        from bs4 import BeautifulSoup
+        from bs4.element import Tag
+    except Exception as exc:
+        raise RuntimeError(f"HTML parser import failed (beautifulsoup4 required): {exc}") from exc
+
+    html = path.read_text(encoding="utf-8", errors="ignore")
+    soup = BeautifulSoup(html, "html.parser")
+
+    for tag in soup(["script", "style", "noscript", "svg", "canvas", "iframe", "form"]):
+        tag.decompose()
+
+    def attr_text(tag: Tag) -> str:
+        attrs: list[str] = []
+        tag_id = tag.get("id")
+        if tag_id:
+            attrs.append(str(tag_id))
+        classes = tag.get("class") or []
+        attrs.extend(str(cls) for cls in classes)
+        return " ".join(attrs).lower()
+
+    def is_noise(tag: Tag) -> bool:
+        if tag.name in {"nav", "header", "footer", "aside"}:
+            return True
+        attrs = attr_text(tag)
+        noise_keywords = (
+            "nav",
+            "gnb",
+            "lnb",
+            "snb",
+            "menu",
+            "header",
+            "footer",
+            "breadcrumb",
+            "quick",
+            "search",
+            "banner",
+            "popup",
+            "comment",
+            "reply",
+            "pagination",
+            "print",
+            "share",
+            "zoom",
+            "btn",
+            "button",
+        )
+        return any(keyword in attrs for keyword in noise_keywords)
+
+    def text_without_tables(tag: Tag) -> str:
+        parts: list[str] = []
+        for child in tag.children:
+            if isinstance(child, str):
+                parts.append(child)
+                continue
+            if not isinstance(child, Tag):
+                continue
+            if child.name == "table":
+                continue
+            parts.append(text_without_tables(child))
+        return normalize_text(" ".join(parts))
+
+    def element_score(tag: Tag) -> int:
+        text = normalize_text(tag.get_text(" ", strip=True))
+        if len(text) < 80:
+            return -1
+        attrs = attr_text(tag)
+        score = len(text)
+        if any(keyword in attrs for keyword in ("content", "cont", "board", "view", "article", "body", "main", "read", "detail")):
+            score += 400
+        if any(keyword in attrs for keyword in ("nav", "menu", "header", "footer", "banner", "search", "quick")):
+            score -= 300
+        return score
+
+    body = soup.body or soup
+    candidates: list[Tag] = [body]
+    for tag in body.find_all(["main", "article", "section", "div", "td"]):
+        if is_noise(tag):
+            continue
+        candidates.append(tag)
+
+    root = max(candidates, key=element_score)
+
+    blocks: list[dict] = []
+    seen_texts: set[str] = set()
+    ignored_texts = {
+        "확대",
+        "축소",
+        "프린트",
+        "인쇄",
+        "공유",
+        "목록",
+        "다음글",
+        "이전글",
+    }
+
+    def append_block(block_type: str, style: str, text: str) -> None:
+        text = normalize_text(text)
+        if not text or text in seen_texts or text in ignored_texts:
+            return
+        seen_texts.add(text)
+        blocks.append({"type": block_type, "style": style, "text": text})
+
+    title = normalize_text((soup.title.string if soup.title and soup.title.string else ""))
+    if title:
+        append_block("heading", "HTMLTitle", title)
+
+    def table_to_text(table_tag: Tag) -> str:
+        rows: list[str] = []
+        for tr in table_tag.find_all("tr"):
+            cells: list[str] = []
+            for cell in tr.find_all(["th", "td"], recursive=False):
+                cell_text = text_without_tables(cell)
+                if cell_text:
+                    cells.append(cell_text)
+            if cells:
+                rows.append(" | ".join(cells))
+        return "\n".join(rows)
+
+    def walk(tag: Tag) -> None:
+        if is_noise(tag):
+            return
+
+        if tag.name == "table":
+            table_text = table_to_text(tag)
+            if table_text:
+                append_block("table", "HTMLTable", table_text)
+            return
+
+        if tag.name in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            append_block("heading", tag.name.upper(), text_without_tables(tag))
+        elif tag.name == "p":
+            append_block("paragraph", "HTMLParagraph", text_without_tables(tag))
+        elif tag.name == "li":
+            append_block("list_item", "HTMLListItem", text_without_tables(tag))
+        elif tag.name in {"blockquote", "pre"}:
+            append_block("paragraph", tag.name.upper(), text_without_tables(tag))
+
+        for child in tag.children:
+            if isinstance(child, Tag):
+                walk(child)
+
+    walk(root)
+
+    if blocks:
+        return blocks
+
+    fallback_lines = [
+        normalize_text(line)
+        for line in root.get_text("\n", strip=True).splitlines()
+        if normalize_text(line)
+    ]
+    for line in fallback_lines:
+        append_block("paragraph", "HTMLText", line)
+    return blocks
+
+
 def extract_hwpx_blocks(path: Path) -> list[dict]:
     blocks: list[dict] = []
     with zipfile.ZipFile(path) as zf:
@@ -327,6 +584,16 @@ def extract_hwpx_blocks(path: Path) -> list[dict]:
 
 
 def extract_hwp_blocks(path: Path) -> list[dict]:
+    def format_hwp_runtime_error(stderr: str) -> str:
+        err = stderr.strip() or "unknown error"
+        if "No module named 'six'" in err or 'No module named "six"' in err:
+            return (
+                "pyhwp runtime dependency 'six' is missing in the interpreter used by "
+                "hwp5txt/hwp5html. Install it in the same environment, for example: "
+                f'"{sys.executable}" -m pip install six'
+            )
+        return err
+
     def resolve_hwp_command(command_name: str) -> str | None:
         resolved = shutil.which(command_name)
         if resolved:
@@ -368,6 +635,7 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
                 check=False,
             )
             if proc.returncode != 0:
+                log.debug("hwp5html failed for %s: %s", path, format_hwp_runtime_error(proc.stderr))
                 return []
 
             if not html_file.exists():
@@ -480,8 +748,7 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
         check=False,
     )
     if proc.returncode != 0:
-        err = proc.stderr.strip() or "unknown error"
-        raise RuntimeError(f"hwp5txt failed: {err}")
+        raise RuntimeError(f"hwp5txt failed: {format_hwp_runtime_error(proc.stderr)}")
 
     lines = [normalize_text(line) for line in proc.stdout.splitlines()]
     lines = [line for line in lines if line]
@@ -499,21 +766,58 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
     return blocks
 
 
-def extract_blocks(path: Path) -> list[dict]:
+def extract_blocks(
+    path: Path,
+    pdf_ocr_mode: str = DEFAULT_PDF_OCR_MODE,
+    ocr_language: str = DEFAULT_OCR_LANGUAGE,
+    ocr_dpi: int = DEFAULT_OCR_DPI,
+) -> list[dict]:
     ext = path.suffix.lower()
     if ext == ".pdf":
-        return extract_pdf_blocks(path)
+        return extract_pdf_blocks(
+            path,
+            ocr_mode=pdf_ocr_mode,
+            ocr_language=ocr_language,
+            ocr_dpi=ocr_dpi,
+        )
     if ext in {".docx", ".doc"}:
         return extract_docx_like_blocks(path)
+    if ext in {".html", ".htm"}:
+        return extract_html_blocks(path)
     if ext == ".csv":
         return extract_csv_blocks(path)
     if ext == ".txt":
         return extract_txt_blocks(path)
     if ext == ".hwpx":
-        return extract_hwpx_blocks(path)
+        return extract_hwpx_blocks(path)    
     if ext == ".hwp":
         return extract_hwp_blocks(path)
     raise ValueError(f"unsupported extension: {ext}")
+
+
+def build_metadata_fallback_blocks(
+    input_file: Path,
+    rel: str,
+    rel_in_input: str,
+    provenance: dict,
+) -> list[dict]:
+    fields = [
+        ("문서 파일명", input_file.name),
+        ("문서 경로", rel_in_input),
+        ("문서 제목", provenance.get("doc_title", "")),
+        ("게시글 URL", provenance.get("doc_url", "")),
+        ("카테고리", provenance.get("category", "")),
+        ("하위 카테고리", provenance.get("subcategory", "")),
+        ("첨부파일명", provenance.get("attachment_name", "")),
+        ("첨부파일 URL", provenance.get("attachment_url", "")),
+        ("출처 페이지", provenance.get("source_page_url", "")),
+        ("출처 사이트", provenance.get("source_site", "")),
+        ("저장 경로", rel),
+    ]
+    lines = [f"{label}: {value}" for label, value in fields if normalize_text(str(value))]
+    if not lines:
+        return []
+    return [{"type": "metadata_fallback", "style": "Metadata", "text": "\n".join(lines)}]
 
 
 def chunk_blocks(
@@ -577,21 +881,37 @@ def save_preprocessed_file(
     attachment_index: dict[str, dict],
     chunk_size: int,
     chunk_overlap: int,
+    pdf_ocr_mode: str,
+    ocr_language: str,
+    ocr_dpi: int,
 ) -> tuple[bool, str]:
     rel = rel_project_path(input_file, project_root)
     ext = input_file.suffix.lower()
     if ext not in SUPPORTED_EXTS:
         return False, "unsupported"
 
-    blocks = extract_blocks(input_file)
+    rel_in_input = rel_project_path(input_file, input_root)
+    provenance = attachment_index.get(rel, {})
+    blocks = extract_blocks(
+        input_file,
+        pdf_ocr_mode=pdf_ocr_mode,
+        ocr_language=ocr_language,
+        ocr_dpi=ocr_dpi,
+    )
     blocks = [b for b in blocks if normalize_text(b.get("text", ""))]
     chunks = chunk_blocks(blocks, chunk_size=chunk_size, overlap=chunk_overlap)
+    used_metadata_fallback = False
+    if not chunks:
+        fallback_blocks = build_metadata_fallback_blocks(input_file, rel, rel_in_input, provenance)
+        fallback_chunks = chunk_blocks(fallback_blocks, chunk_size=chunk_size, overlap=0)
+        if fallback_chunks:
+            blocks = fallback_blocks
+            chunks = fallback_chunks
+            used_metadata_fallback = True
 
     out_path = ensure_output_path(input_file, input_root, output_root)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    rel_in_input = rel_project_path(input_file, input_root)
-    provenance = attachment_index.get(rel, {})
     result = {
         "slug": make_slug(rel),
         "source_file": input_file.name,
@@ -602,6 +922,7 @@ def save_preprocessed_file(
         "num_blocks": len(blocks),
         "total_chars": sum(len(b["text"]) for b in blocks),
         "num_chunks": len(chunks),
+        "used_metadata_fallback": used_metadata_fallback,
         "provenance": provenance,
         "blocks": blocks,
         "chunks": chunks,
@@ -629,6 +950,9 @@ def run_batch(
     dry_run: bool,
     chunk_size: int,
     chunk_overlap: int,
+    pdf_ocr_mode: str,
+    ocr_language: str,
+    ocr_dpi: int,
 ) -> None:
     attachment_index = load_attachment_index(output_json_root, project_root)
     files = iter_target_files(input_root)
@@ -655,6 +979,9 @@ def run_batch(
                 attachment_index=attachment_index,
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
+                pdf_ocr_mode=pdf_ocr_mode,
+                ocr_language=ocr_language,
+                ocr_dpi=ocr_dpi,
             )
             if saved:
                 ok += 1
@@ -674,24 +1001,24 @@ def run_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="output/files 첨부파일을 RAG용 전처리 JSON으로 변환"
+        description="FILES/output/files 첨부파일을 RAG용 전처리 JSON으로 변환"
     )
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=Path("output/files"),
+        default=Path("FILES/output/files"),
         help="원본 첨부파일 루트 경로",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("preprocessed"),
+        default=Path("FILES/preprocessed"),
         help="전처리 JSON 출력 루트 경로",
     )
     parser.add_argument(
         "--output-json-root",
         type=Path,
-        default=Path("output/json"),
+        default=Path("FILES/output/json"),
         help="크롤링 본문 JSON 루트 (첨부 provenance 조인용)",
     )
     parser.add_argument(
@@ -711,6 +1038,23 @@ def main() -> None:
         default=DEFAULT_CHUNK_OVERLAP,
         help="연속 청크 간 문자 오버랩 길이",
     )
+    parser.add_argument(
+        "--pdf-ocr",
+        choices=["auto", "never", "always"],
+        default=DEFAULT_PDF_OCR_MODE,
+        help="PDF OCR fallback 사용 방식",
+    )
+    parser.add_argument(
+        "--ocr-language",
+        default=DEFAULT_OCR_LANGUAGE,
+        help="Tesseract OCR 언어 설정",
+    )
+    parser.add_argument(
+        "--ocr-dpi",
+        type=int,
+        default=DEFAULT_OCR_DPI,
+        help="PDF 페이지를 OCR 이미지로 렌더링할 DPI",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -726,6 +1070,9 @@ def main() -> None:
         dry_run=args.dry_run,
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
+        pdf_ocr_mode=args.pdf_ocr,
+        ocr_language=args.ocr_language,
+        ocr_dpi=args.ocr_dpi,
     )
 
 
