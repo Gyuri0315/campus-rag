@@ -1,5 +1,6 @@
 output/
 preprocessed/
+vectorized/
 venv/
 __pycache__/
 *.log
