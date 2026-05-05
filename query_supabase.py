@@ -85,8 +85,15 @@ def search(question: str, model_name: str, top_k: int, min_similarity: float) ->
 def print_results(rows: list[dict[str, Any]]) -> None:
     for rank, row in enumerate(rows, start=1):
         metadata = row.get("metadata") or {}
-        title = metadata.get("doc_title") or metadata.get("source_file") or row["source_slug"]
-        url = metadata.get("doc_url") or metadata.get("source_page_url") or metadata.get("attachment_url") or ""
+        title = row.get("title") or metadata.get("doc_title") or metadata.get("source_file") or row["source_slug"]
+        url = (
+            row.get("url")
+            or row.get("parent_url")
+            or metadata.get("doc_url")
+            or metadata.get("source_page_url")
+            or metadata.get("attachment_url")
+            or ""
+        )
         content = " ".join(str(row["content"]).split())
         snippet = content[:300] + ("..." if len(content) > 300 else "")
 

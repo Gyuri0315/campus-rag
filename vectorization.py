@@ -27,12 +27,29 @@ import json
 import logging
 import math
 import re
+import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, Protocol
 
 log = logging.getLogger(__name__)
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+LOG_DIR = PROJECT_ROOT / "logs"
+LOG_FILE = LOG_DIR / "vectorization.log"
+
+
+def configure_logging() -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        ],
+    )
 
 # CLI 기본값: 입력/출력 경로와 임베딩 방식 설정.
 DEFAULT_INPUT_ROOT = Path("FILES/preprocessed")
@@ -444,10 +461,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
+    configure_logging()
 
     if args.batch_size <= 0:
         raise ValueError("--batch-size must be positive")

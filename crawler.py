@@ -16,9 +16,9 @@ https://ce.pknu.ac.kr/ce/1
   - 재실행 시 이미 수집한 게시글 이후부터만 크롤링 (신규 게시글만 수집)
   - 최초 실행은 INITIAL_MAX_PAGES 페이지까지만 수집
 
-자동 스케줄링:
-  - 매일 오전 09:00 자동 실행 (schedule 라이브러리)
-  - --once 옵션으로 1회 즉시 실행 가능
+실행:
+  - python crawler.py
+  - python crawler.py --once
 """
 
 import argparse
@@ -34,12 +34,14 @@ from pathlib import Path
 from urllib.parse import unquote, urljoin, urlparse
 
 import requests
-import schedule
 import urllib3
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+LOG_DIR = Path(__file__).resolve().parent / "logs"
+LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── 로깅 설정 ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -47,7 +49,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("crawler.log", encoding="utf-8"),
+        logging.FileHandler(LOG_DIR / "crawler.log", encoding="utf-8"),
     ],
 )
 log = logging.getLogger(__name__)
@@ -835,14 +837,6 @@ def run_crawl() -> None:
     log.info("=" * 60)
 
 
-# ─── 스케줄러 ─────────────────────────────────────────────────────────────────
-def run_scheduler() -> None:
-    log.info("스케줄러 시작: 매일 오전 09:00 자동 크롤링")
-    schedule.every().day.at("09:00").do(run_crawl)
-    run_crawl()          # 시작 즉시 1회 실행
-    while True:
-        schedule.run_pending()
-        time.sleep(30)
 
 
 # ─── 진입점 ───────────────────────────────────────────────────────────────────
@@ -866,7 +860,4 @@ if __name__ == "__main__":
         STATE_FILE.unlink()
         log.info("state.json 초기화 완료")
 
-    if args.once:
-        run_crawl()
-    else:
-        run_scheduler()
+    run_crawl()

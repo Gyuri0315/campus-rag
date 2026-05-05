@@ -22,6 +22,22 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+PROJECT_ROOT = Path(__file__).resolve().parent
+LOG_DIR = PROJECT_ROOT / "logs"
+LOG_FILE = LOG_DIR / "preprocessing.log"
+
+
+def configure_logging() -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+            logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        ],
+    )
+
 SUPPORTED_EXTS = {
     ".pdf",
     ".docx",
@@ -1057,10 +1073,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
+    configure_logging()
     project_root = Path.cwd()
     run_batch(
         input_root=args.input_root,
