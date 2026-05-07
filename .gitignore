@@ -16,4 +16,6 @@ state.json
 inspect_site.py
 nav_output.txt
 .env
-.env.example
+
+# 크롤러 임시 파일
+.crawl_start.txt
