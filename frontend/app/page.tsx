@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import homeData from "@/data/routes/home.json";
 import { useQueryContext } from "./context/QueryContext";
 
@@ -84,6 +85,34 @@ export default function HomePage() {
             >
               {header.buttons[0]}
             </button>
+
+            {/*
+              Admin 진입 버튼.
+              TODO: 인증 도입 후 isAdmin 체크로 가드 — 일반 사용자에게는 미노출.
+              현재는 mock 단계라 항상 노출한다.
+
+              router.push 대신 next/link Link 사용 이유:
+              - hydration 완료 전에도 native <a> 클릭으로 동작 (intermittent 클릭 누락 해결)
+              - Cmd/Ctrl+Click·우클릭 새 탭, viewport 진입 시 자동 prefetch 등 표준 동작 확보
+            */}
+            <Link
+              href="/admin"
+              prefetch
+              className="
+                inline-flex items-center justify-center
+                px-3 sm:px-4 py-1 sm:py-1.5
+                rounded-full text-xs font-medium
+                transition-opacity hover:opacity-75
+              "
+              style={{
+                color: NAVY,
+                border: `1.5px solid ${NAVY}`,
+                background: "transparent",
+                textDecoration: "none",
+              }}
+            >
+              Admin
+            </Link>
 
             <button
               className="
@@ -170,13 +199,14 @@ export default function HomePage() {
           style={{ color: NAVY_MUTED }}
         >
           <span>{footer}</span>
-          <a
+          <Link
             href="/docs"
+            prefetch
             className="underline underline-offset-2 hover:opacity-70 transition-opacity"
             style={{ color: NAVY_MUTED }}
           >
             수집 문서 현황
-          </a>
+          </Link>
         </footer>
       </div>
     </div>

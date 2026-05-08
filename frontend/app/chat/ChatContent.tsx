@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
 import { askBackend } from "@/app/lib/api";
@@ -895,10 +896,11 @@ export default function ChatContent() {
               className="flex-shrink-0 pt-2 mt-1 flex flex-col gap-0.5"
               style={{ borderTop: "1px solid rgba(255,255,255,0.5)" }}
             >
-              <button
-                onClick={() => router.push("/docs")}
+              <Link
+                href="/docs"
+                prefetch
                 className="w-full flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors hover:bg-white/50"
-                style={{ color: "var(--clr-text-muted)" }}
+                style={{ color: "var(--clr-text-muted)", textDecoration: "none" }}
               >
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6">
                   <path d="M3 1h6l3 3v9a1 1 0 01-1 1H3a1 1 0 01-1-1V2a1 1 0 011-1z" />
@@ -907,7 +909,7 @@ export default function ChatContent() {
                   <line x1="4" y1="9.5" x2="7.5" y2="9.5" />
                 </svg>
                 수집 문서 현황
-              </button>
+              </Link>
               <button
                 onMouseDown={(e) => e.stopPropagation()}
                 onClick={handleUserMenuToggle}
