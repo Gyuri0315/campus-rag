@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
+import { askBackend } from "@/app/lib/api";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 interface Attachment {
@@ -43,14 +44,6 @@ type ChatState = "idle" | "loading" | "success" | "error";
 // ── 고유 ID ───────────────────────────────────────────────────────────────────
 let _seq = 0;
 const uid = () => `${Date.now()}-${++_seq}`;
-
-// ── 더미 응답 ─────────────────────────────────────────────────────────────────
-const DUMMY_REPLY = chatData.chat.messages[1] as unknown as {
-  role: "assistant";
-  content: string;
-  attachments: Attachment[];
-  sources: Source[];
-};
 
 const { sidebar, chat: chatMeta } = chatData;
 
@@ -576,8 +569,8 @@ export default function ChatContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  // AI 응답 타이머 — 중복 실행 방지용
-  const aiTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // 진행 중인 AI 요청 — 새 요청이 시작되거나 unmount 되면 abort()
+  const aiAbortRef = useRef<AbortController | null>(null);
 
   // ── 반응형: mount 시 viewport 크기 감지 ────────────────────────
   useEffect(() => {
@@ -606,7 +599,7 @@ export default function ChatContent() {
       setPendingQuery("");
     }
     return () => {
-      if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+      if (aiAbortRef.current) aiAbortRef.current.abort();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -644,25 +637,42 @@ export default function ChatContent() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, chatState]);
 
-  // ── AI 응답 예약 (공통) ───────────────────────────────────────
-  // 이전에 예약된 타이머가 있으면 취소해 중복 AI 메시지를 방지한다.
-  const scheduleAIReply = () => {
-    if (aiTimerRef.current) clearTimeout(aiTimerRef.current);
+  // ── AI 응답 요청 (공통) ───────────────────────────────────────
+  // 진행 중인 요청이 있으면 abort 해 중복 AI 메시지를 방지한다.
+  const requestAIReply = async (question: string) => {
+    if (aiAbortRef.current) aiAbortRef.current.abort();
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
+
     setChatState("loading");
-    aiTimerRef.current = setTimeout(() => {
+    try {
+      const { answer, sources } = await askBackend(question, controller.signal);
+      if (controller.signal.aborted) return;
       setMessages((prev) => [
         ...prev,
-        { id: uid(), role: "assistant", content: DUMMY_REPLY.content, attachments: DUMMY_REPLY.attachments, sources: DUMMY_REPLY.sources },
+        {
+          id: uid(),
+          role: "assistant",
+          content: answer || "관련 정보를 찾을 수 없습니다.",
+          attachments: [],
+          sources,
+        },
       ]);
       setChatState("success");
-      aiTimerRef.current = null;
-    }, 1600);
+    } catch (err) {
+      // AbortError 는 사용자가 새 요청을 시작했거나 화면을 떠난 정상 흐름
+      if (controller.signal.aborted) return;
+      console.error("[chat] askBackend failed:", err);
+      setChatState("error");
+    } finally {
+      if (aiAbortRef.current === controller) aiAbortRef.current = null;
+    }
   };
 
   // ── 대화 시작 ─────────────────────────────────────────────────
   const startConversation = (q: string) => {
     setMessages([{ id: uid(), role: "user", content: q }]);
-    scheduleAIReply();
+    void requestAIReply(q);
   };
 
   // ── SEND_MESSAGE ──────────────────────────────────────────────
@@ -671,7 +681,7 @@ export default function ChatContent() {
     if (!q || chatState === "loading") return;
     setInputValue("");
     setMessages((prev) => [...prev, { id: uid(), role: "user", content: q }]);
-    scheduleAIReply();
+    void requestAIReply(q);
   };
 
   // ── NEW_CHAT ──────────────────────────────────────────────────

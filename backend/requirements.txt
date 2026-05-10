@@ -1,0 +1,17 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# Settings & validation
+pydantic==2.10.4
+pydantic-settings==2.7.1
+python-dotenv==1.0.1
+
+# Embedding (must match dimensions of rag_chunks.embedding column)
+sentence-transformers==3.3.1
+
+# LLM
+openai==1.58.1
+
+# Supabase SDK (RPC + auth)
+supabase==2.10.0
