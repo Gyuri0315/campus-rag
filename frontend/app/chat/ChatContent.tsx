@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
+import { displayNameOf, useAuth } from "@/app/context/AuthContext";
 import { askBackend } from "@/app/lib/api";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
@@ -533,6 +534,7 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
 export default function ChatContent() {
   const router = useRouter();
   const { pendingQuery, setPendingQuery } = useQueryContext();
+  const { user, loading: authLoading, signOut } = useAuth();
 
   const [history, setHistory] = useState<HistoryItem[]>(sidebar.history);
   const [activeId, setActiveId] = useState<string>("chat-001");
@@ -925,7 +927,9 @@ export default function ChatContent() {
                 >
                   <IconUser />
                 </div>
-                <span className="font-medium text-sm">Guest</span>
+                <span className="font-medium text-sm truncate min-w-0">
+                  {authLoading ? "" : user ? displayNameOf(user) : "Guest"}
+                </span>
               </button>
             </div>
           </div>
@@ -1001,34 +1005,92 @@ export default function ChatContent() {
               boxShadow: "0 -4px 24px rgba(0,0,0,0.10), 0 8px 28px rgba(0,0,0,0.10)",
             }}
           >
-            {/* 계정 레이블 */}
+            {/* 계정 헤더 — 로그인 시엔 이름/이메일, 비로그인 시엔 라벨만 */}
             <div
-              className="px-4 py-2.5 text-xs font-semibold"
+              className="px-4 py-2.5 flex flex-col gap-0.5"
               style={{
-                color: "var(--clr-text-muted)",
                 borderBottom: "1px solid rgba(0,0,0,0.06)",
               }}
             >
-              계정
+              <span
+                className="text-[10px] font-semibold uppercase tracking-wider"
+                style={{ color: "var(--clr-text-muted)" }}
+              >
+                계정
+              </span>
+              {user ? (
+                <>
+                  <span
+                    className="text-xs font-semibold truncate"
+                    style={{ color: "var(--clr-navy)" }}
+                  >
+                    {displayNameOf(user)}
+                  </span>
+                  {user.email && user.email !== displayNameOf(user) && (
+                    <span
+                      className="text-[11px] truncate"
+                      style={{ color: "var(--clr-text-muted)" }}
+                    >
+                      {user.email}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-[11px]" style={{ color: "var(--clr-text-muted)" }}>
+                  로그인하면 대화 기록이 저장됩니다
+                </span>
+              )}
             </div>
-            {/* 버튼 영역 */}
+
+            {/* 액션 영역 — 로그인/비로그인 분기 */}
             <div className="p-2 flex flex-col gap-1">
-              <button
-                className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-75"
-                style={{
-                  color: "var(--clr-navy)",
-                  border: "1.5px solid var(--clr-navy)",
-                  background: "transparent",
-                }}
-              >
-                Sign Up
-              </button>
-              <button
-                className="w-full px-3 py-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-80"
-                style={{ background: "var(--clr-navy)" }}
-              >
-                Login
-              </button>
+              {user ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setUserMenuOpen(false);
+                    setUserMenuPos(null);
+                    await signOut();
+                    router.refresh();
+                  }}
+                  className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-colors hover:bg-red-50"
+                  style={{ color: "#c53030", background: "transparent" }}
+                >
+                  로그아웃
+                </button>
+              ) : (
+                <>
+                  <Link
+                    href="/auth?mode=signup"
+                    prefetch={false}
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      setUserMenuPos(null);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-xs font-semibold transition-opacity hover:opacity-75 text-center"
+                    style={{
+                      color: "var(--clr-navy)",
+                      border: "1.5px solid var(--clr-navy)",
+                      background: "transparent",
+                      textDecoration: "none",
+                    }}
+                  >
+                    Sign Up
+                  </Link>
+                  <Link
+                    href="/auth?mode=signin"
+                    prefetch={false}
+                    onClick={() => {
+                      setUserMenuOpen(false);
+                      setUserMenuPos(null);
+                    }}
+                    className="w-full px-3 py-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-80 text-center"
+                    style={{ background: "var(--clr-navy)", textDecoration: "none" }}
+                  >
+                    Login
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </>

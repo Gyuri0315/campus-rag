@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import homeData from "@/data/routes/home.json";
 import { useQueryContext } from "./context/QueryContext";
+import AuthButtons from "./components/AuthButtons";
 
 const { header, hero, search, exampleTags, footer } = homeData.page;
 
@@ -73,19 +74,6 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Sign Up — 모바일(< sm)에서 숨김 */}
-            <button
-              className="
-                hidden sm:inline-flex
-                px-3 sm:px-4 py-1 sm:py-1.5
-                rounded-full text-xs font-medium
-                transition-opacity hover:opacity-75
-              "
-              style={{ color: NAVY, border: `1.5px solid ${NAVY}`, background: "transparent" }}
-            >
-              {header.buttons[0]}
-            </button>
-
             {/*
               Admin 진입 버튼.
               TODO: 인증 도입 후 isAdmin 체크로 가드 — 일반 사용자에게는 미노출.
@@ -114,16 +102,8 @@ export default function HomePage() {
               Admin
             </Link>
 
-            <button
-              className="
-                px-3 sm:px-5 py-1 sm:py-1.5
-                rounded-full text-xs font-semibold text-white
-                transition-opacity hover:opacity-80
-              "
-              style={{ background: NAVY }}
-            >
-              {header.buttons[1]}
-            </button>
+            {/* 로그인 상태에 따라 Sign Up/Login 또는 사용자 메뉴 렌더 */}
+            <AuthButtons />
           </div>
         </header>
 
