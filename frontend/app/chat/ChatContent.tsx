@@ -7,6 +7,15 @@ import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
 import { displayNameOf, useAuth } from "@/app/context/AuthContext";
 import { askBackend } from "@/app/lib/api";
+import {
+  createChat,
+  deleteChat,
+  fetchChatMessages,
+  insertChatMessage,
+  listChats,
+  parseStoredSources,
+  updateChatTitle,
+} from "@/app/lib/chatHistory";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 interface Attachment {
@@ -39,6 +48,23 @@ interface Message {
 interface HistoryItem {
   id: string;
   title: string;
+}
+
+const CHAT_TITLE_MAX_LEN = 80;
+
+function chatTitleFromQuestion(question: string): string {
+  const trimmed = question.trim().replace(/\s+/g, " ");
+  if (trimmed.length <= CHAT_TITLE_MAX_LEN) return trimmed;
+  return trimmed.slice(0, CHAT_TITLE_MAX_LEN) + "…";
+}
+
+/** persisted chat row id (uuid v4) */
+function isPersistedChatId(id: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+}
+
+function isMockHistoryId(id: string): boolean {
+  return id.startsWith("chat-");
 }
 
 type ChatState = "idle" | "loading" | "success" | "error";
@@ -537,7 +563,10 @@ export default function ChatContent() {
   const { user, loading: authLoading, signOut } = useAuth();
 
   const [history, setHistory] = useState<HistoryItem[]>(sidebar.history);
-  const [activeId, setActiveId] = useState<string>("chat-001");
+  const [activeId, setActiveId] = useState<string>(() => sidebar.history[0]?.id ?? "");
+  const persistChatIdRef = useRef<string | null>(null);
+  /** 두 번째 메시지가 첫 createChat 완료 전에 시작될 때 동일 채팅 행을 재사용 */
+  const pendingChatCreateRef = useRef<Promise<string> | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [chatState, setChatState] = useState<ChatState>("idle");
@@ -549,7 +578,7 @@ export default function ChatContent() {
 
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState<{ top: number; left: number } | null>(null);
-  const [chatTitle, setChatTitle] = useState("졸업요건 질문");
+  const [chatTitle, setChatTitle] = useState("새 채팅");
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -593,18 +622,51 @@ export default function ChatContent() {
     return () => window.removeEventListener("resize", update);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 최초 진입: Context에서 질문을 꺼내 대화 시작 ──────────────
-  // 소비 후 context를 비워 재방문 시 중복 실행을 막는다.
-  // cleanup으로 타이머를 취소해 StrictMode 이중 실행도 방지한다.
+  // ── 로그인 시 사이드바 목록을 DB에서, 비로그인 시 mock으로 ─────
   useEffect(() => {
-    if (pendingQuery) {
-      startConversation(pendingQuery);
-      setPendingQuery("");
+    if (authLoading) return;
+
+    if (!user) {
+      setHistory(sidebar.history);
+      setActiveId(sidebar.history[0]?.id ?? "");
+      persistChatIdRef.current = null;
+      pendingChatCreateRef.current = null;
+      return;
     }
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const rows = await listChats();
+        if (cancelled) return;
+        setHistory(rows.map((r) => ({ id: r.id, title: r.title })));
+        setActiveId("");
+        persistChatIdRef.current = null;
+        pendingChatCreateRef.current = null;
+      } catch (err) {
+        console.error("[chat] listChats failed:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, authLoading]);
+
+  // ── Context 질문 소비: 인증 준비 후 (cleanup 없음 — 빈 pending 시 재실행으로 abort 방지)
+  useEffect(() => {
+    if (authLoading) return;
+    const q = pendingQuery.trim();
+    if (!q) return;
+    setPendingQuery("");
+    startConversation(q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, pendingQuery]);
+
+  useEffect(() => {
     return () => {
       if (aiAbortRef.current) aiAbortRef.current.abort();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── 외부 클릭 / ESC → 컨텍스트 메뉴 + 사용자 메뉴 닫기 ───────
@@ -648,22 +710,63 @@ export default function ChatContent() {
     aiAbortRef.current = controller;
 
     setChatState("loading");
+
+    let persistedChatId: string | null = user?.id ? persistChatIdRef.current : null;
+
+    if (user?.id) {
+      try {
+        if (!persistedChatId) {
+          if (!pendingChatCreateRef.current) {
+            const title = chatTitleFromQuestion(question);
+            pendingChatCreateRef.current = createChat(title, user.id)
+              .then((row) => {
+                persistChatIdRef.current = row.id;
+                setActiveId(row.id);
+                setChatTitle(title);
+                return row.id;
+              })
+              .finally(() => {
+                pendingChatCreateRef.current = null;
+              });
+          }
+          persistedChatId = await pendingChatCreateRef.current;
+        }
+        await insertChatMessage(persistedChatId, "user", question, null);
+        const refreshed = await listChats();
+        setHistory(refreshed.map((r) => ({ id: r.id, title: r.title })));
+      } catch (err) {
+        console.error("[chat] persist user message failed:", err);
+        showToast("대화 저장에 실패했습니다.");
+      }
+    }
+
     try {
       const { answer, sources } = await askBackend(question, controller.signal);
       if (controller.signal.aborted) return;
+      const text = answer || "관련 정보를 찾을 수 없습니다.";
       setMessages((prev) => [
         ...prev,
         {
           id: uid(),
           role: "assistant",
-          content: answer || "관련 정보를 찾을 수 없습니다.",
+          content: text,
           attachments: [],
           sources,
         },
       ]);
       setChatState("success");
+
+      if (user?.id && persistedChatId && !controller.signal.aborted) {
+        try {
+          await insertChatMessage(persistedChatId, "assistant", text, sources ?? null);
+          const refreshed = await listChats();
+          setHistory(refreshed.map((r) => ({ id: r.id, title: r.title })));
+        } catch (err) {
+          console.error("[chat] persist assistant message failed:", err);
+          showToast("답변 저장에 실패했습니다.");
+        }
+      }
     } catch (err) {
-      // AbortError 는 사용자가 새 요청을 시작했거나 화면을 떠난 정상 흐름
       if (controller.signal.aborted) return;
       console.error("[chat] askBackend failed:", err);
       setChatState("error");
@@ -692,7 +795,9 @@ export default function ChatContent() {
     setMessages([]);
     setChatState("idle");
     setInputValue("");
-    setActiveId("");
+    persistChatIdRef.current = null;
+    pendingChatCreateRef.current = null;
+    setActiveId(user ? "" : sidebar.history[0]?.id ?? "");
     setChatTitle("새 채팅");
     closeContextMenu();
     if (isMobile) setSidebarOpen(false);
@@ -700,23 +805,77 @@ export default function ChatContent() {
   };
 
   // ── LOAD_HISTORY ──────────────────────────────────────────────
-  const handleLoadHistory = (item: HistoryItem) => {
+  const handleLoadHistory = async (item: HistoryItem) => {
+    pendingChatCreateRef.current = null;
     setActiveId(item.id);
     setChatTitle(item.title);
     closeContextMenu();
-    if (isMobile) setSidebarOpen(false); // 모바일: 선택 후 사이드바 닫기
+    if (isMobile) setSidebarOpen(false);
+
+    if (isMockHistoryId(item.id)) {
+      persistChatIdRef.current = null;
+      const q =
+        item.id === "chat-001"
+          ? "졸업 요건을 알려주세요."
+          : item.id === "chat-002"
+            ? "컴퓨터공학과 교수진 목록을 알려주세요."
+            : "캡스톤 디자인 과목에 대해 알려주세요.";
+      startConversation(q);
+      return;
+    }
+
+    if (user && isPersistedChatId(item.id)) {
+      setChatState("idle");
+      persistChatIdRef.current = item.id;
+      try {
+        const rows = await fetchChatMessages(item.id);
+        const mapped: Message[] = rows.map((r) => {
+          const src =
+            r.role === "assistant" ? parseStoredSources(r.sources) : undefined;
+          return {
+            id: uid(),
+            role: r.role,
+            content: r.content,
+            attachments: [],
+            sources: src as Source[] | undefined,
+          };
+        });
+        setMessages(mapped);
+      } catch (err) {
+        console.error("[chat] fetchChatMessages failed:", err);
+        showToast("대화를 불러오지 못했습니다.");
+      }
+      return;
+    }
+
     const q =
-      item.id === "chat-001" ? "졸업 요건을 알려주세요."
-      : item.id === "chat-002" ? "컴퓨터공학과 교수진 목록을 알려주세요."
-      : "캡스톤 디자인 과목에 대해 알려주세요.";
+      item.id === "chat-001"
+        ? "졸업 요건을 알려주세요."
+        : item.id === "chat-002"
+          ? "컴퓨터공학과 교수진 목록을 알려주세요."
+          : "캡스톤 디자인 과목에 대해 알려주세요.";
     startConversation(q);
   };
 
   // ── DELETE ────────────────────────────────────────────────────
   const handleDelete = (id: string) => {
-    setHistory((prev) => prev.filter((h) => h.id !== id));
     closeContextMenu();
-    if (activeId === id) handleNewChat();
+    void (async () => {
+      if (user && isPersistedChatId(id)) {
+        try {
+          await deleteChat(id);
+          const rows = await listChats();
+          setHistory(rows.map((r) => ({ id: r.id, title: r.title })));
+        } catch (err) {
+          console.error("[chat] deleteChat failed:", err);
+          showToast("삭제에 실패했습니다.");
+          return;
+        }
+      } else {
+        setHistory((prev) => prev.filter((h) => h.id !== id));
+      }
+      if (activeId === id) handleNewChat();
+    })();
   };
 
   // ── RENAME ────────────────────────────────────────────────────
@@ -726,10 +885,29 @@ export default function ChatContent() {
     closeContextMenu();
   };
   const handleRenameConfirm = (id: string) => {
-    if (renameValue.trim()) {
-      setHistory((prev) => prev.map((h) => (h.id === id ? { ...h, title: renameValue.trim() } : h)));
-      if (activeId === id) setChatTitle(renameValue.trim());
+    const title = renameValue.trim();
+    if (!title) {
+      setRenameId(null);
+      return;
     }
+    if (user && isPersistedChatId(id)) {
+      void (async () => {
+        try {
+          await updateChatTitle(id, title);
+          const rows = await listChats();
+          setHistory(rows.map((r) => ({ id: r.id, title: r.title })));
+          if (activeId === id) setChatTitle(title);
+        } catch (err) {
+          console.error("[chat] updateChatTitle failed:", err);
+          showToast("제목 변경에 실패했습니다.");
+        } finally {
+          setRenameId(null);
+        }
+      })();
+      return;
+    }
+    setHistory((prev) => prev.map((h) => (h.id === id ? { ...h, title } : h)));
+    if (activeId === id) setChatTitle(title);
     setRenameId(null);
   };
 

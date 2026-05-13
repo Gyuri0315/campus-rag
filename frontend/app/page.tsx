@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import homeData from "@/data/routes/home.json";
 import { useQueryContext } from "./context/QueryContext";
+import { useAuth } from "./context/AuthContext";
 import AuthButtons from "./components/AuthButtons";
 
 const { header, hero, search, exampleTags, footer } = homeData.page;
@@ -16,8 +17,15 @@ const NAVY_MUTED = "rgba(37,52,139,0.45)";
 export default function HomePage() {
   const router = useRouter();
   const { setPendingQuery } = useQueryContext();
+  const { user, loading: authLoading } = useAuth();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 로그인 상태면 홈 대신 바로 /chat 으로. loading 중에는 깜빡임 방지를 위해 대기.
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) router.replace("/chat");
+  }, [user, authLoading, router]);
 
   const handleSearch = () => {
     const q = query.trim();
