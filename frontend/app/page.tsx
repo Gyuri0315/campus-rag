@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import homeData from "@/data/routes/home.json";
 import { useQueryContext } from "./context/QueryContext";
+import { useAuth } from "./context/AuthContext";
+import AuthButtons from "./components/AuthButtons";
 
 const { header, hero, search, exampleTags, footer } = homeData.page;
 
@@ -15,8 +17,15 @@ const NAVY_MUTED = "rgba(37,52,139,0.45)";
 export default function HomePage() {
   const router = useRouter();
   const { setPendingQuery } = useQueryContext();
+  const { user, loading: authLoading } = useAuth();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // 로그인 상태면 홈 대신 바로 /chat 으로. loading 중에는 깜빡임 방지를 위해 대기.
+  useEffect(() => {
+    if (authLoading) return;
+    if (user) router.replace("/chat");
+  }, [user, authLoading, router]);
 
   const handleSearch = () => {
     const q = query.trim();
@@ -73,19 +82,6 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Sign Up — 모바일(< sm)에서 숨김 */}
-            <button
-              className="
-                hidden sm:inline-flex
-                px-3 sm:px-4 py-1 sm:py-1.5
-                rounded-full text-xs font-medium
-                transition-opacity hover:opacity-75
-              "
-              style={{ color: NAVY, border: `1.5px solid ${NAVY}`, background: "transparent" }}
-            >
-              {header.buttons[0]}
-            </button>
-
             {/*
               Admin 진입 버튼.
               TODO: 인증 도입 후 isAdmin 체크로 가드 — 일반 사용자에게는 미노출.
@@ -114,16 +110,8 @@ export default function HomePage() {
               Admin
             </Link>
 
-            <button
-              className="
-                px-3 sm:px-5 py-1 sm:py-1.5
-                rounded-full text-xs font-semibold text-white
-                transition-opacity hover:opacity-80
-              "
-              style={{ background: NAVY }}
-            >
-              {header.buttons[1]}
-            </button>
+            {/* 로그인 상태에 따라 Sign Up/Login 또는 사용자 메뉴 렌더 */}
+            <AuthButtons />
           </div>
         </header>
 
