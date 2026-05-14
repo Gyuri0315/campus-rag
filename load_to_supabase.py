@@ -21,6 +21,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import psycopg
 from dotenv import load_dotenv
@@ -52,11 +53,28 @@ def vector_literal(values: list[float]) -> str:
     return "[" + ",".join(str(float(value)) for value in values) + "]"
 
 
+def with_connect_timeout(conninfo: str, timeout_seconds: int = 10) -> str:
+    parts = urlsplit(conninfo)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query.setdefault("connect_timeout", str(timeout_seconds))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 def connect() -> psycopg.Connection:
-    load_dotenv()
+    load_dotenv(PROJECT_ROOT / "backend" / ".env")
     conninfo = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
     if conninfo:
-        return psycopg.connect(conninfo, prepare_threshold=None)
+        log.info("Connecting to Supabase PostgreSQL from DATABASE_URL/SUPABASE_DB_URL")
+        try:
+            return psycopg.connect(with_connect_timeout(conninfo), prepare_threshold=None)
+        except psycopg.OperationalError as exc:
+            if "Permission denied" in str(exc) and ".supabase.co" in conninfo:
+                raise RuntimeError(
+                    "Could not connect to Supabase PostgreSQL. If this is a direct "
+                    "db.<project-ref>.supabase.co URL, use the Supabase connection "
+                    "pooler URL instead; direct connections may require IPv6 access."
+                ) from exc
+            raise
 
     required = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]
     missing = [name for name in required if not os.getenv(name)]
@@ -66,6 +84,7 @@ def connect() -> psycopg.Connection:
             f"or set {', '.join(required)}."
         )
 
+    log.info("Connecting to Supabase PostgreSQL from PG* environment variables")
     return psycopg.connect(
         host=os.environ["PGHOST"],
         port=os.getenv("PGPORT", "5432"),
@@ -73,11 +92,13 @@ def connect() -> psycopg.Connection:
         user=os.environ["PGUSER"],
         password=os.environ["PGPASSWORD"],
         sslmode=os.getenv("PGSSLMODE", "require"),
+        connect_timeout=10,
         prepare_threshold=None,
     )
 
 
 def ensure_schema_ready(conn: psycopg.Connection) -> None:
+    log.info("Checking Supabase schema")
     sql = """
         select
             to_regclass('public.rag_sources') is not null as has_sources,
@@ -126,6 +147,19 @@ def sha256_text(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 
 
+def remove_nul_bytes(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.replace("\x00", "")
+    if isinstance(value, list):
+        return [remove_nul_bytes(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            remove_nul_bytes(key): remove_nul_bytes(item)
+            for key, item in value.items()
+        }
+    return value
+
+
 def infer_source_type(metadata: dict[str, Any]) -> str:
     source_ext = str(metadata.get("source_ext") or "").lower().lstrip(".")
     if source_ext:
@@ -147,11 +181,11 @@ def prepare_row(record: dict[str, Any], embedding_model: str) -> dict[str, dict[
             f"expected {EXPECTED_DIMENSIONS}. Re-run: python vectorization.py --backend sentence-transformers"
         )
 
-    content = record.get("text") or record.get("content") or ""
+    content = remove_nul_bytes(record.get("text") or record.get("content") or "")
     if not content:
         raise ValueError(f"Record {record.get('id')} has empty text/content")
 
-    metadata = record.get("metadata") or {}
+    metadata = remove_nul_bytes(record.get("metadata") or {})
     if not isinstance(metadata, dict):
         raise ValueError(f"Record {record.get('id')} has non-object metadata")
 
