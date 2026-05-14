@@ -61,11 +61,13 @@ OUTPUT_HTML = Path("FILES/output/html")
 OUTPUT_FILES = Path("FILES/output/files")
 STATE_FILE = Path("state.json")
 
-REQUEST_DELAY = 0.8      # 게시글 상세 요청 간 딜레이(초)
-LIST_DELAY = 0.5         # 목록 페이지 요청 간 딜레이(초)
-REQUEST_TIMEOUT = 20     # HTTP 타임아웃(초)
-INITIAL_MAX_PAGES = 10   # 최초 실행 시 게시판별 최대 크롤링 페이지 수
-INCREMENTAL_MAX_PAGES = 3  # 증분 실행 시 최대 확인 페이지 수
+REQUEST_DELAY = 0.8
+LIST_DELAY = 0.5
+REQUEST_TIMEOUT = 20
+CRAWL_ALL_BOARD_PAGES = True
+REUSE_EXISTING_ATTACHMENTS = True
+INITIAL_MAX_PAGES = 10
+INCREMENTAL_MAX_PAGES = 3
 
 # ─── 섹션 설정 ────────────────────────────────────────────────────────────────
 # is_board=True  → 게시판 (목록+상세 페이지, 페이지네이션 있음)
@@ -300,6 +302,32 @@ def save_document(doc: dict, raw_html: str) -> None:
         json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     (html_dir / f"{slug}.html").write_text(raw_html, encoding="utf-8")
+
+
+def load_existing_attachments(category: str, slug: str) -> list[dict]:
+    json_path = OUTPUT_JSON / category / f"{slug}.json"
+    if not json_path.exists():
+        return []
+
+    try:
+        doc = json.loads(json_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    attachments = doc.get("attachments", [])
+    if not isinstance(attachments, list):
+        return []
+
+    reusable: list[dict] = []
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            continue
+
+        saved_path = attachment.get("saved_path", "")
+        if saved_path and Path(saved_path).exists():
+            reusable.append(attachment)
+
+    return reusable
 
 
 # ─── HTTP 요청 ────────────────────────────────────────────────────────────────
@@ -652,18 +680,23 @@ def crawl_board(
     doc_type = section["type"]
 
     state_key = board_url
-    last_known_no: int = state.get(state_key, {}).get("last_no", 0)
-    max_pages = INITIAL_MAX_PAGES if is_initial else INCREMENTAL_MAX_PAGES
+    stored_last_no: int = state.get(state_key, {}).get("last_no", 0)
+    last_known_no = 0 if CRAWL_ALL_BOARD_PAGES else stored_last_no
+    max_pages = None if CRAWL_ALL_BOARD_PAGES else (
+        INITIAL_MAX_PAGES if is_initial else INCREMENTAL_MAX_PAGES
+    )
 
     log.info(
-        "[게시판] %s | last_no=%d | max_pages=%d",
-        name, last_known_no, max_pages
+        "[게시판] %s | last_no=%d | max_pages=%s",
+        name, last_known_no, "ALL" if max_pages is None else str(max_pages)
     )
 
     saved = 0
-    new_max_no = last_known_no
+    new_max_no = stored_last_no
+    seen_post_urls: set[str] = set()
 
-    for page in range(1, max_pages + 1):
+    page = 1
+    while max_pages is None or page <= max_pages:
         params: dict = {"pageIndex": page}
         if bbs_id:
             params["bbsId"] = bbs_id
@@ -697,6 +730,10 @@ def crawl_board(
 
         # 신규 게시글만 상세 크롤링
         for item in items:
+            if item["post_url"] in seen_post_urls:
+                continue
+            seen_post_urls.add(item["post_url"])
+
             # 고정글(NOTICE) 포함 수집
             post_no = item["post_no"]
             if post_no is not None and post_no <= last_known_no:
@@ -711,13 +748,21 @@ def crawl_board(
             if view is None:
                 continue
 
-            view["attachments"] = save_attachments(
-                session=session,
-                attachments=view.get("attachments", []),
-                category=category,
-                slug=view["slug"],
-                source_page_url=item["post_url"],
+            existing_attachments = (
+                load_existing_attachments(category, view["slug"])
+                if REUSE_EXISTING_ATTACHMENTS
+                else []
             )
+            if existing_attachments:
+                view["attachments"] = existing_attachments
+            else:
+                view["attachments"] = save_attachments(
+                    session=session,
+                    attachments=view.get("attachments", []),
+                    category=category,
+                    slug=view["slug"],
+                    source_page_url=item["post_url"],
+                )
 
             doc = {
                 **view,
@@ -734,6 +779,8 @@ def crawl_board(
         if page_min_no <= last_known_no:
             log.info("  p%d: 일부 기수집 → 다음 페이지 불필요", page)
             break
+
+        page += 1
 
     log.info("[게시판] %s 완료 → 신규 %d건 | new_max_no=%d", name, saved, new_max_no)
     return saved, new_max_no

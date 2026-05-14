@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+from pathlib import Path
 from typing import Any
 
 import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
+PROJECT_ROOT = Path(__file__).resolve().parent
 DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EXPECTED_DIMENSIONS = 384
 
 
 def connect() -> psycopg.Connection:
-    load_dotenv()
+    load_dotenv(PROJECT_ROOT / "backend" / ".env")
     conninfo = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
     if conninfo:
         return psycopg.connect(conninfo, row_factory=dict_row, prepare_threshold=None)
@@ -44,7 +47,11 @@ def embed_query(question: str, model_name: str) -> list[float]:
     from sentence_transformers import SentenceTransformer
 
     model = SentenceTransformer(model_name)
-    dimensions = int(model.get_sentence_embedding_dimension() or 0)
+    if hasattr(model, "get_embedding_dimension"):
+        get_dimensions = model.get_embedding_dimension
+    else:
+        get_dimensions = model.get_sentence_embedding_dimension
+    dimensions = int(get_dimensions() or 0)
     if dimensions != EXPECTED_DIMENSIONS:
         raise ValueError(
             f"Model {model_name} produces {dimensions} dimensions, expected {EXPECTED_DIMENSIONS}."
@@ -106,6 +113,9 @@ def print_results(rows: list[dict[str, Any]]) -> None:
 
 
 def main() -> None:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
     parser = argparse.ArgumentParser(description="Semantic search against Supabase RAG chunks.")
     parser.add_argument("question")
     parser.add_argument("--model-name", default=DEFAULT_MODEL)
