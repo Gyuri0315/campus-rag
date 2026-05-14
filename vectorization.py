@@ -251,6 +251,10 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "doc_url": provenance.get("doc_url", ""),
         "category": provenance.get("category", ""),
         "subcategory": provenance.get("subcategory", ""),
+        "doc_type": provenance.get("doc_type", ""),
+        "date": provenance.get("date", ""),
+        "is_notice": provenance.get("is_notice", False),
+        "crawled_at": provenance.get("crawled_at", ""),
         "attachment_name": provenance.get("attachment_name", ""),
         "attachment_url": provenance.get("attachment_url", ""),
         "source_page_url": provenance.get("source_page_url", ""),
@@ -267,14 +271,15 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
             continue
 
         chunk_id = chunk.get("chunk_id", position)
-        record_id = stable_id(source_slug, chunk_id, text[:128])
+        chunk_index = position - 1
+        record_id = stable_id(source_slug, chunk_index)
         # 이 record 하나가 벡터 인덱스에서 검색되는 최소 단위가 된다.
         records.append(
             {
                 "id": record_id,
                 "source_slug": source_slug,
                 "chunk_id": chunk_id,
-                "chunk_index": position - 1,
+                "chunk_index": chunk_index,
                 "text": text,
                 "metadata": {
                     **base_metadata,
