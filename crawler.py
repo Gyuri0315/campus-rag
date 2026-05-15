@@ -8,8 +8,8 @@ https://ce.pknu.ac.kr/ce/1
   - 학사안내: 교육과정(전공별 포함), 모듈형 교육과정, 졸업요건
 
 저장 형식:
-  - FILES/output/json/<category>/<slug>.json
-  - FILES/output/html/<category>/<slug>.html
+  - files/ce/output/json/<category>/<slug>.json
+  - files/ce/output/html/<category>/<slug>.html
 
 증분 크롤링:
   - state.json 에 게시판별 마지막으로 수집한 게시글 번호를 저장
@@ -56,9 +56,9 @@ log = logging.getLogger(__name__)
 
 # ─── 경로 및 상수 ─────────────────────────────────────────────────────────────
 BASE_URL = "https://ce.pknu.ac.kr"
-OUTPUT_JSON = Path("FILES/output/json")
-OUTPUT_HTML = Path("FILES/output/html")
-OUTPUT_FILES = Path("FILES/output/files")
+OUTPUT_JSON = Path("files/ce/output/json")
+OUTPUT_HTML = Path("files/ce/output/html")
+OUTPUT_FILES = Path("files/ce/output/files")
 STATE_FILE = Path("state.json")
 
 REQUEST_DELAY = 0.8
