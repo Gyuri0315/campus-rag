@@ -270,7 +270,8 @@ def flush_batch(conn: psycopg.Connection, rows: list[dict[str, dict[str, Any]]])
             %(embedding_dim)s,
             %(embedded_at)s
         )
-        on conflict (id) do update set
+        on conflict (source_id, chunk_index) do update set
+            id = excluded.id,
             source_id = excluded.source_id,
             chunk_id = excluded.chunk_id,
             chunk_index = excluded.chunk_index,

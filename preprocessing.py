@@ -39,6 +39,7 @@ def configure_logging() -> None:
     )
 
 SUPPORTED_EXTS = {
+    ".json",
     ".pdf",
     ".docx",
     ".doc",
@@ -129,6 +130,28 @@ def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[st
                 "content_type": a.get("content_type", ""),
             }
     return index
+
+
+def extract_crawled_json_provenance(path: Path) -> dict:
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return {}
+    if not isinstance(doc, dict):
+        return {}
+
+    return {
+        "doc_title": doc.get("title", ""),
+        "doc_url": doc.get("url", ""),
+        "category": doc.get("category", ""),
+        "subcategory": doc.get("subcategory", ""),
+        "doc_type": doc.get("type", ""),
+        "date": doc.get("date", ""),
+        "is_notice": doc.get("is_notice", False),
+        "source_page_url": doc.get("url", ""),
+        "source_site": doc.get("source_site", ""),
+        "crawled_at": doc.get("crawled_at", ""),
+    }
 
 
 def extract_pdf_text_blocks(path: Path) -> list[dict]:
@@ -410,6 +433,42 @@ def extract_txt_blocks(path: Path) -> list[dict]:
                 "text": line,
             }
         )
+    return blocks
+
+
+def extract_json_blocks(path: Path) -> list[dict]:
+    doc = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(doc, dict):
+        raise ValueError("JSON root must be an object")
+
+    blocks: list[dict] = []
+
+    def append(block_type: str, style: str, text: object) -> None:
+        value = normalize_text(str(text or ""))
+        if value:
+            blocks.append({"type": block_type, "style": style, "text": value})
+
+    append("title", "PostTitle", doc.get("title", ""))
+    append("metadata", "PostDate", doc.get("date", ""))
+    append("metadata", "PostCategory", doc.get("category", ""))
+    append("metadata", "PostSubcategory", doc.get("subcategory", ""))
+    append("body", "PostBody", doc.get("content") or doc.get("body") or "")
+
+    attachments = doc.get("attachments") or []
+    if isinstance(attachments, list):
+        attachment_lines: list[str] = []
+        for attachment in attachments:
+            if not isinstance(attachment, dict):
+                continue
+            name = normalize_text(str(attachment.get("name", "")))
+            url = normalize_text(str(attachment.get("url", "")))
+            saved_path = normalize_text(str(attachment.get("saved_path", "")))
+            parts = [part for part in (name, url, saved_path) if part]
+            if parts:
+                attachment_lines.append(" | ".join(parts))
+        if attachment_lines:
+            append("attachments", "PostAttachments", "\n".join(attachment_lines))
+
     return blocks
 
 
@@ -810,6 +869,8 @@ def extract_blocks(
     ocr_dpi: int = DEFAULT_OCR_DPI,
 ) -> list[dict]:
     ext = path.suffix.lower()
+    if ext == ".json":
+        return extract_json_blocks(path)
     if ext == ".pdf":
         return extract_pdf_blocks(
             path,
@@ -929,6 +990,8 @@ def save_preprocessed_file(
 
     rel_in_input = rel_project_path(input_file, input_root)
     provenance = attachment_index.get(rel, {})
+    if ext == ".json":
+        provenance = {**extract_crawled_json_provenance(input_file), **provenance}
     blocks = extract_blocks(
         input_file,
         pdf_ocr_mode=pdf_ocr_mode,
@@ -1038,13 +1101,13 @@ def run_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="files/<source>/output/files 첨부파일을 RAG용 전처리 JSON으로 변환"
+        description="FILES/output의 게시글 JSON과 첨부 원문파일을 RAG용 전처리 JSON으로 변환"
     )
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=Path("files/ce/output/files"),
-        help="원본 첨부파일 루트 경로",
+        default=Path("FILES/output"),
+        help="원본 크롤링 결과 루트 경로",
     )
     parser.add_argument(
         "--output-root",
