@@ -599,9 +599,27 @@ def extract_hwpx_blocks(path: Path) -> list[dict]:
     return blocks
 
 
+def is_zip_hwpx_file(path: Path) -> bool:
+    try:
+        head = path.read_bytes()[:4096]
+    except Exception:
+        return False
+    lowered = head.lower()
+    return head.startswith(b"PK\x03\x04") and (
+        b"application/hwp+zip" in lowered or b"mimetypeapplication/hwp+zip" in lowered
+    )
+
+
 def extract_hwp_blocks(path: Path) -> list[dict]:
     def format_hwp_runtime_error(stderr: str) -> str:
-        err = stderr.strip() or "unknown error"
+        lines = [
+            line
+            for line in stderr.splitlines()
+            if "pkg_resources is deprecated as an API" not in line
+            and "import pkg_resources" not in line
+            and "setuptools.pypa.io" not in line
+        ]
+        err = "\n".join(lines).strip() or "unknown error"
         if "No module named 'six'" in err or 'No module named "six"' in err:
             return (
                 "pyhwp runtime dependency 'six' is missing in the interpreter used by "
@@ -609,6 +627,9 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
                 f'"{sys.executable}" -m pip install six'
             )
         return err
+
+    if is_zip_hwpx_file(path):
+        return extract_hwpx_blocks(path)
 
     def resolve_hwp_command(command_name: str) -> str | None:
         resolved = shutil.which(command_name)
@@ -1017,24 +1038,24 @@ def run_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="FILES/output/files 첨부파일을 RAG용 전처리 JSON으로 변환"
+        description="files/<source>/output/files 첨부파일을 RAG용 전처리 JSON으로 변환"
     )
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=Path("FILES/output/files"),
+        default=Path("files/ce/output/files"),
         help="원본 첨부파일 루트 경로",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("FILES/preprocessed"),
+        default=Path("files/ce/preprocessed"),
         help="전처리 JSON 출력 루트 경로",
     )
     parser.add_argument(
         "--output-json-root",
         type=Path,
-        default=Path("FILES/output/json"),
+        default=Path("files/ce/output/json"),
         help="크롤링 본문 JSON 루트 (첨부 provenance 조인용)",
     )
     parser.add_argument(

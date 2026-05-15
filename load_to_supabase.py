@@ -1,7 +1,7 @@
 """Load vectorized RAG chunks into Supabase PostgreSQL with pgvector.
 
 Expected input:
-    FILES/vectorized/index.jsonl
+    files/ce/vectorized/index.jsonl
 
 Required environment:
     DATABASE_URL or SUPABASE_DB_URL
@@ -27,7 +27,7 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.types.json import Jsonb
 
-DEFAULT_INDEX_PATH = Path("FILES/vectorized/index.jsonl")
+DEFAULT_INDEX_PATH = Path("files/ce/vectorized/index.jsonl")
 EXPECTED_DIMENSIONS = 384
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers:sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 PROJECT_ROOT = Path(__file__).resolve().parent
