@@ -1054,6 +1054,11 @@ def run_batch(
     ocr_language: str,
     ocr_dpi: int,
 ) -> None:
+    input_root = input_root.resolve()
+    output_root = output_root.resolve()
+    output_json_root = output_json_root.resolve()
+    project_root = project_root.resolve()
+
     attachment_index = load_attachment_index(output_json_root, project_root)
     files = iter_target_files(input_root)
     if not files:
@@ -1106,19 +1111,19 @@ def main() -> None:
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=Path("FILES/output"),
+        default=PROJECT_ROOT / "files" / "ce" / "output" / "files",
         help="원본 크롤링 결과 루트 경로",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("files/ce/preprocessed"),
+        default=PROJECT_ROOT / "files" / "ce" / "preprocessed",
         help="전처리 JSON 출력 루트 경로",
     )
     parser.add_argument(
         "--output-json-root",
         type=Path,
-        default=Path("files/ce/output/json"),
+        default=PROJECT_ROOT / "files" / "ce" / "output" / "json",
         help="크롤링 본문 JSON 루트 (첨부 provenance 조인용)",
     )
     parser.add_argument(
@@ -1158,7 +1163,7 @@ def main() -> None:
     args = parser.parse_args()
 
     configure_logging()
-    project_root = Path.cwd()
+    project_root = PROJECT_ROOT
     run_batch(
         input_root=args.input_root,
         output_root=args.output_root,
