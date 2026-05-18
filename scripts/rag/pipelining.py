@@ -11,7 +11,7 @@ from pathlib import Path
 import schedule
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_RUN_AT = "09:00"
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "daily_pipeline.log"
@@ -54,13 +54,15 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     try:
         python = sys.executable
-        run_command("crawler", [python, "crawler.py", "--once"])
-        run_command("preprocessing", [python, "preprocessing.py"])
+        run_command("crawler", [python, "scripts/ce/crawler.py", "--once"])
+        run_command("preprocessing", [python, "scripts/ce/preprocessing.py"])
         run_command(
             "vectorization",
             [
                 python,
-                "vectorization.py",
+                "scripts/rag/vectorization.py",
+                "--dataset",
+                "ce",
                 "--backend",
                 args.vector_backend,
                 "--batch-size",
@@ -69,7 +71,14 @@ def run_pipeline(args: argparse.Namespace) -> None:
         )
         run_command(
             "load_to_supabase",
-            [python, "load_to_supabase.py", "--batch-size", str(args.load_batch_size)],
+            [
+                python,
+                "scripts/rag/load_to_supabase.py",
+                "--dataset",
+                "ce",
+                "--batch-size",
+                str(args.load_batch_size),
+            ],
         )
 
         elapsed = (datetime.now() - started_at).total_seconds()
@@ -104,8 +113,8 @@ def run_scheduler(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run crawler.py -> preprocessing.py -> vectorization.py -> "
-            "load_to_supabase.py every day at 09:00."
+            "Run scripts/ce/crawler.py -> scripts/ce/preprocessing.py -> "
+            "scripts/rag/vectorization.py -> scripts/rag/load_to_supabase.py every day at 09:00."
         )
     )
     parser.add_argument(
@@ -142,21 +151,21 @@ def parse_args() -> argparse.Namespace:
         choices=["sentence-transformers", "hash"],
         default="sentence-transformers",
         help=(
-            "Embedding backend for vectorization.py. Default is sentence-transformers "
-            "because load_to_supabase.py expects 384-dimensional embeddings."
+            "Embedding backend for scripts/rag/vectorization.py. Default is sentence-transformers "
+            "because scripts/rag/load_to_supabase.py expects 384-dimensional embeddings."
         ),
     )
     parser.add_argument(
         "--vector-batch-size",
         type=int,
         default=32,
-        help="Batch size passed to vectorization.py. Default: 32.",
+        help="Batch size passed to scripts/rag/vectorization.py. Default: 32.",
     )
     parser.add_argument(
         "--load-batch-size",
         type=int,
         default=200,
-        help="Batch size passed to load_to_supabase.py. Default: 200.",
+        help="Batch size passed to scripts/rag/load_to_supabase.py. Default: 200.",
     )
     return parser.parse_args()
 

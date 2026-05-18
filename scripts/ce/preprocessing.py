@@ -22,7 +22,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "preprocessing.log"
 
@@ -54,6 +54,7 @@ DEFAULT_PDF_OCR_MODE = "auto"
 DEFAULT_OCR_LANGUAGE = "kor+eng"
 DEFAULT_OCR_DPI = 200
 MIN_USEFUL_PDF_TEXT_CHARS = 80
+HWP_EXTRACT_TIMEOUT = 60
 
 
 def normalize_text(text: str) -> str:
@@ -722,14 +723,19 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
         html_file = tmp_base / f"{token}.xhtml"
         try:
             shutil.copy2(path, copied_hwp)
-            proc = subprocess.run(
-                [hwp5html, "--html", "--output", str(html_file), str(copied_hwp)],
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="ignore",
-                check=False,
-            )
+            try:
+                proc = subprocess.run(
+                    [hwp5html, "--html", "--output", str(html_file), str(copied_hwp)],
+                    capture_output=True,
+                    text=True,
+                    encoding="utf-8",
+                    errors="ignore",
+                    check=False,
+                    timeout=HWP_EXTRACT_TIMEOUT,
+                )
+            except subprocess.TimeoutExpired:
+                log.warning("hwp5html timed out for %s; falling back to hwp5txt", path)
+                return []
             if proc.returncode != 0:
                 log.debug("hwp5html failed for %s: %s", path, format_hwp_runtime_error(proc.stderr))
                 return []
@@ -842,6 +848,7 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
         encoding="utf-8",
         errors="ignore",
         check=False,
+        timeout=HWP_EXTRACT_TIMEOUT,
     )
     if proc.returncode != 0:
         raise RuntimeError(f"hwp5txt failed: {format_hwp_runtime_error(proc.stderr)}")
@@ -1106,7 +1113,7 @@ def run_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="FILES/output의 게시글 JSON과 첨부 원문파일을 RAG용 전처리 JSON으로 변환"
+        description="files/ce/output의 게시글 JSON과 첨부 원문파일을 RAG용 전처리 JSON으로 변환"
     )
     parser.add_argument(
         "--input-root",
