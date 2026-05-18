@@ -17,8 +17,8 @@ https://ce.pknu.ac.kr/ce/1
   - 최초 실행은 INITIAL_MAX_PAGES 페이지까지만 수집
 
 실행:
-  - python crawler.py
-  - python crawler.py --once
+  - python scripts/ce/crawler.py
+  - python scripts/ce/crawler.py --once
 """
 
 import argparse
@@ -40,7 +40,8 @@ from requests.adapters import HTTPAdapter
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-LOG_DIR = Path(__file__).resolve().parent / "logs"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # ─── 로깅 설정 ────────────────────────────────────────────────────────────────
@@ -56,10 +57,10 @@ log = logging.getLogger(__name__)
 
 # ─── 경로 및 상수 ─────────────────────────────────────────────────────────────
 BASE_URL = "https://ce.pknu.ac.kr"
-OUTPUT_JSON = Path("files/ce/output/json")
-OUTPUT_HTML = Path("files/ce/output/html")
-OUTPUT_FILES = Path("files/ce/output/files")
-STATE_FILE = Path("state.json")
+OUTPUT_JSON = PROJECT_ROOT / "files" / "ce" / "output" / "json"
+OUTPUT_HTML = PROJECT_ROOT / "files" / "ce" / "output" / "html"
+OUTPUT_FILES = PROJECT_ROOT / "files" / "ce" / "output" / "files"
+STATE_FILE = PROJECT_ROOT / "state.json"
 
 REQUEST_DELAY = 0.8
 LIST_DELAY = 0.5

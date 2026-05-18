@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -25,12 +26,25 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import psycopg
 from dotenv import load_dotenv
+from psycopg import sql
 from psycopg.types.json import Jsonb
 
-DEFAULT_INDEX_PATH = Path("files/ce/vectorized/index.jsonl")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+DATASET_TABLES = {
+    "ce": {
+        "index": PROJECT_ROOT / "files" / "ce" / "vectorized" / "index.jsonl",
+        "sources": "rag_sources",
+        "chunks": "rag_chunks",
+    },
+    "rule": {
+        "index": PROJECT_ROOT / "files" / "rule" / "vectorized" / "index.jsonl",
+        "sources": "rule_sources",
+        "chunks": "rule_chunks",
+    },
+}
+DEFAULT_DATASET = "ce"
 EXPECTED_DIMENSIONS = 384
 DEFAULT_EMBEDDING_MODEL = "sentence-transformers:sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
-PROJECT_ROOT = Path(__file__).resolve().parent
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "load_to_supabase.log"
 
@@ -97,27 +111,51 @@ def connect() -> psycopg.Connection:
     )
 
 
-def ensure_schema_ready(conn: psycopg.Connection) -> None:
+def validate_table_name(value: str) -> str:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+        raise ValueError(f"Invalid table name: {value}")
+    return value
+
+
+def resolve_tables(
+    dataset: str,
+    sources_table: str | None,
+    chunks_table: str | None,
+) -> tuple[str, str]:
+    defaults = DATASET_TABLES[dataset]
+    return (
+        validate_table_name(sources_table or defaults["sources"]),
+        validate_table_name(chunks_table or defaults["chunks"]),
+    )
+
+
+def resolve_index_path(dataset: str, index_path: Path | None) -> Path:
+    if index_path is not None:
+        return index_path
+    return DATASET_TABLES[dataset]["index"]
+
+
+def ensure_schema_ready(conn: psycopg.Connection, sources_table: str, chunks_table: str) -> None:
     log.info("Checking Supabase schema")
     sql = """
         select
-            to_regclass('public.rag_sources') is not null as has_sources,
-            to_regclass('public.rag_chunks') is not null as has_chunks
+            to_regclass(%s) is not null as has_sources,
+            to_regclass(%s) is not null as has_chunks
     """
     with conn.cursor() as cur:
-        cur.execute(sql)
+        cur.execute(sql, (f"public.{sources_table}", f"public.{chunks_table}"))
         has_sources, has_chunks = cur.fetchone()
 
     missing = []
     if not has_sources:
-        missing.append("public.rag_sources")
+        missing.append(f"public.{sources_table}")
     if not has_chunks:
-        missing.append("public.rag_chunks")
+        missing.append(f"public.{chunks_table}")
     if missing:
         raise RuntimeError(
             "Supabase schema is not ready. Missing tables: "
-            f"{', '.join(missing)}. Apply supabase/migrations/002_split_rag_documents.sql "
-            "before running load_to_supabase.py."
+            f"{', '.join(missing)}. Apply the matching migration under supabase/migrations "
+            "before running scripts/rag/load_to_supabase.py."
         )
 
 
@@ -178,7 +216,7 @@ def prepare_row(record: dict[str, Any], embedding_model: str) -> dict[str, dict[
     if len(embedding) != EXPECTED_DIMENSIONS:
         raise ValueError(
             f"Record {record.get('id')} has embedding dimension {len(embedding)}, "
-            f"expected {EXPECTED_DIMENSIONS}. Re-run: python vectorization.py --backend sentence-transformers"
+            f"expected {EXPECTED_DIMENSIONS}. Re-run: python scripts/rag/vectorization.py --backend sentence-transformers"
         )
 
     content = remove_nul_bytes(record.get("text") or record.get("content") or "")
@@ -224,12 +262,17 @@ def prepare_row(record: dict[str, Any], embedding_model: str) -> dict[str, dict[
     }
 
 
-def flush_batch(conn: psycopg.Connection, rows: list[dict[str, dict[str, Any]]]) -> None:
+def flush_batch(
+    conn: psycopg.Connection,
+    rows: list[dict[str, dict[str, Any]]],
+    sources_table: str,
+    chunks_table: str,
+) -> None:
     if not rows:
         return
 
-    source_sql = """
-        insert into public.rag_sources (
+    source_sql = sql.SQL("""
+        insert into {sources_table} (
             id, source_slug, source_type, title, url, parent_url, file_path,
             file_ext, category, subcategory, metadata, processed_at
         )
@@ -250,9 +293,9 @@ def flush_batch(conn: psycopg.Connection, rows: list[dict[str, dict[str, Any]]])
             subcategory = excluded.subcategory,
             metadata = excluded.metadata,
             processed_at = excluded.processed_at
-    """
-    chunk_sql = """
-        insert into public.rag_chunks (
+    """).format(sources_table=sql.Identifier("public", sources_table))
+    chunk_sql = sql.SQL("""
+        insert into {chunks_table} (
             id, source_id, chunk_id, chunk_index, content, content_hash,
             token_count, metadata, embedding, embedding_model, embedding_dim, embedded_at
         )
@@ -283,7 +326,7 @@ def flush_batch(conn: psycopg.Connection, rows: list[dict[str, dict[str, Any]]])
             embedding_model = excluded.embedding_model,
             embedding_dim = excluded.embedding_dim,
             embedded_at = excluded.embedded_at
-    """
+    """).format(chunks_table=sql.Identifier("public", chunks_table))
     sources = {row["source"]["id"]: row["source"] for row in rows}
     chunks = [row["chunk"] for row in rows]
     with conn.cursor() as cur:
@@ -291,27 +334,39 @@ def flush_batch(conn: psycopg.Connection, rows: list[dict[str, dict[str, Any]]])
         cur.executemany(chunk_sql, chunks)
 
 
-def load(index_path: Path, batch_size: int) -> int:
+def load(
+    index_path: Path,
+    batch_size: int,
+    dataset: str,
+    sources_table: str | None = None,
+    chunks_table: str | None = None,
+) -> int:
     if not index_path.exists():
         raise FileNotFoundError(f"Index file not found: {index_path}")
 
+    resolved_sources_table, resolved_chunks_table = resolve_tables(
+        dataset,
+        sources_table,
+        chunks_table,
+    )
     embedding_model = load_embedding_model(index_path)
     log.info("Loading Supabase rows from %s", index_path)
+    log.info("target tables: public.%s, public.%s", resolved_sources_table, resolved_chunks_table)
     log.info("embedding model: %s", embedding_model)
     total = 0
     batch: list[dict[str, dict[str, Any]]] = []
     with connect() as conn:
-        ensure_schema_ready(conn)
+        ensure_schema_ready(conn, resolved_sources_table, resolved_chunks_table)
         for record in iter_records(index_path):
             batch.append(prepare_row(record, embedding_model))
             if len(batch) >= batch_size:
-                flush_batch(conn, batch)
+                flush_batch(conn, batch, resolved_sources_table, resolved_chunks_table)
                 total += len(batch)
                 conn.commit()
                 log.info("upserted %d rows", total)
                 batch.clear()
 
-        flush_batch(conn, batch)
+        flush_batch(conn, batch, resolved_sources_table, resolved_chunks_table)
         total += len(batch)
         conn.commit()
 
@@ -321,11 +376,21 @@ def load(index_path: Path, batch_size: int) -> int:
 def main() -> None:
     configure_logging()
     parser = argparse.ArgumentParser(description="Load RAG chunks into Supabase PostgreSQL.")
-    parser.add_argument("--index", type=Path, default=DEFAULT_INDEX_PATH)
+    parser.add_argument("--index", type=Path, default=None)
+    parser.add_argument("--dataset", choices=sorted(DATASET_TABLES), default=DEFAULT_DATASET)
+    parser.add_argument("--sources-table", help="Override source table name in public schema.")
+    parser.add_argument("--chunks-table", help="Override chunk table name in public schema.")
     parser.add_argument("--batch-size", type=int, default=200)
     args = parser.parse_args()
 
-    count = load(args.index, args.batch_size)
+    index_path = resolve_index_path(args.dataset, args.index)
+    count = load(
+        index_path,
+        args.batch_size,
+        args.dataset,
+        args.sources_table,
+        args.chunks_table,
+    )
     log.info("done: upserted %d rows", count)
 
 
