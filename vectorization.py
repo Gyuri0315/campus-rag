@@ -54,7 +54,7 @@ def configure_logging() -> None:
 # CLI 기본값: 입력/출력 경로와 임베딩 방식 설정.
 DEFAULT_INPUT_ROOT = Path("files/ce/preprocessed")
 DEFAULT_OUTPUT_ROOT = Path("files/ce/vectorized")
-DEFAULT_BACKEND = "hash"
+DEFAULT_BACKEND = "sentence-transformers"
 DEFAULT_DIMENSIONS = 768
 DEFAULT_BATCH_SIZE = 32
 DEFAULT_SENTENCE_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -252,6 +252,7 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "category": provenance.get("category", ""),
         "subcategory": provenance.get("subcategory", ""),
         "doc_type": provenance.get("doc_type", ""),
+        "source_kind": provenance.get("source_kind", ""),
         "date": provenance.get("date", ""),
         "is_notice": provenance.get("is_notice", False),
         "crawled_at": provenance.get("crawled_at", ""),
