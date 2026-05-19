@@ -19,6 +19,7 @@ import hashlib
 import json
 import logging
 import re
+import ssl
 import sys
 import time
 import zipfile
@@ -30,15 +31,17 @@ from urllib.parse import parse_qsl, unquote, urlencode, urljoin, urlsplit, urlun
 
 import requests
 from bs4 import BeautifulSoup
+from requests.adapters import HTTPAdapter
 
 BASE_URL = "https://www.pknu.ac.kr"
 RULE_URL = f"{BASE_URL}/rule"
 LAW_URL = "https://www.law.go.kr"
 
-OUTPUT_JSON = Path("files/rule/output/json")
-OUTPUT_HTML = Path("files/rule/output/html")
-OUTPUT_FILES = Path("files/rule/output/files")
-LOG_DIR = Path(__file__).resolve().parent / "logs"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+OUTPUT_JSON = PROJECT_ROOT / "files" / "rule" / "output" / "json"
+OUTPUT_HTML = PROJECT_ROOT / "files" / "rule" / "output" / "html"
+OUTPUT_FILES = PROJECT_ROOT / "files" / "rule" / "output" / "files"
+LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "rule_crawler.log"
 
 REQUEST_TIMEOUT = 30
@@ -82,6 +85,18 @@ STATIC_EXTENSIONS = {
     ".ttf",
     ".eot",
 }
+
+
+class PknuSslAdapter(HTTPAdapter):
+    """Allow the current PKNU rule server TLS configuration with OpenSSL 3."""
+
+    def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
+        context = ssl.create_default_context()
+        context.set_ciphers("DEFAULT@SECLEVEL=1")
+        kwargs["ssl_context"] = context
+        return super().init_poolmanager(*args, **kwargs)
+
+
 GENERIC_ATTACHMENT_NAMES = {
     "attachment",
     "download",
@@ -131,6 +146,7 @@ def configure_logging() -> None:
 
 def build_session() -> requests.Session:
     session = requests.Session()
+    session.mount(BASE_URL, PknuSslAdapter())
     session.headers.update(
         {
             "User-Agent": (
@@ -614,13 +630,15 @@ def crawl_law_node(
 
     slug = slug_for("law", node.lid, node.title)
     attachment_texts: list[dict[str, Any]] = []
+    file_preview_texts: list[dict[str, Any]] = []
     if download_files:
         attachments = save_attachments(session, attachments, "pknu_rule_law", slug)
         attachment_texts = extract_attachment_texts(attachments)
+        file_preview_texts = build_file_preview_texts(attachment_texts)
     combined_content = dedupe_join_texts(
         content,
         *(preview.get("text", "") for preview in preview_texts),
-        *(preview.get("text", "") for preview in attachment_texts),
+        *(preview.get("text", "") for preview in file_preview_texts),
     )
 
     doc = {
@@ -638,10 +656,13 @@ def crawl_law_node(
         "issued_at": node.issue,
         "effective_at": node.effective,
         "content": combined_content,
+        "html_text": content,
+        "html_text_source": "law_ajax_html",
         "page_content": content,
         "preview_texts": preview_texts,
         "attachments": attachments,
         "attachment_texts": attachment_texts,
+        "file_preview_texts": file_preview_texts,
         "crawled_at": datetime.now().isoformat(timespec="seconds"),
     }
     save_document(doc, ajax_resp.text, "pknu_rule_law")
@@ -768,6 +789,16 @@ def extract_attachment_texts(attachments: list[dict[str, str]]) -> list[dict[str
     return previews
 
 
+def build_file_preview_texts(attachment_texts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    file_previews: list[dict[str, Any]] = []
+    for attachment_text in attachment_texts:
+        preview = dict(attachment_text)
+        preview["source"] = "downloaded_attachment"
+        preview["preview_equivalent"] = True
+        file_previews.append(preview)
+    return file_previews
+
+
 def load_bylaw_preview_map(session: requests.Session) -> dict[str, dict[str, str]]:
     url = f"{RULE_URL}/byRows.do"
     try:
@@ -844,9 +875,11 @@ def crawl_bylaw_item(
     slug = slug_for("bylaw", item.bbs_id, item.board_seq, detail["title"])
     attachments = detail["attachments"]
     attachment_texts: list[dict[str, Any]] = []
+    file_preview_texts: list[dict[str, Any]] = []
     if download_files:
         attachments = save_attachments(session, attachments, "pknu_rule_bylaw", slug)
         attachment_texts = extract_attachment_texts(attachments)
+        file_preview_texts = build_file_preview_texts(attachment_texts)
 
     preview_entry = preview_entry or {}
     preview_content = preview_entry.get("content", "")
@@ -854,7 +887,7 @@ def crawl_bylaw_item(
         detail["content"],
         preview_content,
         *(preview.get("text", "") for preview in preview_texts),
-        *(preview.get("text", "") for preview in attachment_texts),
+        *(preview.get("text", "") for preview in file_preview_texts),
     )
 
     doc = {
@@ -870,6 +903,8 @@ def crawl_bylaw_item(
         "bbs_id": item.bbs_id,
         "author": detail["author"],
         "content": combined_content,
+        "html_text": detail["content"],
+        "html_text_source": "pknu_detail_html",
         "page_content": detail["content"],
         "content_html": detail["content_html"],
         "preview_content": preview_content,
@@ -879,6 +914,7 @@ def crawl_bylaw_item(
         "point_text": preview_entry.get("point_text", ""),
         "attachments": attachments,
         "attachment_texts": attachment_texts,
+        "file_preview_texts": file_preview_texts,
         "crawled_at": datetime.now().isoformat(timespec="seconds"),
     }
     save_document(doc, resp.text, "pknu_rule_bylaw")

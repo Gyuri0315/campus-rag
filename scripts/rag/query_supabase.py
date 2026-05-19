@@ -4,17 +4,23 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 from pathlib import Path
 from typing import Any
 
 import psycopg
 from dotenv import load_dotenv
+from psycopg import sql
 from psycopg.rows import dict_row
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EXPECTED_DIMENSIONS = 384
+DATASET_MATCH_FUNCTIONS = {
+    "ce": "match_rag_documents",
+    "rule": "match_rule_documents",
+}
 
 
 def connect() -> psycopg.Connection:
@@ -65,21 +71,35 @@ def vector_literal(values: list[float]) -> str:
     return "[" + ",".join(str(float(value)) for value in values) + "]"
 
 
-def search(question: str, model_name: str, top_k: int, min_similarity: float) -> list[dict[str, Any]]:
+def validate_function_name(value: str) -> str:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+        raise ValueError(f"Invalid function name: {value}")
+    return value
+
+
+def search(
+    question: str,
+    model_name: str,
+    top_k: int,
+    min_similarity: float,
+    dataset: str,
+    match_function: str | None = None,
+) -> list[dict[str, Any]]:
     embedding = vector_literal(embed_query(question, model_name))
-    sql = """
+    function_name = validate_function_name(match_function or DATASET_MATCH_FUNCTIONS[dataset])
+    query = sql.SQL("""
         select *
-        from public.match_rag_documents(
+        from {match_function}(
             %(embedding)s::extensions.vector(384),
             %(top_k)s,
             %(min_similarity)s,
-            '{}'::jsonb
+            '{{}}'::jsonb
         )
-    """
+    """).format(match_function=sql.Identifier("public", function_name))
     with connect() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                sql,
+                query,
                 {
                     "embedding": embedding,
                     "top_k": top_k,
@@ -118,12 +138,21 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Semantic search against Supabase RAG chunks.")
     parser.add_argument("question")
+    parser.add_argument("--dataset", choices=sorted(DATASET_MATCH_FUNCTIONS), default="ce")
+    parser.add_argument("--match-function", help="Override public schema match function name.")
     parser.add_argument("--model-name", default=DEFAULT_MODEL)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--min-similarity", type=float, default=0.0)
     args = parser.parse_args()
 
-    rows = search(args.question, args.model_name, args.top_k, args.min_similarity)
+    rows = search(
+        args.question,
+        args.model_name,
+        args.top_k,
+        args.min_similarity,
+        args.dataset,
+        args.match_function,
+    )
     print_results(rows)
 
 

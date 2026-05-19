@@ -10,13 +10,13 @@
    실행 요약인 /files/ce/vectorized/manifest.json을 함께 만든다.
 
 기본 실행:
-    python vectorization.py
+    python scripts/rag/vectorization.py
 
 실행 전 파일 확인:
-    python vectorization.py --dry-run
+    python scripts/rag/vectorization.py --dry-run
 
 sentence-transformers 사용:
-    python vectorization.py --backend sentence-transformers
+    python scripts/rag/vectorization.py --backend sentence-transformers
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ from typing import Iterable, Protocol
 
 log = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "vectorization.log"
 
@@ -52,8 +52,17 @@ def configure_logging() -> None:
     )
 
 # CLI 기본값: 입력/출력 경로와 임베딩 방식 설정.
-DEFAULT_INPUT_ROOT = Path("files/ce/preprocessed")
-DEFAULT_OUTPUT_ROOT = Path("files/ce/vectorized")
+DATASET_PATHS = {
+    "ce": {
+        "input_root": PROJECT_ROOT / "files" / "ce" / "preprocessed",
+        "output_root": PROJECT_ROOT / "files" / "ce" / "vectorized",
+    },
+    "rule": {
+        "input_root": PROJECT_ROOT / "files" / "rule" / "preprocessed",
+        "output_root": PROJECT_ROOT / "files" / "rule" / "vectorized",
+    },
+}
+DEFAULT_DATASET = "ce"
 DEFAULT_BACKEND = "sentence-transformers"
 DEFAULT_DIMENSIONS = 768
 DEFAULT_BATCH_SIZE = 32
@@ -230,6 +239,15 @@ def make_embedder(args: argparse.Namespace) -> Embedder:
     raise ValueError(f"unsupported backend: {args.backend}")
 
 
+def resolve_vector_roots(args: argparse.Namespace) -> tuple[Path, Path]:
+    """데이터셋 기본 경로를 사용하되, CLI에서 직접 지정한 경로를 우선한다."""
+
+    dataset_paths = DATASET_PATHS[args.dataset]
+    input_root = args.input_root or dataset_paths["input_root"]
+    output_root = args.output_root or dataset_paths["output_root"]
+    return input_root, output_root
+
+
 def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> list[dict]:
     """전처리 청크를 아직 embedding이 없는 검색 record로 변환한다."""
 
@@ -252,7 +270,7 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "category": provenance.get("category", ""),
         "subcategory": provenance.get("subcategory", ""),
         "doc_type": provenance.get("doc_type", ""),
-        "source_kind": provenance.get("source_kind", ""),
+        "source_kind": doc.get("source_kind", provenance.get("source_kind", "")),
         "date": provenance.get("date", ""),
         "is_notice": provenance.get("is_notice", False),
         "crawled_at": provenance.get("crawled_at", ""),
@@ -260,6 +278,9 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "attachment_url": provenance.get("attachment_url", ""),
         "source_page_url": provenance.get("source_page_url", ""),
         "source_site": provenance.get("source_site", ""),
+        "source_json_path": provenance.get("source_json_path", ""),
+        "source_html_path": provenance.get("source_html_path", ""),
+        "source_attachment_path": provenance.get("source_attachment_path", ""),
     }
 
     records: list[dict] = []
@@ -344,6 +365,7 @@ def run_batch(
     embedder: Embedder,
     batch_size: int,
     dry_run: bool,
+    dataset: str,
 ) -> None:
     """입력 폴더 아래의 모든 전처리 JSON 파일을 벡터화한다."""
 
@@ -399,6 +421,7 @@ def run_batch(
     # manifest는 이번 벡터화 실행 결과를 추적하기 위한 요약 파일이다.
     manifest = {
         "vectorized_at": datetime.now().isoformat(),
+        "dataset": dataset,
         "input_root": rel_project_path(input_root, project_root),
         "output_root": rel_project_path(output_root, project_root),
         "embedding_backend": embedder.name,
@@ -426,16 +449,26 @@ def main() -> None:
         description="Vectorize preprocessed chunk JSON files for RAG retrieval."
     )
     parser.add_argument(
+        "--dataset",
+        choices=sorted(DATASET_PATHS),
+        default=DEFAULT_DATASET,
+        help=(
+            "Dataset path preset to vectorize. "
+            "Use ce for files/ce/preprocessed -> files/ce/vectorized, "
+            "or rule for files/rule/preprocessed -> files/rule/vectorized."
+        ),
+    )
+    parser.add_argument(
         "--input-root",
         type=Path,
-        default=DEFAULT_INPUT_ROOT,
-        help="Preprocessed JSON root directory.",
+        default=None,
+        help="Preprocessed JSON root directory. Overrides --dataset input path.",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=DEFAULT_OUTPUT_ROOT,
-        help="Vectorized output root directory.",
+        default=None,
+        help="Vectorized output root directory. Overrides --dataset output path.",
     )
     parser.add_argument(
         "--backend",
@@ -473,15 +506,17 @@ def main() -> None:
         raise ValueError("--batch-size must be positive")
 
     # 현재 작업 디렉터리를 프로젝트 루트로 사용한다.
-    project_root = Path.cwd()
+    project_root = PROJECT_ROOT
+    input_root, output_root = resolve_vector_roots(args)
     embedder = HashEmbedder(1) if args.dry_run else make_embedder(args)
     run_batch(
-        input_root=args.input_root,
-        output_root=args.output_root,
+        input_root=input_root,
+        output_root=output_root,
         project_root=project_root,
         embedder=embedder,
         batch_size=args.batch_size,
         dry_run=args.dry_run,
+        dataset=args.dataset,
     )
 
 
