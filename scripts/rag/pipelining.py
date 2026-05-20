@@ -80,7 +80,10 @@ def run_pipeline(args: argparse.Namespace) -> None:
                 str(args.load_batch_size),
             ],
         )
-
+        run_command(
+            "update_ce_priorities",
+            [python, "scripts/ce/update_priorities.py"],
+        )
         elapsed = (datetime.now() - started_at).total_seconds()
         log.info("Daily pipeline completed successfully in %.1fs", elapsed)
     except subprocess.CalledProcessError as exc:
