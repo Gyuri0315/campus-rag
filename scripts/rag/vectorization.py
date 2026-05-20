@@ -63,7 +63,7 @@ DATASET_PATHS = {
     },
 }
 DEFAULT_DATASET = "ce"
-DEFAULT_BACKEND = "hash"
+DEFAULT_BACKEND = "sentence-transformers"
 DEFAULT_DIMENSIONS = 768
 DEFAULT_BATCH_SIZE = 32
 DEFAULT_SENTENCE_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
@@ -264,13 +264,13 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "source_path": doc.get("source_path", ""),
         "source_relative_to_input": doc.get("source_relative_to_input", ""),
         "source_ext": doc.get("source_ext", ""),
-        "source_kind": doc.get("source_kind", provenance.get("source_kind", "")),
         "preprocessed_path": rel_project_path(input_file, project_root),
         "doc_title": provenance.get("doc_title", ""),
         "doc_url": provenance.get("doc_url", ""),
         "category": provenance.get("category", ""),
         "subcategory": provenance.get("subcategory", ""),
         "doc_type": provenance.get("doc_type", ""),
+        "source_kind": doc.get("source_kind", provenance.get("source_kind", "")),
         "date": provenance.get("date", ""),
         "is_notice": provenance.get("is_notice", False),
         "crawled_at": provenance.get("crawled_at", ""),

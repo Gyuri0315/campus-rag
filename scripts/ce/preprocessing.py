@@ -93,10 +93,20 @@ def make_slug(rel_path: str) -> str:
     return hashlib.md5(rel_path.encode("utf-8")).hexdigest()[:12]
 
 
-def ensure_output_path(input_file: Path, input_root: Path, output_root: Path) -> Path:
+def ensure_output_path(
+    input_file: Path,
+    input_root: Path,
+    output_root: Path,
+    *,
+    layout: str = "by_ext",
+) -> Path:
     rel = input_file.resolve().relative_to(input_root.resolve())
-    ext_dir = input_file.suffix.lower().lstrip(".") or "unknown"
-    return (output_root / ext_dir / rel).with_suffix(".json")
+    if layout == "flat":
+        return (output_root / rel).with_suffix(".json")
+    if layout == "by_ext":
+        ext_dir = input_file.suffix.lower().lstrip(".") or "unknown"
+        return (output_root / ext_dir / rel).with_suffix(".json")
+    raise ValueError(f"unsupported layout: {layout}")
 
 
 def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[str, dict]:
@@ -146,7 +156,8 @@ def extract_crawled_json_provenance(path: Path) -> dict:
         "doc_url": doc.get("url", ""),
         "category": doc.get("category", ""),
         "subcategory": doc.get("subcategory", ""),
-        "doc_type": doc.get("type", ""),
+        "doc_type": doc.get("type", "") or "post",
+        "source_kind": "post",
         "date": doc.get("date", ""),
         "is_notice": doc.get("is_notice", False),
         "source_page_url": doc.get("url", ""),
@@ -989,6 +1000,7 @@ def save_preprocessed_file(
     pdf_ocr_mode: str,
     ocr_language: str,
     ocr_dpi: int,
+    layout: str = "by_ext",
 ) -> tuple[bool, str]:
     rel = rel_project_path(input_file, project_root)
     ext = input_file.suffix.lower()
@@ -999,6 +1011,8 @@ def save_preprocessed_file(
     provenance = attachment_index.get(rel, {})
     if ext == ".json":
         provenance = {**extract_crawled_json_provenance(input_file), **provenance}
+    elif not provenance.get("source_kind"):
+        provenance = {**provenance, "source_kind": "attachment"}
     blocks = extract_blocks(
         input_file,
         pdf_ocr_mode=pdf_ocr_mode,
@@ -1016,7 +1030,7 @@ def save_preprocessed_file(
             chunks = fallback_chunks
             used_metadata_fallback = True
 
-    out_path = ensure_output_path(input_file, input_root, output_root)
+    out_path = ensure_output_path(input_file, input_root, output_root, layout=layout)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     result = {
@@ -1060,6 +1074,7 @@ def run_batch(
     pdf_ocr_mode: str,
     ocr_language: str,
     ocr_dpi: int,
+    layout: str = "by_ext",
 ) -> None:
     input_root = input_root.resolve()
     output_root = output_root.resolve()
@@ -1094,6 +1109,7 @@ def run_batch(
                 pdf_ocr_mode=pdf_ocr_mode,
                 ocr_language=ocr_language,
                 ocr_dpi=ocr_dpi,
+                layout=layout,
             )
             if saved:
                 ok += 1
@@ -1167,6 +1183,15 @@ def main() -> None:
         default=DEFAULT_OCR_DPI,
         help="PDF 페이지를 OCR 이미지로 렌더링할 DPI",
     )
+    parser.add_argument(
+        "--layout",
+        choices=["by_ext", "flat"],
+        default="by_ext",
+        help=(
+            "출력 경로 레이아웃. flat은 crawled JSON처럼 output/json 입력 시 "
+            "preprocessed/json/<category>/... 구조를 만든다."
+        ),
+    )
     args = parser.parse_args()
 
     configure_logging()
@@ -1182,6 +1207,7 @@ def main() -> None:
         pdf_ocr_mode=args.pdf_ocr,
         ocr_language=args.ocr_language,
         ocr_dpi=args.ocr_dpi,
+        layout=args.layout,
     )
 
 

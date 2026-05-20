@@ -14,6 +14,8 @@ supabase/*
 !supabase/migrations/
 !supabase/migrations/*.sql
 state.json
+state_pknu_notice.json
+state_pknu_student_life.json
 inspect_site.py
 nav_output.txt
 .env

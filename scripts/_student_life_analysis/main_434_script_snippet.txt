@@ -1,0 +1,233 @@
+
+	(function(i, s, o, g, r, a, m) {
+		i['GoogleAnalyticsObject'] = r;
+		i[r] = i[r] || function() {
+			(i[r].q = i[r].q || []).push(arguments)
+		}, i[r].l = 1 * new Date();
+		a = s.createElement(o), m = s.getElementsByTagName(o)[0];
+		a.async = 1;
+		a.src = g;
+		m.parentNode.insertBefore(a, m)
+	})(window, document, 'script', '/js/common/analytics.js', 'ga');
+
+	ga('create', 'UA-85722900-1', 'auto');
+	ga('send', 'pageview');
+
+	function incQckToggle() {
+		var windowWidth = $(window).width();
+		if (windowWidth > 1670) {
+			//창 가로 크기가 500 미만일 경우
+			$('.incQck').css('display', 'block')
+		} else {
+			//창 가로 크기가 500보다 클 경우
+			$('.incQck').css('display', 'none')
+		}
+	}
+	$(window).resize(function() {
+		//창크기 변화 감지
+		if ('434' > 1) {
+			incQckToggle()
+		}
+	});
+	$(function() {
+
+		$('.logoutBtn').on('click', function() {
+			if (confirm('로그아웃 하시겠습니까?')) {
+				location.href = '/main/155';
+			}
+		});
+
+		getBookmarkList();
+
+		$(".navbar-toggler").on("click", function() {
+			$('#sidebar').toggleClass('active');
+		});
+
+		var LogOutTimer = function() {
+			var S = {
+				timer : null,
+				limit : 1000 * 60 * 60,
+				fnc : function() {
+				},
+				start : function() {
+					S.timer = window.setTimeout(S.fnc, S.limit);
+				},
+				reset : function() {
+					window.clearTimeout(S.timer);
+					S.start();
+				}
+			};
+
+			document.onmousemove = function() {
+				S.reset();
+			};
+
+			return S;
+		}();
+
+		// 로그아웃 체크시간 설정
+		LogOutTimer.limit = 1000 * 60 * 60;
+
+		// 로그아웃 함수 설정
+		LogOutTimer.fnc = function() {
+			//alert("LogOut");
+			if ('' != '') {
+				alert("장시간 사용하지 않아 로그아웃 되었습니다.");
+				location.href = "/main";
+			}
+		}
+
+		// 로그아웃 타이머 실행
+		LogOutTimer.start();
+
+	});
+
+	function addBookmark() {
+
+		if ('' != '') {
+			$.ajax({
+				url : pageContext + "/addBookmark.do",
+				method : 'POST',
+				dataType : "json",
+				data : {
+					nm : '대학생활 가이드',
+					no : '434',
+					ste : 'IEav5ISH'
+				}
+			}).done(function(data) {
+
+				if (data.chkRst > 0) {
+					alert('등록된 페이지입니다.')
+				}
+
+				if (data.result > 0) {
+					alert('저장되었습니다.');
+					getBookmarkList();
+				}
+			});
+
+		} else {
+			alert('로그인 후 이용 가능합니다.')
+		}
+
+	}
+
+	function getBookmarkList() {
+
+		if ('' != '') {
+			$
+					.ajax({
+						url : pageContext + "/getBookmarkList.do",
+						method : 'POST',
+						dataType : "json",
+						data : {
+							ste : 'IEav5ISH'
+						}
+					})
+					.done(
+							function(data) {
+
+								var list = data.bookmarkList
+
+								var html = '';
+
+								if (list.length > 0) {
+									$
+											.each(
+													list,
+													function(index, item) {
+
+														if (item.mnuId == '1') {
+															html += '	<li><a href="/main">'
+																	+ item.mnuNm
+																	+ '</a><a href="javascript:deleteBookmark('
+																	+ item.mnuId
+																	+ ')" class="iqfDel" >삭제</a></li>'
+														} else {
+															html += '	<li><a href="/main/'+item.mnuId+'">'
+																	+ item.mnuNm
+																	+ '</a><a href="javascript:deleteBookmark('
+																	+ item.mnuId
+																	+ ')" class="iqfDel" >삭제</a></li>'
+														}
+													});
+								}
+
+								if (list.length < 5) {
+									html += '	<li><a href="javascript:addBookmark()" id="iqfAdd" class="iqfAdd"><span>즐겨찾기 추가</span><em></em></a></li>'
+								}
+
+								$('#iqFav').html(html)
+
+								if ($('#bookmarkList').length > 0) {
+
+									if (list.length > 0) {
+										var mypageBookmarkList = ""
+
+										$.each(
+											list,
+											function(index, item) {
+												mypageBookmarkList += '	<tr>'
+												mypageBookmarkList += '	<th>'
+														+ (index + 1)
+														+ '</th>'
+												mypageBookmarkList += '	<td>'
+														+ item.mnuNm
+														+ '</td>'
+												mypageBookmarkList += '	<td><a href="javascript:deleteBookmark('
+														+ item.mnuId
+														+ ')" class="mpgDel">삭제</a></td>'
+												mypageBookmarkList += '	</tr>'
+											});
+									} else {
+										mypageBookmarkList += '	<tr>'
+										mypageBookmarkList += '	<th>#</th>'
+										mypageBookmarkList += '	<td  colspan="2">즐겨찾기를 추가하세요</td>'
+										mypageBookmarkList += '	</tr>'
+									}
+
+									$('#bookmarkList').html(mypageBookmarkList);
+								}
+
+							});
+		}
+	}
+
+	function deleteBookmark(id) {
+
+		if ('' != ''
+				&& confirm('삭제시 복구가 불가합니다. 삭제하시겠습니까?') == true) {
+			$.ajax({
+				url : pageContext + "/deleteBookmark.do",
+				method : 'POST',
+				dataType : "json",
+				data : {
+					id : id,
+					ste : 'IEav5ISH'
+				}
+			}).done(function(data) {
+
+				if (data.result > 0) {
+					getBookmarkList();
+				}
+			});
+		}
+	}
+
+	function getCookie(name) {
+		var cookieName = name + "=";
+		var i = 0;
+		while (i <= document.cookie.length) {
+			var c = (i + cookieName.length);
+			if (document.cookie.substring(i, c) == cookieName) {
+				if ((lastCharCookie = document.cookie.indexOf(";", c)) == -1)
+					lastCharCookie = document.cookie.length;
+				return encodeURI(document.cookie.substring(c, lastCharCookie));
+			}
+
+			i = document.cookie.indexOf(" ", i) + 1
+			if (i == 0)
+				break;
+		}
+		return "";
+	}

@@ -40,6 +40,54 @@ def run_command(name: str, command: list[str]) -> None:
     log.info("[%s] done in %.1fs", name, elapsed)
 
 
+CE_DATA_ROOT = Path("files/ce")
+
+
+def run_preprocess_steps(python: str) -> None:
+    """게시글 JSON 본문과 첨부파일을 각각 전처리한다."""
+    json_input = CE_DATA_ROOT / "output" / "json"
+    files_input = CE_DATA_ROOT / "output" / "files"
+    json_output = CE_DATA_ROOT / "preprocessed" / "json"
+    files_output = CE_DATA_ROOT / "preprocessed" / "files"
+    crawl_json_root = json_input
+
+    if json_input.exists():
+        run_command(
+            "preprocess-json",
+            [
+                python,
+                "scripts/ce/preprocessing.py",
+                "--input-root",
+                str(json_input),
+                "--output-root",
+                str(json_output),
+                "--output-json-root",
+                str(crawl_json_root),
+                "--layout",
+                "flat",
+            ],
+        )
+    else:
+        log.warning("Skipping preprocess-json; missing input: %s", json_input)
+
+    if files_input.exists():
+        run_command(
+            "preprocess-files",
+            [
+                python,
+                "scripts/ce/preprocessing.py",
+                "--input-root",
+                str(files_input),
+                "--output-root",
+                str(files_output),
+                "--output-json-root",
+                str(crawl_json_root),
+            ],
+        )
+    else:
+        log.warning("Skipping preprocess-files; missing input: %s", files_input)
+
+
 def run_pipeline(args: argparse.Namespace) -> None:
     global _is_running
 
@@ -55,7 +103,7 @@ def run_pipeline(args: argparse.Namespace) -> None:
     try:
         python = sys.executable
         run_command("crawler", [python, "scripts/ce/crawler.py", "--once"])
-        run_command("preprocessing", [python, "scripts/ce/preprocessing.py"])
+        run_preprocess_steps(python)
         run_command(
             "vectorization",
             [

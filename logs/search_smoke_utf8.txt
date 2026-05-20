@@ -1,0 +1,160 @@
+﻿
+#1 similarity=0.9839
+title: 議몄뾽?붽굔
+url: https://ce.pknu.ac.kr/ce/2889
+source_slug: 96178fad5c9c chunk_index: 0
+snippet: 議몄뾽?붽굔 ?숈궗?덈궡 議몄뾽?붽굔
+
+#2 similarity=0.9594
+title: 議몄뾽 ??吏꾨줈
+url: https://ce.pknu.ac.kr/ce/1806
+source_slug: 604774c52792 chunk_index: 0
+snippet: 議몄뾽 ??吏꾨줈 ?숇??덈궡 議몄뾽?꾩쭊濡?
+
+#3 similarity=0.9500
+title: ?숇? ?뚭컻
+url: https://ce.pknu.ac.kr/ce/1803
+source_slug: 206a59cc4f5f chunk_index: 0
+snippet: ?숇? ?뚭컻 ?숇??덈궡 ?숇??뚭컻
+
+#4 similarity=0.9427
+title: 援먯닔吏?
+url: https://ce.pknu.ac.kr/ce/1805
+source_slug: 24a8bc638396 chunk_index: 0
+snippet: 援먯닔吏??숇??덈궡 援먯닔吏?
+
+#5 similarity=0.9280
+title: 吏??듅?붿껌?꾨Т??쟾臾멸??묒꽦?ъ뾽???덈퉬19湲?紐⑥쭛
+url: https://ce.pknu.ac.kr/ce/1814?action=view&no=9955820
+source_slug: e8094b7a0928 chunk_index: 0
+snippet: <李멸?吏?먯꽌>
+
+#1 similarity=0.9428
+title: 議몄뾽 ??吏꾨줈
+url: https://ce.pknu.ac.kr/ce/1806
+source_slug: 604774c52792 chunk_index: 0
+snippet: 議몄뾽 ??吏꾨줈 ?숇??덈궡 議몄뾽?꾩쭊濡?
+
+#2 similarity=0.9309
+title: 2026-1?숆린 ??숈썝 ?곌뎄/?섏뾽議곌탳 ?ν븰???ы븰?? ?좎껌 ?덈궡(~1??2?????ㅽ썑2?쒓퉴吏)
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9981827
+source_slug: 7be230b4c9fe chunk_index: 0
+snippet: ???ы븰?고븳 3?숆린 ?대궡???꾩닔?쒖텧
+
+#3 similarity=0.9309
+title: 2025-1?숆린 ??숈썝 ?곌뎄/?섏뾽議곌탳 ?ν븰???ы븰?? ?좎껌 ?덈궡(~1??7?쇱삤???쒓퉴吏)
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9962935
+source_slug: d2b6f7175cb4 chunk_index: 0
+snippet: ???ы븰?고븳 3?숆린 ?대궡???꾩닔?쒖텧
+
+#4 similarity=0.9309
+title: 2025-2?숆린 ??숈썝 ?곌뎄/?섏뾽議곌탳 ?ν븰???좎엯?? ?좎껌 ?덈궡(~7??4?쇱삤???쒓퉴吏)
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9973121
+source_slug: 392ced8a4eb2 chunk_index: 0
+snippet: ???ы븰?고븳 3?숆린 ?대궡???꾩닔?쒖텧
+
+#5 similarity=0.9309
+title: ??2024-2?숆린 ?곌뎄/?섏뾽議곌탳?ν븰???섎Т?ы빆 諛??쒕룞蹂닿퀬???쒖텧 ?덈궡 (~10/07)
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9958625
+source_slug: eb28582fe2a5 chunk_index: 0
+snippet: ???ы븰?고븳 3?숆린 ?대궡???꾩닔?쒖텧
+
+#1 similarity=0.9062
+title: 2023-1?숆린 ?숇? 蹂몄닔媛뺤떊泥??ㅼ떆 ?덈궡(2/13~2/15)
+url: https://ce.pknu.ac.kr/ce/1814?action=view&no=9931842
+source_slug: e6c9042a4a59 chunk_index: 0
+snippet: 2023?숇뀈??1?숆린 媛뺤쓽?몃엺 李?濡 I ?섍컯?좎껌?덈궡
+
+#2 similarity=0.9062
+title: 2023-1?숆린 ?덈퉬?섍컯?좎껌 ?덈궡(1/9~1/13)
+url: https://ce.pknu.ac.kr/ce/1814?action=view&no=9930945
+source_slug: e036ab836ae1 chunk_index: 0
+snippet: 2023?숇뀈??1?숆린 媛뺤쓽?몃엺 李?濡 I ?섍컯?좎껌?덈궡
+
+#3 similarity=0.8977
+title: 援먯쑁怨쇱젙
+url: https://ce.pknu.ac.kr/ce/4945
+source_slug: 453463ea73b9 chunk_index: 0
+snippet: 援먯쑁怨쇱젙 ?숈궗?덈궡 援먯쑁怨쇱젙
+
+#4 similarity=0.8872
+title: 2023-2?숆린 ?쇰컲??숈썝 ?뚭났??援먭낵紐??곌뎄?ㅻ━/?꾩옣?곌뎄)??媛뺤쥖 ?댁쁺 怨꾪쉷 ?덈궡
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9939398
+source_slug: 0e871572c59e chunk_index: 0
+snippet: 2023-2?숆린 ?쇰컲??숈썝 ?뚭났??援먭낵紐?(?곌뎄?ㅻ━ / ?꾩옣?곌뎄)???몃??쇱젙 ???뚭났??援먭낵紐⒲?媛뺤쥖 異붿쭊?쇱젙
+
+#5 similarity=0.8863
+title: 2026-1?숆린 ??숈썝 ?곌뎄/?섏뾽議곌탳 ?ν븰???ы븰?? ?좎껌 ?덈궡(~1??2?????ㅽ썑2?쒓퉴吏)
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9981827
+source_slug: 7be230b4c9fe chunk_index: 0
+snippet: ???ы븰?고븳 3?숆린 ?대궡???꾩닔?쒖텧
+
+#1 similarity=0.9516
+title: 援먯닔吏?
+url: https://ce.pknu.ac.kr/ce/1805
+source_slug: 24a8bc638396 chunk_index: 0
+snippet: 援먯닔吏??숇??덈궡 援먯닔吏?
+
+#2 similarity=0.9509
+title: ?숇? ?뚭컻
+url: https://ce.pknu.ac.kr/ce/1803
+source_slug: 206a59cc4f5f chunk_index: 0
+snippet: ?숇? ?뚭컻 ?숇??덈궡 ?숇??뚭컻
+
+#3 similarity=0.9391
+title: 議몄뾽?붽굔
+url: https://ce.pknu.ac.kr/ce/2889
+source_slug: 96178fad5c9c chunk_index: 0
+snippet: 議몄뾽?붽굔 ?숈궗?덈궡 議몄뾽?붽굔
+
+#4 similarity=0.9331
+title: 議몄뾽 ??吏꾨줈
+url: https://ce.pknu.ac.kr/ce/1806
+source_slug: 604774c52792 chunk_index: 0
+snippet: 議몄뾽 ??吏꾨줈 ?숇??덈궡 議몄뾽?꾩쭊濡?
+
+#5 similarity=0.9294
+title: [?꾩꽌愿] 2023???좏븰?앷낵 ?④퍡?섎뒗 ?숈닠?뺣낫援먯쑁 ?덈궡
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9940294
+source_slug: dce192a01fb3 chunk_index: 0
+snippet: [?꾩꽌愿] 2023???좏븰?앷낵 ?④퍡?섎뒗 ?숈닠?뺣낫援먯쑁 ?덈궡 2023-08-23 怨듭??ы빆 ??숈썝怨듭?
+
+#1 similarity=0.9513
+title: ?숇? ?뚭컻
+url: https://ce.pknu.ac.kr/ce/1803
+source_slug: 206a59cc4f5f chunk_index: 0
+snippet: ?숇? ?뚭컻 ?숇??덈궡 ?숇??뚭컻
+
+#2 similarity=0.9301
+title: 援먯닔吏?
+url: https://ce.pknu.ac.kr/ce/1805
+source_slug: 24a8bc638396 chunk_index: 0
+snippet: 援먯닔吏??숇??덈궡 援먯닔吏?
+
+#3 similarity=0.9195
+title: 2025?숇뀈??2?숆린 ?는룸났??愿???덈궡(~10/10???ㅼ쟾12?쒓퉴吏)
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9973674
+source_slug: ead1a758e173 chunk_index: 0
+snippet: [蹂꾩? ???몄꽌?? ??????
+
+#4 similarity=0.9195
+title: 2025?숇뀈??2?숆린 援먯쑁??숈썝 ?는룸났???덈궡(08/04~10/10)
+url: https://ce.pknu.ac.kr/ce/2426?action=view&no=9972809
+source_slug: 751bca360aa4 chunk_index: 0
+snippet: [蹂꾩? ???몄꽌?? ??????
+
+#5 similarity=0.9195
+title: 2024?숇뀈??2?숆린 ?는룸났??愿???덈궡(~10/11???ㅼ쟾12?쒓퉴吏)
+url: https://ce.pknu.ac.kr/ce/1815?action=view&no=9955397
+source_slug: 9375e072ea02 chunk_index: 0
+snippet: [蹂꾩? ???몄꽌?? ??????
+============================================================
+吏덈Ц: 議몄뾽 ?붽굔 ?뚮젮以?
+============================================================
+吏덈Ц: ?ν븰湲??좎껌 愿??怨듭? ?뚮젮以?
+============================================================
+吏덈Ц: ?섍컯?좎껌 愿??怨듭? ?뚮젮以?
+============================================================
+吏덈Ц: 而댄벂?곌났?숈쟾怨??숈궗 ?덈궡 ?뚮젮以?
+============================================================
+吏덈Ц: 蹂듭닔?꾧났?대굹 ?꾧낵 愿???댁슜 ?뚮젮以?
