@@ -70,9 +70,17 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    cors_origins = list(settings.cors_origins)
+    for origin in (
+        "http://localhost:3000",
+        "https://campus-rag.vercel.app",
+    ):
+        if origin not in cors_origins:
+            cors_origins.append(origin)
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["*"],
