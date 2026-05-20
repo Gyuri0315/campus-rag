@@ -33,6 +33,11 @@ from typing import Any
 from bs4 import BeautifulSoup
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.text_cleaning import clean_extracted_text
+
 DEFAULT_INPUT_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "json"
 DEFAULT_HTML_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "html"
 DEFAULT_FILES_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "files"
@@ -64,10 +69,7 @@ def configure_logging() -> None:
 def normalize_text(text: object) -> str:
     if text is None:
         return ""
-    value = str(text)
-    value = value.replace("\u00a0", " ")
-    value = re.sub(r"\s+", " ", value)
-    return value.strip()
+    return clean_extracted_text(text).replace("\n", " ")
 
 
 def rel_project_path(path: Path, root: Path = PROJECT_ROOT) -> str:
@@ -468,11 +470,13 @@ def preprocess_attachment_file(
         return False, "empty attachment file"
 
     try:
-        from preprocessing import extract_blocks
+        from scripts.ce.preprocessing import extract_blocks
     except Exception as exc:
-        raise RuntimeError(f"preprocessing.extract_blocks import failed: {exc}") from exc
+        raise RuntimeError(f"scripts.ce.preprocessing.extract_blocks import failed: {exc}") from exc
 
     blocks = extract_blocks(input_file)
+    for block in blocks:
+        block["text"] = clean_extracted_text(block.get("text", ""))
     blocks = [block for block in blocks if normalize_text(block.get("text"))]
     chunks = chunk_blocks(blocks, chunk_size=chunk_size, overlap=chunk_overlap)
     if not chunks:
@@ -521,23 +525,21 @@ def iter_failed_files_from_log(log_path: Path, project_root: Path = PROJECT_ROOT
     if not log_path.exists():
         return []
 
-    failed: list[Path] = []
-    seen: set[Path] = set()
-    pattern = re.compile(r"\[FAIL:file\]\s+(.+?)\s+\(")
+    statuses: dict[Path, str] = {}
+    pattern = re.compile(r"\[(OK|SKIP|FAIL):file\]\s+(.+?)(?:\s+->|\s+\(|$)")
     for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
         match = pattern.search(line)
         if not match:
             continue
-        path_text = match.group(1).strip()
+        status, path_text = match.group(1), match.group(2).strip()
         path = Path(path_text)
         if not path.is_absolute():
             path = project_root / path
         path = path.resolve()
-        if path in seen or not path.exists() or path.suffix.lower() not in SUPPORTED_ATTACHMENT_EXTS:
+        if not path.exists() or path.suffix.lower() not in SUPPORTED_ATTACHMENT_EXTS:
             continue
-        seen.add(path)
-        failed.append(path)
-    return failed
+        statuses[path] = status
+    return sorted(path for path, status in statuses.items() if status == "FAIL")
 
 
 def run_batch(
