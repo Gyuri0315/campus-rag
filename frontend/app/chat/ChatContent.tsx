@@ -63,10 +63,6 @@ function isPersistedChatId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
-function isMockHistoryId(id: string): boolean {
-  return id.startsWith("chat-");
-}
-
 type ChatState = "idle" | "loading" | "success" | "error";
 
 // ── 고유 ID ───────────────────────────────────────────────────────────────────
@@ -74,6 +70,8 @@ let _seq = 0;
 const uid = () => `${Date.now()}-${++_seq}`;
 
 const { sidebar, chat: chatMeta } = chatData;
+/** JSON의 `history: []`가 `never[]`로 추론되는 것을 피하기 위한 단언 */
+const sidebarHistory = sidebar.history as HistoryItem[];
 
 // ── 아이콘 ────────────────────────────────────────────────────────────────────
 const IconSidebar = () => (
@@ -562,8 +560,8 @@ export default function ChatContent() {
   const { pendingQuery, setPendingQuery } = useQueryContext();
   const { user, loading: authLoading, signOut } = useAuth();
 
-  const [history, setHistory] = useState<HistoryItem[]>(sidebar.history);
-  const [activeId, setActiveId] = useState<string>(() => sidebar.history[0]?.id ?? "");
+  const [history, setHistory] = useState<HistoryItem[]>(sidebarHistory);
+  const [activeId, setActiveId] = useState<string>(() => sidebarHistory[0]?.id ?? "");
   const persistChatIdRef = useRef<string | null>(null);
   /** 두 번째 메시지가 첫 createChat 완료 전에 시작될 때 동일 채팅 행을 재사용 */
   const pendingChatCreateRef = useRef<Promise<string> | null>(null);
@@ -622,13 +620,13 @@ export default function ChatContent() {
     return () => window.removeEventListener("resize", update);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── 로그인 시 사이드바 목록을 DB에서, 비로그인 시 mock으로 ─────
+  // ── 로그인 시 사이드바 목록을 DB에서, 비로그인 시 JSON sidebar ─────
   useEffect(() => {
     if (authLoading) return;
 
     if (!user) {
-      setHistory(sidebar.history);
-      setActiveId(sidebar.history[0]?.id ?? "");
+      setHistory(sidebarHistory);
+      setActiveId(sidebarHistory[0]?.id ?? "");
       persistChatIdRef.current = null;
       pendingChatCreateRef.current = null;
       return;
@@ -797,7 +795,7 @@ export default function ChatContent() {
     setInputValue("");
     persistChatIdRef.current = null;
     pendingChatCreateRef.current = null;
-    setActiveId(user ? "" : sidebar.history[0]?.id ?? "");
+    setActiveId(user ? "" : sidebarHistory[0]?.id ?? "");
     setChatTitle("새 채팅");
     closeContextMenu();
     if (isMobile) setSidebarOpen(false);
@@ -811,18 +809,6 @@ export default function ChatContent() {
     setChatTitle(item.title);
     closeContextMenu();
     if (isMobile) setSidebarOpen(false);
-
-    if (isMockHistoryId(item.id)) {
-      persistChatIdRef.current = null;
-      const q =
-        item.id === "chat-001"
-          ? "졸업 요건을 알려주세요."
-          : item.id === "chat-002"
-            ? "컴퓨터공학과 교수진 목록을 알려주세요."
-            : "캡스톤 디자인 과목에 대해 알려주세요.";
-      startConversation(q);
-      return;
-    }
 
     if (user && isPersistedChatId(item.id)) {
       setChatState("idle");
@@ -847,14 +833,6 @@ export default function ChatContent() {
       }
       return;
     }
-
-    const q =
-      item.id === "chat-001"
-        ? "졸업 요건을 알려주세요."
-        : item.id === "chat-002"
-          ? "컴퓨터공학과 교수진 목록을 알려주세요."
-          : "캡스톤 디자인 과목에 대해 알려주세요.";
-    startConversation(q);
   };
 
   // ── DELETE ────────────────────────────────────────────────────
@@ -1004,7 +982,15 @@ export default function ChatContent() {
 
             {/* 히스토리 목록 */}
             <div className="flex flex-col gap-0.5 flex-1 overflow-y-auto">
-              {history.map((item) => (
+              {!authLoading && !user ? (
+                <p
+                  className="px-3 py-2 text-xs"
+                  style={{ color: "var(--clr-text-muted)" }}
+                >
+                  로그인하면 채팅 기록을 저장할 수 있어요
+                </p>
+              ) : (
+                history.map((item) => (
                 <div key={item.id} className="relative group">
                   {renameId === item.id ? (
                     <input
@@ -1068,7 +1054,8 @@ export default function ChatContent() {
                     </button>
                   )}
                 </div>
-              ))}
+                ))
+              )}
             </div>
 
             {/* ── 하단 사용자 영역 ── */}

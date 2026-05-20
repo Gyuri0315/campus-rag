@@ -3,11 +3,7 @@
   "sidebar": {
     "actions": ["+ 새 채팅", "검색"],
     "recentLabel": "최근 항목",
-    "history": [
-      { "id": "chat-001", "title": "졸업요건 질문" },
-      { "id": "chat-002", "title": "컴퓨터공학과 교수진 목록" },
-      { "id": "chat-003", "title": "캡스톤 디자인 질문" }
-    ],
+    "history": [],
     "contextMenu": ["즐겨찾기", "이름 변경", "삭제"]
   },
   "chat": {
