@@ -20,9 +20,14 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.text_cleaning import clean_extracted_text
+
 log = logging.getLogger(__name__)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "preprocessing.log"
 
@@ -60,9 +65,7 @@ HWP_EXTRACT_TIMEOUT = 60
 def normalize_text(text: str) -> str:
     if not text:
         return ""
-    text = text.replace("\u00a0", " ")
-    text = " ".join(text.split())
-    return text.strip()
+    return clean_extracted_text(text).replace("\n", " ")
 
 
 def is_likely_broken_korean_text(text: str) -> bool:
@@ -670,6 +673,84 @@ def is_zip_hwpx_file(path: Path) -> bool:
     )
 
 
+def is_xml_hwpml_file(path: Path) -> bool:
+    try:
+        head = path.read_bytes()[:4096].lstrip(b"\xef\xbb\xbf\r\n\t ")
+    except Exception:
+        return False
+    lowered = head.lower()
+    return lowered.startswith(b"<?xml") and (b"<hwpml" in lowered or b"hwpml" in lowered)
+
+
+def extract_hwpml_xml_blocks(path: Path) -> list[dict]:
+    raw = path.read_bytes()
+    text = raw.decode("utf-8-sig", errors="replace")
+    root = ET.fromstring(text)
+
+    def tag_name(elem: ET.Element) -> str:
+        return elem.tag.rsplit("}", 1)[-1].lower() if "}" in elem.tag else elem.tag.lower()
+
+    def is_noise_payload(value: str) -> bool:
+        value = value.strip()
+        if not value:
+            return True
+        if len(value) > 4000:
+            compact = re.sub(r"\s+", "", value)
+            base64_chars = len(re.findall(r"[A-Za-z0-9+/=]", compact))
+            if compact and base64_chars / len(compact) > 0.9:
+                return True
+        return False
+
+    def collect_text(elem: ET.Element) -> str:
+        parts: list[str] = []
+
+        def walk(child: ET.Element) -> None:
+            name = tag_name(child)
+            if name in {"bindata", "bindatastorage", "binitem", "mappingtable", "head", "tail"}:
+                if child.tail:
+                    parts.append(child.tail)
+                return
+            if child.text:
+                parts.append(child.text)
+            for grandchild in list(child):
+                walk(grandchild)
+            if child.tail:
+                parts.append(child.tail)
+
+        walk(elem)
+        return clean_extracted_text("".join(parts))
+
+    bodies = [elem for elem in root.iter() if tag_name(elem) in {"body", "bodytext"}]
+    search_roots = bodies or [root]
+    blocks: list[dict] = []
+    seen: set[str] = set()
+
+    for search_root in search_roots:
+        for elem in search_root.iter():
+            name = tag_name(elem)
+            if name not in {"p", "para", "paragraph", "row"}:
+                continue
+            paragraph = collect_text(elem)
+            if is_noise_payload(paragraph) or paragraph in seen:
+                continue
+            seen.add(paragraph)
+            blocks.append(
+                {
+                    "type": "paragraph",
+                    "style": "HWPML",
+                    "text": paragraph,
+                }
+            )
+
+    if blocks:
+        return blocks
+
+    fallback = collect_text(root)
+    if fallback and not is_noise_payload(fallback):
+        return [{"type": "xml_text", "style": "HWPML", "text": fallback}]
+    return []
+
+
 def extract_hwp_blocks(path: Path) -> list[dict]:
     def format_hwp_runtime_error(stderr: str) -> str:
         lines = [
@@ -688,6 +769,8 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
             )
         return err
 
+    if is_xml_hwpml_file(path):
+        return extract_hwpml_xml_blocks(path)
     if is_zip_hwpx_file(path):
         return extract_hwpx_blocks(path)
 
@@ -1005,6 +1088,8 @@ def save_preprocessed_file(
         ocr_language=ocr_language,
         ocr_dpi=ocr_dpi,
     )
+    for block in blocks:
+        block["text"] = clean_extracted_text(block.get("text", ""))
     blocks = [b for b in blocks if normalize_text(b.get("text", ""))]
     chunks = chunk_blocks(blocks, chunk_size=chunk_size, overlap=chunk_overlap)
     used_metadata_fallback = False
@@ -1049,11 +1134,38 @@ def iter_target_files(input_root: Path) -> list[Path]:
     return sorted(files)
 
 
+def iter_failed_files_from_log(log_path: Path, input_root: Path, project_root: Path) -> list[Path]:
+    if not log_path.exists():
+        return []
+
+    statuses: dict[Path, str] = {}
+    pattern = re.compile(r"\[(OK|SKIP|FAIL)\]\s+(.+?)(?:\s+->|\s+\(|$)")
+    for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
+        match = pattern.search(line)
+        if not match:
+            continue
+        status, path_text = match.group(1), match.group(2).strip()
+        path = Path(path_text)
+        if not path.is_absolute():
+            path = project_root / path
+        path = path.resolve()
+        if not path.exists() or path.suffix.lower() not in SUPPORTED_EXTS:
+            continue
+        try:
+            path.relative_to(input_root)
+        except ValueError:
+            continue
+        statuses[path] = status
+
+    return sorted(path for path, status in statuses.items() if status == "FAIL")
+
+
 def run_batch(
     input_root: Path,
     output_root: Path,
     output_json_root: Path,
     project_root: Path,
+    failed_from_log: Path | None,
     dry_run: bool,
     chunk_size: int,
     chunk_overlap: int,
@@ -1067,9 +1179,16 @@ def run_batch(
     project_root = project_root.resolve()
 
     attachment_index = load_attachment_index(output_json_root, project_root)
-    files = iter_target_files(input_root)
+    files = (
+        iter_failed_files_from_log(failed_from_log, input_root, project_root)
+        if failed_from_log
+        else iter_target_files(input_root)
+    )
     if not files:
-        log.info("처리 대상 파일이 없습니다: %s", input_root)
+        if failed_from_log:
+            log.info("No failed files found in %s", failed_from_log)
+        else:
+            log.info("처리 대상 파일이 없습니다: %s", input_root)
         return
 
     log.info("처리 대상: %d개", len(files))
@@ -1134,6 +1253,12 @@ def main() -> None:
         help="크롤링 본문 JSON 루트 (첨부 provenance 조인용)",
     )
     parser.add_argument(
+        "--failed-from-log",
+        type=Path,
+        default=None,
+        help="전처리 로그에서 마지막 상태가 [FAIL]인 파일만 재처리",
+    )
+    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="실제 저장 없이 대상 파일만 확인",
@@ -1176,6 +1301,7 @@ def main() -> None:
         output_root=args.output_root,
         output_json_root=args.output_json_root,
         project_root=project_root,
+        failed_from_log=args.failed_from_log.resolve() if args.failed_from_log else None,
         dry_run=args.dry_run,
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
