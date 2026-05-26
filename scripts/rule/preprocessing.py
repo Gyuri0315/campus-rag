@@ -69,7 +69,11 @@ def configure_logging() -> None:
 def normalize_text(text: object) -> str:
     if text is None:
         return ""
-    return clean_extracted_text(text).replace("\n", " ")
+    return clean_extracted_text(text)
+
+
+def normalize_inline(text: object) -> str:
+    return re.sub(r"\s+", " ", normalize_text(text)).strip()
 
 
 def rel_project_path(path: Path, root: Path = PROJECT_ROOT) -> str:
@@ -80,7 +84,7 @@ def rel_project_path(path: Path, root: Path = PROJECT_ROOT) -> str:
 
 
 def stable_slug(*parts: object) -> str:
-    raw = "|".join(normalize_text(part) for part in parts)
+    raw = "|".join(normalize_inline(part) for part in parts)
     return hashlib.md5(raw.encode("utf-8")).hexdigest()[:12]
 
 
@@ -103,8 +107,8 @@ def load_rule_json_index(json_root: Path) -> tuple[dict[str, dict[str, Any]], di
         if not isinstance(doc, dict):
             continue
 
-        category = normalize_text(doc.get("category"))
-        slug = normalize_text(doc.get("slug")) or json_path.stem
+        category = normalize_inline(doc.get("category"))
+        slug = normalize_inline(doc.get("slug")) or json_path.stem
         key = f"{category}/{slug}" if category else slug
         doc_info = {
             **build_provenance(doc, json_path),
@@ -115,7 +119,7 @@ def load_rule_json_index(json_root: Path) -> tuple[dict[str, dict[str, Any]], di
         for attachment in doc.get("attachments", []) or []:
             if not isinstance(attachment, dict):
                 continue
-            saved_path = normalize_text(attachment.get("saved_path"))
+            saved_path = normalize_inline(attachment.get("saved_path"))
             if not saved_path:
                 continue
             abs_path = (PROJECT_ROOT / saved_path).resolve()
@@ -131,8 +135,8 @@ def load_rule_json_index(json_root: Path) -> tuple[dict[str, dict[str, Any]], di
 
 
 def html_path_for(doc: dict[str, Any], html_root: Path) -> Path | None:
-    category = normalize_text(doc.get("category"))
-    slug = normalize_text(doc.get("slug"))
+    category = normalize_inline(doc.get("category"))
+    slug = normalize_inline(doc.get("slug"))
     if not category or not slug:
         return None
     path = html_root / category / f"{slug}.html"
@@ -159,8 +163,8 @@ def extract_rule_html_text(path: Path, category: str) -> str:
         if selected:
             candidates.append(selected)
 
-    root = max(candidates or [soup], key=lambda tag: len(normalize_text(tag.get_text(" ", strip=True))))
-    lines = [normalize_text(line) for line in root.get_text("\n", strip=True).splitlines()]
+    root = max(candidates or [soup], key=lambda tag: len(normalize_inline(tag.get_text(" ", strip=True))))
+    lines = [normalize_inline(line) for line in root.get_text("\n", strip=True).splitlines()]
     lines = [line for line in lines if line]
     return "\n".join(lines)
 
@@ -211,7 +215,7 @@ def extract_rule_json_blocks(doc: dict[str, Any], html_root: Path) -> tuple[list
         ("source_id", "source_id"),
         ("url", "url"),
     ):
-        value = normalize_text(doc.get(key))
+        value = normalize_inline(doc.get(key))
         if value:
             metadata_lines.append(f"{label}: {value}")
     append_block(blocks, seen, "metadata", "metadata", "\n".join(metadata_lines))
@@ -253,7 +257,7 @@ def extract_rule_json_blocks(doc: dict[str, Any], html_root: Path) -> tuple[list
     if body_chars < 80:
         html_path = html_path_for(doc, html_root)
         if html_path:
-            html_text = extract_rule_html_text(html_path, normalize_text(doc.get("category")))
+            html_text = extract_rule_html_text(html_path, normalize_inline(doc.get("category")))
             append_block(
                 blocks,
                 seen,
@@ -288,7 +292,7 @@ def chunk_blocks(
                 {
                     "chunk_id": chunk_id,
                     "text": text,
-                    "num_lines": len(current),
+                    "num_lines": len(text.splitlines()),
                     "num_chars": len(text),
                     "sections": sorted(current_sections),
                 }
@@ -304,17 +308,33 @@ def chunk_blocks(
             current_sections = set()
             current_len = 0
 
+    def add_unit(unit: str, section: str) -> None:
+        nonlocal current_len
+        add_len = len(unit) + (1 if current else 0)
+        if current and current_len + add_len > chunk_size:
+            flush()
+            add_len = len(unit) + (1 if current else 0)
+        current.append(unit)
+        current_sections.add(section)
+        current_len += add_len
+
     for block in blocks:
         text = normalize_text(block.get("text"))
         if not text:
             continue
-        section = normalize_text(block.get("section")) or "unknown"
-        add_len = len(text) + (1 if current else 0)
-        if current and current_len + add_len > chunk_size:
-            flush()
-        current.append(text)
-        current_sections.add(section)
-        current_len += add_len
+        section = normalize_inline(block.get("section")) or "unknown"
+        for line in text.splitlines() or [text]:
+            line = normalize_inline(line)
+            if not line:
+                continue
+            if len(line) <= chunk_size:
+                add_unit(line, section)
+                continue
+            start = 0
+            step = max(1, chunk_size - overlap)
+            while start < len(line):
+                add_unit(line[start : start + chunk_size].strip(), section)
+                start += step
 
     if current:
         text = "\n".join(current).strip()
@@ -323,7 +343,7 @@ def chunk_blocks(
                 {
                     "chunk_id": chunk_id,
                     "text": text,
-                    "num_lines": len(current),
+                    "num_lines": len(text.splitlines()),
                     "num_chars": len(text),
                     "sections": sorted(current_sections),
                 }
@@ -404,7 +424,7 @@ def preprocess_json_file(
 
     provenance = {
         **build_provenance(doc, input_file),
-        "source_slug": normalize_text(doc.get("slug")) or stable_slug(rel_project_path(input_file, input_root)),
+        "source_slug": normalize_inline(doc.get("slug")) or stable_slug(rel_project_path(input_file, input_root)),
     }
     out_path = write_preprocessed_result(
         input_file=input_file,

@@ -10,9 +10,6 @@ logs/*.log
 
 venv/
 __pycache__/
-supabase/*
-!supabase/migrations/
-!supabase/migrations/*.sql
 state.json
 state_pknu_notice.json
 state_pknu_student_life.json

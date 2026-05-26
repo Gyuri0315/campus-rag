@@ -108,6 +108,8 @@ def fetch_ce_documents(conn: Any) -> list[dict[str, Any]]:
     query = """
         select
             s.id,
+            s.title,
+            s.metadata,
             coalesce(string_agg(c.content, E'\n\n' order by c.chunk_index), '') as content
         from public.rag_sources as s
         left join public.rag_chunks as c on c.source_id = s.id
@@ -132,7 +134,15 @@ def update_ce_priorities(conn: Any, dry_run: bool) -> int:
 
     updates: list[dict[str, Any]] = []
     for doc in ce_documents:
-        score, details = calculate_ce_priority(str(doc["content"] or ""), rule_features)
+        metadata = doc.get("metadata") or {}
+        if not isinstance(metadata, dict):
+            metadata = {}
+        score, details = calculate_ce_priority(
+            str(doc["content"] or ""),
+            rule_features,
+            metadata=metadata,
+            title=str(doc.get("title") or ""),
+        )
         updates.append(
             {
                 "id": doc["id"],
@@ -174,4 +184,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
