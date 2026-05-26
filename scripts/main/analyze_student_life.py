@@ -10,10 +10,12 @@ import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
 
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 BASE = "https://www.pknu.ac.kr"
 GUIDE = f"{BASE}/main/434"
 EBOOK = f"{BASE}/ebook/col_life/kor/index.html"
-OUT = Path("scripts/_student_life_analysis")
+OUT = PROJECT_ROOT / "scripts" / "main" / "_student_life_analysis"
 OUT.mkdir(parents=True, exist_ok=True)
 
 EXCLUDE_KEYWORDS = ("대학생활계획서", "콘테스트", "우수작")

@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 
-root = Path("files/pknu_student_life/output/json")
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+root = PROJECT_ROOT / "files" / "pknu_student_life" / "output" / "json"
 guide_dirs = [d for d in root.iterdir() if d.is_dir() and d.name != "E-하나로"]
 
 text_pdfs = []

@@ -10,7 +10,7 @@ import psycopg
 from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
 def connect() -> psycopg.Connection:

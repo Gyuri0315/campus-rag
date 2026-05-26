@@ -13,7 +13,8 @@ QUESTIONS = [
     "복수전공이나 전과 관련 내용 알려줘",
 ]
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+QUERY_SCRIPT = Path(__file__).resolve().with_name("query_supabase.py")
 
 
 def main() -> None:
@@ -25,7 +26,7 @@ def main() -> None:
         subprocess.run(
             [
                 sys.executable,
-                str(PROJECT_ROOT / "query_supabase.py"),
+                str(QUERY_SCRIPT),
                 question,
                 "--top-k",
                 "5",

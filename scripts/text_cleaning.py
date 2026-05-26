@@ -7,14 +7,16 @@ import re
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 ZERO_WIDTH_CHARS = re.compile(r"[\u200b-\u200f\ufeff]")
 BOX_DRAWING_CHARS = re.compile(r"[\u2500-\u257f]+")
-DOT_LEADERS = re.compile(r"[\.\u00b7\u2024\u2027\u2219\u22c5\u30fb\u318dㆍ․]{4,}")
+DOT_LEADERS = re.compile(r"[\.\u00b7\u2024\u2027\u2219\u22c5\u30fb\u318d]{4,}")
 CARET_MARKERS = re.compile(r"(?:\(?\^+\s*\d+[.)]?\)?\s*){2,}")
 SINGLE_CARET_MARKER = re.compile(r"\(?\^+\s*\d+[.)]?\)?")
-REPEATED_PUNCT = re.compile(r"([^\w\s가-힣])\1{3,}")
+REPEATED_PUNCT = re.compile(r"([^\w\s\uac00-\ud7a3])\1{3,}")
 QUESTION_RUN = re.compile(r"\?{2,}")
 SPREADSHEET_FORMULA = re.compile(r"=[A-Z][A-Z0-9_]*\([^)\s]*\)[^\s]*")
 FORMAT_ARTIFACT = re.compile(r"%[A-Za-z](?:[,;]+)?")
-SPACED_HANGUL_RUN = re.compile(r"(?<![가-힣])(?:[가-힣]\s+){3,}[가-힣](?![가-힣])")
+SPACED_HANGUL_RUN = re.compile(
+    r"(?<![\uac00-\ud7a3])(?:[\uac00-\ud7a3]\s+){3,}[\uac00-\ud7a3](?![\uac00-\ud7a3])"
+)
 MULTISPACE = re.compile(r"[ \t]{2,}")
 
 
@@ -38,7 +40,7 @@ def is_noise_line(line: str) -> bool:
     compact = line.strip()
     if not compact:
         return True
-    if re.fullmatch(r"[-–—_=*ㆍ․.\s]{3,}", compact):
+    if re.fullmatch(r"[-=*_~\s]{3,}", compact):
         return True
     if re.fullmatch(r"(?:\(?\^+\s*\d+[.)]?\)?\s*)+", compact):
         return True
@@ -62,7 +64,6 @@ def clean_extracted_text(text: object) -> str:
     value = QUESTION_RUN.sub(" ", value)
     value = DOT_LEADERS.sub(" ", value)
     value = REPEATED_PUNCT.sub(r"\1\1", value)
-    value = value.replace("Ÿ", "-")
     value = SPACED_HANGUL_RUN.sub(_collapse_spaced_hangul, value)
 
     cleaned_lines: list[str] = []

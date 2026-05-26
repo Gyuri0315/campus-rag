@@ -8,10 +8,10 @@ https://www.pknu.ac.kr/main/163
   - files/pknu_notice/output/deleted/<category>/<slug>.json
 
 실행:
-  - python pknu_notice_crawler.py
-  - python pknu_notice_crawler.py --full-resync
-  - python pknu_notice_crawler.py --recent-only 5
-  - python pknu_notice_crawler.py --reset-state
+  - python scripts/main/notice_crawler.py
+  - python scripts/main/notice_crawler.py --full-resync
+  - python scripts/main/notice_crawler.py --recent-only 5
+  - python scripts/main/notice_crawler.py --reset-state
 """
 
 from __future__ import annotations
@@ -38,7 +38,8 @@ from requests.adapters import HTTPAdapter
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-LOG_DIR = Path(__file__).resolve().parent / "logs"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -46,7 +47,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOG_DIR / "pknu_notice_crawler.log", encoding="utf-8"),
+        logging.FileHandler(LOG_DIR / "main_notice_crawler.log", encoding="utf-8"),
     ],
 )
 log = logging.getLogger(__name__)
@@ -55,10 +56,10 @@ BASE_URL = "https://www.pknu.ac.kr"
 LIST_URL = f"{BASE_URL}/main/163"
 SOURCE_SITE = BASE_URL
 
-OUTPUT_JSON = Path("files/pknu_notice/output/json")
-OUTPUT_HTML = Path("files/pknu_notice/output/html")
-OUTPUT_DELETED = Path("files/pknu_notice/output/deleted")
-STATE_FILE = Path("state_pknu_notice.json")
+OUTPUT_JSON = PROJECT_ROOT / "files" / "pknu_notice" / "output" / "json"
+OUTPUT_HTML = PROJECT_ROOT / "files" / "pknu_notice" / "output" / "html"
+OUTPUT_DELETED = PROJECT_ROOT / "files" / "pknu_notice" / "output" / "deleted"
+STATE_FILE = PROJECT_ROOT / "state_pknu_notice.json"
 
 REQUEST_DELAY = 1.2
 LIST_DELAY = 0.8

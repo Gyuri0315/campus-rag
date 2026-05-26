@@ -34,7 +34,8 @@ from requests.adapters import HTTPAdapter
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-LOG_DIR = Path(__file__).resolve().parent / "logs"
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+LOG_DIR = PROJECT_ROOT / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
@@ -42,7 +43,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOG_DIR / "pknu_student_life_crawler.log", encoding="utf-8"),
+        logging.FileHandler(LOG_DIR / "main_student_life_crawler.log", encoding="utf-8"),
     ],
 )
 log = logging.getLogger(__name__)
@@ -52,10 +53,10 @@ GUIDE_URL = f"{BASE_URL}/main/434"
 EBOOK_INDEX_URL = f"{BASE_URL}/ebook/col_life/kor/index.html"
 EBOOK_BASE_URL = f"{BASE_URL}/ebook/col_life/kor/"
 
-OUTPUT_JSON = Path("files/pknu_student_life/output/json")
-OUTPUT_FILES = Path("files/pknu_student_life/output/files")
-OUTPUT_DELETED = Path("files/pknu_student_life/output/deleted")
-STATE_FILE = Path("state_pknu_student_life.json")
+OUTPUT_JSON = PROJECT_ROOT / "files" / "pknu_student_life" / "output" / "json"
+OUTPUT_FILES = PROJECT_ROOT / "files" / "pknu_student_life" / "output" / "files"
+OUTPUT_DELETED = PROJECT_ROOT / "files" / "pknu_student_life" / "output" / "deleted"
+STATE_FILE = PROJECT_ROOT / "state_pknu_student_life.json"
 
 REQUEST_DELAY = 1.0
 REQUEST_TIMEOUT = 60
