@@ -145,6 +145,7 @@ Raw output:
 ```text
 files/pknu_notice/output/json/<category>/<slug>.json
 files/pknu_notice/output/html/<category>/<slug>.html
+files/pknu_notice/output/files/<category>/<slug>/<attachment>
 files/pknu_notice/output/deleted/<category>/<slug>.json
 ```
 
@@ -169,11 +170,10 @@ Notice JSON includes:
 - `source_site`
 - `crawled_at`
 
-Current limitation:
+Attachment metadata:
 
-- `attachments` contains `{name, url}` metadata only.
-- There is no `files/pknu_notice/output/files` download tree yet.
-- Because files are not downloaded, attachment text preprocessing for `pknu_notice` is not available yet.
+- `attachments` contains `{name, url, saved_path, downloaded, source_page_url, source_site, downloaded_from_url, content_type}` when a file download succeeds.
+- Existing downloaded attachments are reused on incremental crawls when their `saved_path` still exists.
 
 ## Student Life Dataset
 
