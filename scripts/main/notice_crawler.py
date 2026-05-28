@@ -5,6 +5,7 @@ https://www.pknu.ac.kr/main/163
 저장 형식:
   - files/pknu_notice/output/json/<category>/<slug>.json
   - files/pknu_notice/output/html/<category>/<slug>.html
+  - files/pknu_notice/output/files/<category>/<slug>/<attachment>
   - files/pknu_notice/output/deleted/<category>/<slug>.json
 
 실행:
@@ -29,7 +30,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 import urllib3
@@ -41,14 +42,16 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_DIR.mkdir(parents=True, exist_ok=True)
+LOG_FILE = LOG_DIR / "main_notice_crawler.log"
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler(LOG_DIR / "main_notice_crawler.log", encoding="utf-8"),
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
     ],
+    force=True,
 )
 log = logging.getLogger(__name__)
 
@@ -58,6 +61,7 @@ SOURCE_SITE = BASE_URL
 
 OUTPUT_JSON = PROJECT_ROOT / "files" / "pknu_notice" / "output" / "json"
 OUTPUT_HTML = PROJECT_ROOT / "files" / "pknu_notice" / "output" / "html"
+OUTPUT_FILES = PROJECT_ROOT / "files" / "pknu_notice" / "output" / "files"
 OUTPUT_DELETED = PROJECT_ROOT / "files" / "pknu_notice" / "output" / "deleted"
 STATE_FILE = PROJECT_ROOT / "state_pknu_notice.json"
 
@@ -395,6 +399,12 @@ def html_path_for(category_folder: str, slug: str) -> Path:
     return OUTPUT_HTML / category_folder / f"{slug}.html"
 
 
+def ensure_file_dir(category_folder: str, slug: str) -> Path:
+    file_dir = OUTPUT_FILES / category_folder / slug
+    file_dir.mkdir(parents=True, exist_ok=True)
+    return file_dir
+
+
 def find_existing_doc(slug: str) -> tuple[Path | None, dict | None]:
     if not OUTPUT_JSON.exists():
         return None, None
@@ -417,6 +427,194 @@ def save_document(doc: dict[str, Any], raw_html: str) -> None:
         json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8"
     )
     (html_dir / f"{slug}.html").write_text(raw_html, encoding="utf-8")
+
+
+def sanitize_filename(filename: str) -> str:
+    filename = Path(filename).name
+    filename = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", filename)
+    return filename.strip(" .") or "attachment"
+
+
+def extract_filename(resp: requests.Response, url: str, fallback_name: str) -> str:
+    content_disposition = resp.headers.get("Content-Disposition", "")
+    if content_disposition:
+        m = re.search(r"filename\*=UTF-8''([^;]+)", content_disposition, re.I)
+        if m:
+            return sanitize_filename(unquote(m.group(1).strip()))
+        m = re.search(r'filename="?([^";]+)"?', content_disposition, re.I)
+        if m:
+            return sanitize_filename(unquote(m.group(1).strip()))
+
+    parsed = urlparse(resp.url or url)
+    basename = Path(parsed.path).name
+    if basename:
+        return sanitize_filename(unquote(basename))
+
+    if fallback_name:
+        return sanitize_filename(fallback_name)
+
+    return "attachment"
+
+
+def local_path_exists(path_value: str) -> bool:
+    if not path_value:
+        return False
+    path = Path(path_value)
+    if path.exists():
+        return True
+    return (PROJECT_ROOT / path_value).exists()
+
+
+def reusable_attachments_by_url(existing_doc: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    reusable: dict[str, dict[str, Any]] = {}
+    if not existing_doc:
+        return reusable
+
+    attachments = existing_doc.get("attachments", [])
+    if not isinstance(attachments, list):
+        return reusable
+
+    for attachment in attachments:
+        if not isinstance(attachment, dict):
+            continue
+        url = str(attachment.get("url") or "").strip()
+        saved_path = str(attachment.get("saved_path") or "").strip()
+        if url and saved_path and local_path_exists(saved_path):
+            reusable[url] = attachment
+    return reusable
+
+
+def save_attachments(
+    session: requests.Session,
+    attachments: list[dict[str, Any]],
+    category_folder: str,
+    slug: str,
+    source_page_url: str,
+    existing_doc: dict[str, Any] | None = None,
+    reuse_existing: bool = True,
+) -> list[dict[str, Any]]:
+    if not attachments:
+        return []
+
+    file_dir = ensure_file_dir(category_folder, slug)
+    reusable_by_url = reusable_attachments_by_url(existing_doc) if reuse_existing else {}
+    results: list[dict[str, Any]] = []
+    used_names: set[str] = set()
+
+    for idx, attachment in enumerate(attachments, start=1):
+        file_url = str(attachment.get("url") or "").strip()
+        if not file_url:
+            continue
+
+        reusable = reusable_by_url.get(file_url)
+        if reusable:
+            results.append({**attachment, **reusable})
+            saved_name = Path(str(reusable.get("saved_path", ""))).name
+            if saved_name:
+                used_names.add(saved_name)
+            continue
+
+        try:
+            time.sleep(0.2)
+            resp = session.get(
+                file_url,
+                timeout=REQUEST_TIMEOUT,
+                stream=True,
+                verify=False,
+                headers={"Referer": source_page_url or LIST_URL},
+            )
+        except requests.RequestException as exc:
+            log.warning("attachment download failed %s: %s", file_url, exc)
+            results.append(
+                {
+                    **attachment,
+                    "saved_path": "",
+                    "downloaded": False,
+                    "source_page_url": source_page_url,
+                    "source_site": SOURCE_SITE,
+                }
+            )
+            continue
+
+        content_type = (resp.headers.get("Content-Type", "") or "").lower()
+        if resp.status_code != 200:
+            log.warning("attachment HTTP %d %s", resp.status_code, file_url)
+            resp.close()
+            results.append(
+                {
+                    **attachment,
+                    "saved_path": "",
+                    "downloaded": False,
+                    "source_page_url": source_page_url,
+                    "source_site": SOURCE_SITE,
+                    "content_type": content_type,
+                }
+            )
+            continue
+
+        filename = extract_filename(resp, file_url, str(attachment.get("name") or ""))
+        if "text/html" in content_type or "application/xhtml+xml" in content_type:
+            log.info("skip HTML attachment response: %s", file_url)
+            resp.close()
+            results.append(
+                {
+                    **attachment,
+                    "saved_path": "",
+                    "downloaded": False,
+                    "source_page_url": source_page_url,
+                    "source_site": SOURCE_SITE,
+                    "downloaded_from_url": resp.url,
+                    "content_type": content_type,
+                }
+            )
+            continue
+
+        if filename.lower().endswith((".html", ".htm", ".shtml")):
+            log.info("skip HTML attachment filename: %s", filename)
+            resp.close()
+            continue
+
+        if "." not in filename:
+            fallback_ext = Path(urlparse(resp.url).path).suffix
+            if fallback_ext:
+                filename = f"{filename}{fallback_ext}"
+
+        if filename in used_names:
+            base = Path(filename).stem
+            ext = Path(filename).suffix
+            filename = f"{base}_{idx}{ext}"
+        used_names.add(filename)
+
+        output_file = file_dir / filename
+        downloaded_from_url = resp.url
+        try:
+            with output_file.open("wb") as f:
+                for chunk in resp.iter_content(chunk_size=1024 * 256):
+                    if chunk:
+                        f.write(chunk)
+            saved_path = output_file.as_posix()
+            downloaded = True
+        except OSError as exc:
+            log.warning("attachment save failed %s: %s", output_file, exc)
+            saved_path = ""
+            downloaded = False
+        finally:
+            resp.close()
+
+        results.append(
+            {
+                **attachment,
+                "name": attachment.get("name") or filename,
+                "saved_path": saved_path,
+                "downloaded": downloaded,
+                "source_page_url": source_page_url,
+                "source_site": SOURCE_SITE,
+                "downloaded_from_url": downloaded_from_url,
+                "content_type": content_type,
+            }
+        )
+
+    return results
 
 
 def move_to_deleted(json_path: Path, doc: dict[str, Any]) -> None:
@@ -526,11 +724,22 @@ def crawl_details(
         if existing_doc:
             doc = merge_doc_categories(existing_doc, doc)
             old_hash = existing_doc.get("content_hash", "")
+            save_folder = category_dir_name(doc["category"])
+            doc["attachments"] = save_attachments(
+                session=session,
+                attachments=doc.get("attachments", []),
+                category_folder=save_folder,
+                slug=slug,
+                source_page_url=post_url,
+                existing_doc=existing_doc,
+                reuse_existing=not full_resync,
+            )
             if not full_resync and old_hash == doc["content_hash"]:
                 # 메타(카테고리)만 갱신된 경우 저장
                 if (
                     set(existing_doc.get("categories", [])) == set(doc["categories"])
                     and set(existing_doc.get("pknu_cd", [])) == set(doc["pknu_cd"])
+                    and existing_doc.get("attachments", []) == doc.get("attachments", [])
                 ):
                     stats.skipped += 1
                     posts_state[post_no] = {
@@ -543,6 +752,14 @@ def crawl_details(
                 doc["content_hash"] = old_hash if old_hash else doc["content_hash"]
 
         save_folder = category_dir_name(doc["category"])
+        if not existing_doc:
+            doc["attachments"] = save_attachments(
+                session=session,
+                attachments=doc.get("attachments", []),
+                category_folder=save_folder,
+                slug=slug,
+                source_page_url=post_url,
+            )
         if existing_path and existing_path.parent.name != save_folder:
             # 첫 카테고리 폴더가 바뀐 경우: 기존 파일 제거 후 새 경로에 저장
             try:
