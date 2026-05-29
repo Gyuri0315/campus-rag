@@ -25,12 +25,22 @@ DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EXPECTED_DIMENSIONS = 384
 DATASET_MATCH_FUNCTIONS = {
     "ce": "match_rag_documents",
+    "pknu_notice": "match_pknu_notice_documents",
+    "pknu_student_life": "match_pknu_student_life_documents",
     "rule": "match_rule_documents",
 }
 DATASET_TABLES = {
     "ce": {
         "sources": "rag_sources",
         "chunks": "rag_chunks",
+    },
+    "pknu_notice": {
+        "sources": "pknu_notice_sources",
+        "chunks": "pknu_notice_chunks",
+    },
+    "pknu_student_life": {
+        "sources": "pknu_student_life_sources",
+        "chunks": "pknu_student_life_chunks",
     },
     "rule": {
         "sources": "rule_sources",
