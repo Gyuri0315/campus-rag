@@ -19,3 +19,6 @@ nav_output.txt
 
 # 크롤러 임시 파일
 .crawl_start.txt
+
+CLAUDE.md
+backups/
