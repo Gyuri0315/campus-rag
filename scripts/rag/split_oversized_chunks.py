@@ -278,6 +278,7 @@ def apply_one_source(
             cur.execute(delete_sql, (parent_ids,))
             deleted = cur.rowcount
             cur.executemany(insert_sql, new_rows)
+    conn.commit()
     return (deleted, len(new_rows))
 
 
