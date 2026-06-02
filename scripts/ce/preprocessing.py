@@ -1019,15 +1019,61 @@ def build_metadata_fallback_blocks(
     return [{"type": "metadata_fallback", "style": "Metadata", "text": "\n".join(lines)}]
 
 
+_OVERSIZED_BOUNDARY_RE = re.compile(r"[\n。．\.!?！？]")
+
+
+def _split_oversized_text(text: str, max_size: int, overlap: int) -> list[str]:
+    """단일 텍스트가 max_size를 넘으면 문장/공백 경계 기준 슬라이딩 분할.
+
+    경계를 못 찾으면 문자 단위로 자른다. overlap은 인접 조각이 겹치도록 유지한다.
+    """
+    if len(text) <= max_size:
+        return [text]
+    if max_size <= overlap or max_size <= 0:
+        step = max(max_size, 1)
+        return [text[i : i + step] for i in range(0, len(text), step)]
+
+    pieces: list[str] = []
+    start = 0
+    while start < len(text):
+        end = min(start + max_size, len(text))
+        if end < len(text):
+            # 윈도우 뒤쪽 20% 안에서 문장/문단 경계를 찾아 그 지점에서 자른다.
+            search_from = start + int(max_size * 0.8)
+            tail = text[search_from:end]
+            matches = list(_OVERSIZED_BOUNDARY_RE.finditer(tail))
+            if matches:
+                end = search_from + matches[-1].end()
+            else:
+                ws_pos = text.rfind(" ", search_from, end)
+                if ws_pos > search_from:
+                    end = ws_pos + 1
+        pieces.append(text[start:end])
+        if end >= len(text):
+            break
+        start = max(start + 1, end - overlap)
+    return pieces
+
+
 def chunk_blocks(
     blocks: list[dict],
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     overlap: int = DEFAULT_CHUNK_OVERLAP,
 ) -> list[dict]:
-    texts = [normalize_text(b.get("text", "")) for b in blocks]
-    texts = [t for t in texts if t]
-    if not texts:
+    raw_texts = [normalize_text(b.get("text", "")) for b in blocks]
+    raw_texts = [t for t in raw_texts if t]
+    if not raw_texts:
         return []
+
+    # paragraph 단위 청킹이라, 단일 block의 text가 chunk_size를 넘으면
+    # 아래 누적 루프의 size 체크가 동작하지 않아 거대 chunk가 생긴다.
+    # 미리 펼쳐서 모든 텍스트가 chunk_size 이하가 되도록 한다.
+    texts: list[str] = []
+    for t in raw_texts:
+        if len(t) <= chunk_size:
+            texts.append(t)
+        else:
+            texts.extend(_split_oversized_text(t, chunk_size, overlap))
 
     chunks: list[dict] = []
     current: list[str] = []
