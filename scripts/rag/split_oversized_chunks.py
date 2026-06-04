@@ -1,6 +1,6 @@
 """거대 chunk를 외과적으로 분할/재임베딩/교체하는 1회용 스크립트.
 
-DB에서 LENGTH(content) >= --threshold 인 chunk를 찾아 scripts/ce/preprocessing.chunk_blocks
+DB에서 LENGTH(content) >= --threshold 인 chunk를 찾아 scripts/rag/preprocessing.chunk_blocks
 로 다시 자른 뒤 재임베딩, 원본 chunk를 트랜잭션 안에서 DELETE하고 새 sub-chunk를
 INSERT 한다. sources 테이블은 건드리지 않는다.
 
@@ -39,7 +39,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.ce.preprocessing import (  # noqa: E402
+from scripts.rag.preprocessing import (  # noqa: E402
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
     chunk_blocks,

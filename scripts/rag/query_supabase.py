@@ -47,6 +47,32 @@ DATASET_TABLES = {
         "chunks": "rule_chunks",
     },
 }
+FORM_REQUEST_KEYWORDS = (
+    "서식",
+    "양식",
+    "신청서",
+    "제출서류",
+    "별지",
+    "다운로드",
+    "파일",
+    "원서",
+    "확인서",
+)
+NOTICE_TOPIC_KEYWORDS = {
+    "non_curricular": ("비교과", "프로그램", "특강", "교육", "마일리지"),
+    "academic": ("학사", "수강", "휴학", "복학", "졸업", "성적", "시험", "전과"),
+    "tuition_scholarship": ("등록", "등록금", "장학", "장학금", "납부", "고지서"),
+    "recruitment": ("초빙", "채용", "모집", "교원", "직원", "강사"),
+    "notice": ("공지", "공지사항", "안내"),
+}
+APPENDIX_TABLE_REQUEST_KEYWORDS = (
+    "별표",
+    "기준표",
+    "금액표",
+    "배점표",
+    "목록",
+    "등급표",
+)
 
 
 def connect() -> Any:
@@ -112,6 +138,33 @@ def validate_table_name(value: str) -> str:
     return value
 
 
+def contains_any_keyword(text: str, keywords: tuple[str, ...]) -> bool:
+    normalized = " ".join(text.split()).lower()
+    return any(keyword.lower() in normalized for keyword in keywords)
+
+
+def query_intent_boosts(question: str, dataset: str) -> dict[str, Any]:
+    form_boost = 0.14 if contains_any_keyword(question, FORM_REQUEST_KEYWORDS) else 0.0
+    appendix_table_boost = 0.10 if contains_any_keyword(question, APPENDIX_TABLE_REQUEST_KEYWORDS) else 0.0
+    notice_topic = ""
+    notice_topic_boost = 0.0
+    if dataset == "pknu_notice":
+        for topic, keywords in NOTICE_TOPIC_KEYWORDS.items():
+            if contains_any_keyword(question, keywords):
+                notice_topic = topic
+                notice_topic_boost = 0.08
+                break
+    if dataset not in {"rule", "pknu_notice", "pknu_student_life"}:
+        form_boost = 0.0
+        appendix_table_boost = 0.0
+    return {
+        "form_boost": form_boost,
+        "appendix_table_boost": appendix_table_boost,
+        "notice_topic": notice_topic,
+        "notice_topic_boost": notice_topic_boost,
+    }
+
+
 def search(
     question: str,
     model_name: str,
@@ -162,9 +215,34 @@ def search_with_priority(
     tables = DATASET_TABLES[dataset]
     sources_table = validate_table_name(tables["sources"])
     chunks_table = validate_table_name(tables["chunks"])
+    intent_boosts = query_intent_boosts(question, dataset)
 
     if rank_by == "priority":
         query = sql.SQL("""
+            with scored as (
+                select
+                    s.*,
+                    case
+                        when %(form_boost)s > 0.0 and (
+                            coalesce(s.metadata->>'document_kind', s.metadata->>'attachment_kind', '') = 'form'
+                            or coalesce(s.metadata->>'is_form', '') = 'true'
+                            or coalesce(s.metadata->>'source_file', '') ~ '별지|서식'
+                            or coalesce(s.metadata->>'attachment_name', '') ~ '별지|서식'
+                        ) then %(form_boost)s
+                        when %(appendix_table_boost)s > 0.0 and (
+                            coalesce(s.metadata->>'document_kind', s.metadata->>'attachment_kind', '') = 'appendix_table'
+                            or coalesce(s.metadata->>'is_appendix_table', '') = 'true'
+                            or coalesce(s.metadata->>'source_file', '') ~ '별표'
+                            or coalesce(s.metadata->>'attachment_name', '') ~ '별표'
+                        ) then %(appendix_table_boost)s
+                        when %(notice_topic_boost)s > 0.0 and (
+                            coalesce(s.metadata->>'notice_topic', '') = %(notice_topic)s
+                        ) then %(notice_topic_boost)s
+                        else 0.0
+                    end as intent_boost
+                from public.{sources_table} as s
+                where s.status = 'active'
+            )
             select
                 null::text as id,
                 s.id as source_id,
@@ -180,14 +258,13 @@ def search_with_priority(
                 null::double precision as similarity,
                 s.priority_score,
                 s.priority_details,
-                s.priority_score as final_score
-            from public.{sources_table} as s
+                s.priority_score + s.intent_boost as final_score
+            from scored as s
             left join public.{chunks_table} as c on c.source_id = s.id
-            where s.status = 'active'
             group by
                 s.id, s.source_slug, s.source_type, s.title, s.url, s.parent_url,
-                s.metadata, s.priority_score, s.priority_details
-            order by s.priority_score desc, s.updated_at desc
+                s.metadata, s.priority_score, s.priority_details, s.intent_boost, s.updated_at
+            order by final_score desc, s.priority_score desc, s.updated_at desc
             limit %(top_k)s
         """).format(
             sources_table=sql.Identifier(sources_table),
@@ -195,7 +272,13 @@ def search_with_priority(
         )
         with connect() as conn:
             with conn.cursor() as cur:
-                cur.execute(query, {"top_k": top_k})
+                cur.execute(
+                    query,
+                    {
+                        "top_k": top_k,
+                        **intent_boosts,
+                    },
+                )
                 return list(cur.fetchall())
 
     embedding = vector_literal(embed_query(question, model_name))
@@ -219,7 +302,25 @@ def search_with_priority(
                 s.metadata || c.metadata as metadata,
                 1.0 - (c.embedding <=> %(embedding)s::extensions.vector(384)) as similarity,
                 s.priority_score,
-                s.priority_details
+                s.priority_details,
+                case
+                    when %(form_boost)s > 0.0 and (
+                        coalesce((s.metadata || c.metadata)->>'document_kind', (s.metadata || c.metadata)->>'attachment_kind', '') = 'form'
+                        or coalesce((s.metadata || c.metadata)->>'is_form', '') = 'true'
+                        or coalesce((s.metadata || c.metadata)->>'source_file', '') ~ '별지|서식'
+                        or coalesce((s.metadata || c.metadata)->>'attachment_name', '') ~ '별지|서식'
+                    ) then %(form_boost)s
+                    when %(appendix_table_boost)s > 0.0 and (
+                        coalesce((s.metadata || c.metadata)->>'document_kind', (s.metadata || c.metadata)->>'attachment_kind', '') = 'appendix_table'
+                        or coalesce((s.metadata || c.metadata)->>'is_appendix_table', '') = 'true'
+                        or coalesce((s.metadata || c.metadata)->>'source_file', '') ~ '별표'
+                        or coalesce((s.metadata || c.metadata)->>'attachment_name', '') ~ '별표'
+                    ) then %(appendix_table_boost)s
+                    when %(notice_topic_boost)s > 0.0 and (
+                        coalesce((s.metadata || c.metadata)->>'notice_topic', '') = %(notice_topic)s
+                    ) then %(notice_topic_boost)s
+                    else 0.0
+                end as intent_boost
             from public.{chunks_table} as c
             join public.{sources_table} as s on s.id = c.source_id
             where s.status = 'active'
@@ -228,7 +329,8 @@ def search_with_priority(
         select
             *,
             (similarity * (1.0 - %(priority_weight)s))
-                + (priority_score * %(priority_weight)s) as final_score
+                + (priority_score * %(priority_weight)s)
+                + intent_boost as final_score
         from scored
         order by {order_expression}
         limit %(top_k)s
@@ -246,6 +348,7 @@ def search_with_priority(
                     "top_k": top_k,
                     "min_similarity": min_similarity,
                     "priority_weight": priority_weight,
+                    **intent_boosts,
                 },
             )
             return list(cur.fetchall())

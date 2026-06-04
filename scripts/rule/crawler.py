@@ -41,6 +41,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_JSON = PROJECT_ROOT / "files" / "rule" / "output" / "json"
 OUTPUT_HTML = PROJECT_ROOT / "files" / "rule" / "output" / "html"
 OUTPUT_FILES = PROJECT_ROOT / "files" / "rule" / "output" / "files"
+OUTPUT_TREE = PROJECT_ROOT / "files" / "rule" / "output" / "tree"
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "rule_crawler.log"
 
@@ -504,10 +505,114 @@ def parse_tree_payload(raw: dict[str, Any]) -> dict[str, Any]:
     return tree_data
 
 
-def load_law_nodes(session: requests.Session) -> list[LawNode]:
+def node_title(node: dict[str, Any]) -> str:
+    data = node.get("data") or {}
+    return normalize_text(data.get("name") or node.get("text") or "")
+
+
+def normalize_tree_nodes(nodes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_id = {str(node.get("id")): node for node in nodes if node.get("id")}
+
+    def path_for(node_id: str) -> list[dict[str, str]]:
+        path: list[dict[str, str]] = []
+        seen: set[str] = set()
+        current = by_id.get(node_id)
+        while current:
+            current_id = str(current.get("id") or "")
+            if not current_id or current_id in seen:
+                break
+            seen.add(current_id)
+            data = current.get("data") or {}
+            path.append(
+                {
+                    "id": current_id,
+                    "lid": str(data.get("lid") or ""),
+                    "title": node_title(current),
+                    "kind_type": str(data.get("kindType") or current.get("type") or ""),
+                }
+            )
+            parent_id = str(current.get("parent") or "")
+            current = by_id.get(parent_id)
+        return list(reversed(path))
+
+    normalized: list[dict[str, Any]] = []
+    for node in nodes:
+        node_id = str(node.get("id") or "")
+        if not node_id:
+            continue
+        data = node.get("data") or {}
+        parent_id = str(node.get("parent") or "")
+        parent_node = by_id.get(parent_id) or {}
+        parent_data = parent_node.get("data") or {}
+        path = path_for(node_id)
+        kind_type = str(data.get("kindType") or node.get("type") or "")
+        normalized.append(
+            {
+                "id": node_id,
+                "parent_id": parent_id,
+                "title": node_title(node),
+                "kind_type": kind_type,
+                "lid": str(data.get("lid") or ""),
+                "parent_lid": str(parent_data.get("lid") or ""),
+                "parent_title": node_title(parent_node) if parent_node else "",
+                "issue": str(data.get("issue") or ""),
+                "effective": str(data.get("eff") or ""),
+                "law_path": html.unescape(str(data.get("url") or "")),
+                "depth": max(0, len(path) - 1),
+                "path_ids": [item["id"] for item in path],
+                "path_lids": [item["lid"] for item in path if item["lid"]],
+                "path_titles": [item["title"] for item in path if item["title"]],
+                "is_law_crawl_target": kind_type in {"hak", "gyu"},
+            }
+        )
+    return normalized
+
+
+def save_rule_tree(raw_payload: dict[str, Any], tree: dict[str, Any]) -> None:
+    nodes = tree.get("mixedNodes") or []
+    if not isinstance(nodes, list):
+        log.warning("Could not save rule tree; mixedNodes is not a list")
+        return
+
+    OUTPUT_TREE.mkdir(parents=True, exist_ok=True)
+    normalized = normalize_tree_nodes(nodes)
+    fetched_at = datetime.now().isoformat(timespec="seconds")
+
+    (OUTPUT_TREE / "rule_tree_raw.json").write_text(
+        json.dumps(
+            {
+                "fetched_at": fetched_at,
+                "source_url": f"{RULE_URL}/loadTree.do",
+                "payload": raw_payload,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    (OUTPUT_TREE / "rule_tree_nodes.json").write_text(
+        json.dumps(
+            {
+                "fetched_at": fetched_at,
+                "source_url": f"{RULE_URL}/loadTree.do",
+                "num_nodes": len(normalized),
+                "num_law_crawl_targets": sum(1 for node in normalized if node["is_law_crawl_target"]),
+                "nodes": normalized,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    log.info("Saved rule tree nodes=%d to %s", len(normalized), OUTPUT_TREE)
+
+
+def load_law_nodes(session: requests.Session, save_tree: bool = True) -> list[LawNode]:
     payload = fetch(session, f"{RULE_URL}/loadTree.do").json()
     tree = parse_tree_payload(payload)
     nodes = tree.get("mixedNodes") or []
+    if save_tree:
+        save_rule_tree(payload, tree)
     by_id = {str(node.get("id")): node for node in nodes if node.get("id")}
 
     law_nodes: list[LawNode] = []
@@ -921,8 +1026,13 @@ def crawl_bylaw_item(
     return doc
 
 
-def crawl_laws(session: requests.Session, max_items: int | None, download_files: bool) -> int:
-    nodes = load_law_nodes(session)
+def crawl_laws(
+    session: requests.Session,
+    max_items: int | None,
+    download_files: bool,
+    save_tree: bool,
+) -> int:
+    nodes = load_law_nodes(session, save_tree=save_tree)
     if max_items:
         nodes = nodes[:max_items]
     log.info("Found %s law/rule nodes", len(nodes))
@@ -953,6 +1063,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--laws", action="store_true", help="Crawl school rules/regulations from the rule tree.")
     parser.add_argument("--bylaws", action="store_true", help="Crawl bylaws/guidelines list and detail pages.")
     parser.set_defaults(download_files=True)
+    parser.set_defaults(save_tree=True)
     parser.add_argument(
         "--download-files",
         dest="download_files",
@@ -967,6 +1078,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--max-law-items", type=int, default=None, help="Limit law/rule items for smoke tests.")
     parser.add_argument("--max-bylaw-pages", type=int, default=None, help="Limit bylaw list pages for smoke tests.")
+    parser.add_argument(
+        "--save-tree",
+        dest="save_tree",
+        action="store_true",
+        help="Save the raw and normalized rule tree when crawling --laws (default).",
+    )
+    parser.add_argument(
+        "--no-save-tree",
+        dest="save_tree",
+        action="store_false",
+        help="Do not save the rule tree payload while crawling --laws.",
+    )
     return parser.parse_args()
 
 
@@ -980,7 +1103,7 @@ def main() -> int:
     session = build_session()
     total = 0
     if args.laws:
-        total += crawl_laws(session, args.max_law_items, args.download_files)
+        total += crawl_laws(session, args.max_law_items, args.download_files, args.save_tree)
     if args.bylaws:
         total += crawl_bylaws(session, args.max_bylaw_pages, args.download_files)
 

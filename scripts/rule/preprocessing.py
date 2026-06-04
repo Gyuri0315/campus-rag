@@ -48,6 +48,13 @@ LOG_FILE = LOG_DIR / "rule_preprocessing.log"
 DEFAULT_CHUNK_SIZE = 900
 DEFAULT_CHUNK_OVERLAP = 120
 SUPPORTED_ATTACHMENT_EXTS = {".pdf", ".docx", ".doc", ".hwp", ".hwpx", ".csv", ".txt"}
+FORM_ATTACHMENT_PATTERN = re.compile(
+    "(\ubcc4\uc9c0\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?\\s*\ud638?\\s*(?:\uc11c\uc2dd)?|"
+    "\uc11c\uc2dd\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?)"
+)
+APPENDIX_TABLE_PATTERN = re.compile(
+    "(\ubcc4\ud45c\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?\\s*\ud638?)"
+)
 
 log = logging.getLogger(__name__)
 
@@ -86,6 +93,44 @@ def rel_project_path(path: Path, root: Path = PROJECT_ROOT) -> str:
 def stable_slug(*parts: object) -> str:
     raw = "|".join(normalize_inline(part) for part in parts)
     return hashlib.md5(raw.encode("utf-8")).hexdigest()[:12]
+
+
+def classify_attachment_metadata(*values: object) -> dict[str, Any]:
+    text = normalize_inline(" ".join(str(value or "") for value in values))
+    if not text:
+        return {
+            "document_kind": "rule_text",
+            "attachment_kind": "",
+            "is_form": False,
+            "is_appendix_table": False,
+        }
+
+    appendix_match = APPENDIX_TABLE_PATTERN.search(text)
+    if appendix_match:
+        return {
+            "document_kind": "appendix_table",
+            "attachment_kind": "appendix_table",
+            "is_form": False,
+            "is_appendix_table": True,
+            "appendix_number": appendix_match.group(1),
+        }
+
+    form_match = FORM_ATTACHMENT_PATTERN.search(text)
+    if form_match:
+        return {
+            "document_kind": "form",
+            "attachment_kind": "form",
+            "is_form": True,
+            "is_appendix_table": False,
+            "form_number": form_match.group(1),
+        }
+
+    return {
+        "document_kind": "attachment",
+        "attachment_kind": "attachment",
+        "is_form": False,
+        "is_appendix_table": False,
+    }
 
 
 def output_path_for(input_file: Path, input_root: Path, output_root: Path) -> Path:
@@ -379,6 +424,20 @@ def write_preprocessed_result(
 ) -> str:
     rel_in_input = rel_project_path(input_file, input_root)
     source_slug = provenance.get("source_slug") or stable_slug(source_kind, rel_in_input)
+    if source_kind == "file":
+        attachment_metadata = classify_attachment_metadata(
+            input_file.name,
+            provenance.get("attachment_name"),
+            provenance.get("source_attachment_path"),
+            provenance.get("source_page_url"),
+        )
+    else:
+        attachment_metadata = {
+            "document_kind": "rule_text",
+            "attachment_kind": "",
+            "is_form": False,
+            "is_appendix_table": False,
+        }
     result = {
         "slug": stable_slug("rule", source_kind, source_slug),
         "source_file": input_file.name,
@@ -393,6 +452,7 @@ def write_preprocessed_result(
         "used_html_fallback": used_html_fallback,
         "provenance": {
             **provenance,
+            **attachment_metadata,
             "source_kind": source_kind,
         },
         "blocks": blocks,
