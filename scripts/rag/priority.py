@@ -1,11 +1,13 @@
-"""Priority scoring policy for department homepage source documents."""
+"""Priority scoring for main RAG datasets such as PKNU notice/student_life."""
 
 from __future__ import annotations
 
+import math
 import re
 from collections import Counter
+from collections.abc import Iterable
 from datetime import date, datetime
-from typing import Any, Iterable
+from typing import Any
 
 TOKEN_PATTERN = re.compile(r"[0-9a-zA-Z\uac00-\ud7a3]+")
 DATE_PATTERN = re.compile(
@@ -23,29 +25,14 @@ APPENDIX_TABLE_PATTERN = re.compile(
     "(\ubcc4\ud45c\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?\\s*\ud638?)"
 )
 
-HIGH_VALUE_PAGE_KEYWORDS = (
-    "\ud559\ubd80\uc548\ub0b4",
-    "\ud559\uc0ac\uc548\ub0b4",
-    "\ud559\ubd80\uc18c\uac1c",
-    "\uc804\uacf5\uc18c\uac1c",
-    "\ub300\ud559\uc6d0\uc18c\uac1c",
-    "\uc878\uc5c5\uc694\uac74",
-    "\uad50\uc721\uacfc\uc815",
-    "\ubaa8\ub4c8\ud615\uad50\uc721\uacfc\uc815",
-)
-LOW_BOARD_KEYWORDS = (
-    "\uacf5\uc9c0\uc0ac\ud56d",
-    "\ud559\uacfc\uacf5\uc9c0",
-    "\ub300\ud559\uc6d0\uacf5\uc9c0",
-    "\uc0b0\uc5c5\ub300\ud559\uc6d0\uacf5\uc9c0",
-    "\uad50\uc721\ub300\ud559\uc6d0\uacf5\uc9c0",
-    "\ucde8\uc5c5",
-    "\ucc44\uc6a9",
-)
+DATASET_BANDS = {
+    "pknu_student_life": ("student_life", 0.60, 0.35),
+    "pknu_notice": ("notice", 0.35, 0.24),
+}
 
 
-def normalize_text(text: str) -> str:
-    return " ".join((text or "").replace("\u00a0", " ").lower().split())
+def normalize_text(value: object) -> str:
+    return " ".join(str(value or "").replace("\u00a0", " ").lower().split())
 
 
 def content_features(text: str) -> Counter[str]:
@@ -65,11 +52,7 @@ def build_rule_feature_set(rule_contents: Iterable[str]) -> set[str]:
     return features
 
 
-def build_reference_feature_set(contents: Iterable[str]) -> set[str]:
-    return build_rule_feature_set(contents)
-
-
-def parse_ce_date(value: object) -> date | None:
+def parse_main_date(value: object) -> date | None:
     if not value:
         return None
     text = str(value).strip()
@@ -99,7 +82,7 @@ def extract_latest_date(*values: object) -> date | None:
     dates: list[date] = []
     for value in values:
         text = str(value or "")
-        parsed = parse_ce_date(text)
+        parsed = parse_main_date(text)
         if parsed:
             dates.append(parsed)
         for year_text, month_text, day_text in DATE_PATTERN.findall(text):
@@ -119,9 +102,9 @@ def recency_score(post_date: date | None, *, today: date | None = None) -> float
     if age_years <= 0.5:
         return 1.0
     if age_years <= 1:
-        return 0.9
+        return 0.88
     if age_years <= 2:
-        return 0.75
+        return 0.72
     if age_years <= 3:
         return 0.55
     if age_years <= 5:
@@ -132,11 +115,11 @@ def recency_score(post_date: date | None, *, today: date | None = None) -> float
 def metadata_bool(value: object) -> bool:
     if isinstance(value, bool):
         return value
-    return normalize_text(str(value)) in {"1", "true", "yes", "y"}
+    return normalize_text(value) in {"1", "true", "yes", "y"}
 
 
 def document_kind(title: str, metadata: dict[str, Any]) -> str:
-    explicit = normalize_text(str(metadata.get("document_kind") or metadata.get("attachment_kind") or ""))
+    explicit = normalize_text(metadata.get("document_kind") or metadata.get("attachment_kind"))
     if explicit in {"post", "form", "appendix_table", "attachment"}:
         return explicit
     if metadata_bool(metadata.get("is_form")):
@@ -160,7 +143,7 @@ def document_kind(title: str, metadata: dict[str, Any]) -> str:
         return "appendix_table"
     if FORM_ATTACHMENT_PATTERN.search(haystack):
         return "form"
-    if normalize_text(str(metadata.get("source_kind") or "")) in {"attachment", "file"}:
+    if normalize_text(metadata.get("source_kind")) in {"attachment", "file"}:
         return "attachment"
     return "post"
 
@@ -173,97 +156,63 @@ def document_kind_adjustment(kind: str) -> float:
     return 0.0
 
 
-def page_role_score(title: str, metadata: dict[str, Any]) -> tuple[str, float]:
-    haystack = normalize_text(
-        "\n".join(
-            str(value or "")
-            for value in (
-                metadata.get("category"),
-                metadata.get("subcategory"),
-                metadata.get("doc_type"),
-                metadata.get("doc_title"),
-                metadata.get("source_file"),
-                title,
-            )
-        )
-    )
-    if any(keyword in haystack for keyword in HIGH_VALUE_PAGE_KEYWORDS):
-        return "department_page", 1.0
-    if any(keyword in haystack for keyword in LOW_BOARD_KEYWORDS):
-        return "notice_or_job_board", 0.45
-    return "general_department_content", 0.65
+def source_quality_score(metadata: dict[str, Any], content: str) -> float:
+    length_score = min(1.0, math.log10(max(len(content), 10)) / 4.0)
+    has_title = bool(normalize_text(metadata.get("doc_title") or metadata.get("source_file")))
+    has_url = bool(normalize_text(metadata.get("doc_url") or metadata.get("source_page_url")))
+    metadata_score = 0.5 + (0.25 if has_title else 0.0) + (0.25 if has_url else 0.0)
+    return min(1.0, 0.65 * length_score + 0.35 * metadata_score)
 
 
-def feature_overlap_score(content: str, reference_features: set[str]) -> tuple[float, int, int]:
+def rule_overlap_score(content: str, rule_features: set[str]) -> tuple[float, int, int]:
     features = content_features(content)
     total = sum(features.values())
-    if total <= 0 or not reference_features:
+    if total <= 0 or not rule_features:
         return 0.0, total, 0
-    matched = sum(count for feature, count in features.items() if feature in reference_features)
+    matched = sum(count for feature, count in features.items() if feature in rule_features)
     return matched / total, total, matched
 
 
-def calculate_ce_priority(
-    ce_content: str,
+def calculate_main_priority(
+    *,
+    dataset: str,
+    content: str,
     rule_features: set[str],
-    main_features: set[str] | None = None,
-    metadata: dict | None = None,
+    metadata: dict[str, Any],
     title: str = "",
     today: date | None = None,
-) -> tuple[float, dict[str, float | int | str | None]]:
-    """Score department-site priority using rule/main overlap, recency, and page role."""
-
-    metadata = metadata or {}
-    main_features = main_features or set()
-    rule_overlap, feature_count, rule_matched = feature_overlap_score(ce_content, rule_features)
-    main_overlap, _, main_matched = feature_overlap_score(ce_content, main_features)
-    if feature_count <= 0:
-        return 0.0, {
-            "rule": "ce_rule_main_overlap_recency_page_doc_kind_v2",
-            "feature_count": 0,
-            "rule_matched_feature_count": 0,
-            "main_matched_feature_count": 0,
-            "rule_content_overlap": 0.0,
-            "main_content_overlap": 0.0,
-            "recency_score": 0.0,
-            "page_role": None,
-            "page_role_score": 0.0,
-            "document_kind": None,
-            "document_kind_adjustment": 0.0,
-            "latest_ce_date": None,
-        }
-
+) -> tuple[float, dict[str, float | int | str | bool | None]]:
+    dataset_kind, band_base, band_span = DATASET_BANDS[dataset]
+    overlap, feature_count, matched_count = rule_overlap_score(content, rule_features)
     latest_date = extract_latest_date(
         metadata.get("date"),
         metadata.get("published_at"),
         metadata.get("crawled_at"),
+        metadata.get("doc_title"),
+        metadata.get("source_file"),
+        title,
     )
     recency = recency_score(latest_date, today=today)
-    page_role, page_score = page_role_score(title, metadata)
+    source_quality = source_quality_score(metadata, content)
     kind = document_kind(title, metadata)
     kind_adjustment = document_kind_adjustment(kind)
-    reference_overlap = max(rule_overlap, main_overlap)
 
-    score = (
-        0.38 * reference_overlap
-        + 0.27 * recency
-        + 0.30 * page_score
-        + 0.05 * min(1.0, rule_overlap + main_overlap)
-        + kind_adjustment
-    )
-    score = max(0.0, min(1.0, score))
+    within_band = 0.45 * overlap + 0.35 * recency + 0.20 * source_quality + kind_adjustment
+    within_band = max(0.0, min(1.0, within_band))
+    score = max(0.0, min(1.0, band_base + band_span * within_band))
     return score, {
-        "rule": "ce_rule_main_overlap_recency_page_doc_kind_v2",
+        "rule": "main_dataset_rule_overlap_recency_doc_kind_v1",
+        "dataset_kind": dataset_kind,
+        "band_base": band_base,
+        "band_span": band_span,
+        "rule_content_overlap": overlap,
         "feature_count": feature_count,
-        "rule_matched_feature_count": rule_matched,
-        "main_matched_feature_count": main_matched,
-        "rule_content_overlap": rule_overlap,
-        "main_content_overlap": main_overlap,
-        "reference_overlap": reference_overlap,
+        "matched_feature_count": matched_count,
         "recency_score": recency,
-        "page_role": page_role,
-        "page_role_score": page_score,
+        "source_quality_score": source_quality,
         "document_kind": kind,
         "document_kind_adjustment": kind_adjustment,
-        "latest_ce_date": latest_date.isoformat() if latest_date else None,
+        "latest_date": latest_date.isoformat() if latest_date else None,
+        "notice_topic": metadata.get("notice_topic"),
+        "content_chars": len(content),
     }

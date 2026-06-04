@@ -1,8 +1,8 @@
 """Priority scoring policy for rule documents.
 
 Rule priority is a retrieval-time trust signal. It should not replace semantic
-similarity; it should only promote more authoritative, student-facing, current,
-and usable rule sources among otherwise relevant results.
+similarity; it should promote more authoritative and current rule sources among
+otherwise relevant results.
 """
 
 from __future__ import annotations
@@ -14,6 +14,7 @@ from datetime import date, datetime
 from typing import Any
 
 DATE_PATTERN = re.compile(r"(20\d{2})[.\-/\ub144]\s*(\d{1,2})[.\-/\uc6d4]\s*(\d{1,2})")
+COMPACT_DATE_PATTERN = re.compile(r"^(20\d{2})(\d{2})(\d{2})$")
 
 DEPRECATED_KEYWORDS = (
     "\ud3d0\uc9c0",
@@ -23,58 +24,16 @@ DEPRECATED_KEYWORDS = (
     "\uc885\ub8cc",
 )
 
-HIGH_STUDENT_KEYWORDS = (
-    "\uc878\uc5c5",
-    "\uad50\uc721\uacfc\uc815",
-    "\uad50\uacfc\uacfc\uc815",
-    "\ud559\uc810",
-    "\uc774\uc218",
-    "\uc218\uac15",
-    "\uacc4\uc808\uc218\uc5c5",
-    "\ub300\uccb4\uacfc\ubaa9",
-    "\ub3d9\uc77c\uacfc\ubaa9",
-    "\uc131\uc801",
-    "\uc2dc\ud5d8",
-    "\uc804\uacf5",
-    "\uad50\uc591",
-    "\ub2e4\uc804\uacf5",
-    "\ubcf5\uc218\uc804\uacf5",
-    "\ubd80\uc804\uacf5",
-    "\ud3b8\uc785",
-    "\uc804\uacfc",
-    "\ud734\ud559",
-    "\ubcf5\ud559",
-    "\uc7a5\ud559",
-    "\ud559\uc801",
-    "\ud604\uc7a5\uc2e4\uc2b5",
-    "\ucea1\uc2a4\ud1a4",
+SCHOOL_RULE_TITLES = (
+    "\ubd80\uacbd\ub300\ud559\uad50 \ud559\uce59",
+    "\uad6d\ub9bd\ubd80\uacbd\ub300\ud559\uad50 \ud559\uce59",
 )
-
-MEDIUM_STUDENT_KEYWORDS = (
-    "\ube44\uad50\uacfc",
-    "\ub9c8\uc77c\ub9ac\uc9c0",
-    "\ucde8\uc5c5",
-    "\ucc3d\uc5c5",
-    "\uc0c1\ub2f4",
-    "\ubd09\uc0ac",
-    "\ud559\uc0dd",
-    "\ud559\ubd80",
+FORM_ATTACHMENT_PATTERN = re.compile(
+    "(\ubcc4\uc9c0\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?\\s*\ud638?\\s*(?:\uc11c\uc2dd)?|"
+    "\uc11c\uc2dd\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?)"
 )
-
-LOW_STUDENT_KEYWORDS = (
-    "\uc5f0\uad6c\uc6d0",
-    "\uc13c\ud130",
-    "\uc0b0\ud559\ud611\ub825\ub2e8",
-    "\uc704\uc6d0\ud68c",
-    "\uad50\uc6d0",
-    "\uc9c1\uc6d0",
-    "\uc608\uc0b0",
-    "\ud68c\uacc4",
-    "\ucd9c\uc7a5",
-    "\uacf5\uac04",
-    "\uc2dc\uc124",
-    "\ubcf4\uc548",
-    "\uc815\ubcf4\ud654",
+APPENDIX_TABLE_PATTERN = re.compile(
+    "(\ubcc4\ud45c\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?\\s*\ud638?)"
 )
 
 
@@ -86,6 +45,13 @@ def parse_rule_date(value: object) -> date | None:
     if not value:
         return None
     text = str(value).strip()
+    compact = COMPACT_DATE_PATTERN.match(text)
+    if compact:
+        year, month, day = (int(part) for part in compact.groups())
+        try:
+            return date(year, month, day)
+        except ValueError:
+            return None
     for fmt in ("%Y-%m-%d", "%Y.%m.%d", "%Y/%m/%d"):
         try:
             return datetime.strptime(text, fmt).date()
@@ -116,30 +82,90 @@ def extract_latest_date(*values: object) -> date | None:
     return max(dates) if dates else None
 
 
-def authority_score(metadata: dict[str, Any]) -> float:
+def authority_score(metadata: dict[str, Any], tree_info: dict[str, Any] | None = None) -> float:
+    return authority_band(metadata, tree_info)[1]
+
+
+def metadata_bool(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    return normalize_text(value) in {"1", "true", "yes", "y"}
+
+
+def document_kind(title: str, metadata: dict[str, Any]) -> str:
+    explicit_kind = normalize_text(metadata.get("document_kind") or metadata.get("attachment_kind"))
+    if explicit_kind in {"form", "appendix_table", "attachment", "rule_text"}:
+        return explicit_kind
+    if metadata_bool(metadata.get("is_form")):
+        return "form"
+    if metadata_bool(metadata.get("is_appendix_table")):
+        return "appendix_table"
+
+    haystack = normalize_text(
+        "\n".join(
+            str(value or "")
+            for value in (
+                title,
+                metadata.get("doc_title"),
+                metadata.get("source_file"),
+                metadata.get("attachment_name"),
+                metadata.get("source_path"),
+                metadata.get("source_attachment_path"),
+            )
+        )
+    )
+    if APPENDIX_TABLE_PATTERN.search(haystack):
+        return "appendix_table"
+    if FORM_ATTACHMENT_PATTERN.search(haystack):
+        return "form"
+    if normalize_text(metadata.get("source_kind")) == "file":
+        return "attachment"
+    return "rule_text"
+
+
+def document_kind_adjustment(kind: str) -> float:
+    if kind == "form":
+        return -0.07
+    if kind == "appendix_table":
+        return -0.035
+    return 0.0
+
+
+def authority_band(metadata: dict[str, Any], tree_info: dict[str, Any] | None = None) -> tuple[str, float, float]:
+    tree_kind = normalize_text(tree_info.get("kind_type") if tree_info else "")
+    if tree_kind == "hak":
+        return "school_rule", 0.90, 0.099
+    if tree_kind == "gyu":
+        return "regulation", 0.70, 0.199
+    if tree_kind in {"se", "ji"}:
+        return "bylaw_guideline", 0.50, 0.199
+
     subcategory = normalize_text(metadata.get("subcategory"))
     doc_type = normalize_text(metadata.get("doc_type"))
 
     if subcategory == "school_rule" or doc_type == "hak":
-        return 1.0
+        return "school_rule", 0.90, 0.099
     if subcategory == "regulation" or doc_type == "gyu":
-        return 0.9
-    if subcategory == "bylaw":
-        return 0.75
-    if subcategory == "guideline":
-        return 0.65
-    return 0.55
+        return "regulation", 0.70, 0.199
+    if subcategory in {"bylaw", "guideline"} or doc_type in {"bylaw_guideline", "se", "ji"}:
+        return "bylaw_guideline", 0.50, 0.199
+    return "unknown", 0.35, 0.149
 
 
-def student_relevance_score(title: str, content: str) -> float:
-    haystack = normalize_text(f"{title}\n{content[:5000]}")
-    high = sum(1 for keyword in HIGH_STUDENT_KEYWORDS if keyword in haystack)
-    medium = sum(1 for keyword in MEDIUM_STUDENT_KEYWORDS if keyword in haystack)
-    low = sum(1 for keyword in LOW_STUDENT_KEYWORDS if keyword in haystack)
-
-    positive = min(1.0, high * 0.25 + medium * 0.10)
-    penalty = min(0.5, low * 0.10)
-    return max(0.15, min(1.0, 0.25 + positive - penalty))
+def is_top_school_rule(title: str, metadata: dict[str, Any], tree_info: dict[str, Any] | None = None) -> bool:
+    values = [
+        title,
+        metadata.get("doc_title"),
+        metadata.get("source_file"),
+        tree_info.get("title") if tree_info else "",
+    ]
+    haystack = normalize_text("\n".join(str(value or "") for value in values))
+    subcategory = normalize_text(metadata.get("subcategory"))
+    doc_type = normalize_text(metadata.get("doc_type"))
+    return (
+        any(name in haystack for name in SCHOOL_RULE_TITLES)
+        and (subcategory == "school_rule" or doc_type == "hak")
+    )
 
 
 def recency_score(rule_date: date | None, *, today: date | None = None) -> float:
@@ -155,6 +181,33 @@ def recency_score(rule_date: date | None, *, today: date | None = None) -> float
     if age_years <= 7:
         return 0.55
     return 0.3
+
+
+def tree_score(tree_info: dict[str, Any] | None, authority_kind: str) -> float:
+    if not tree_info:
+        return 0.50 if authority_kind in {"school_rule", "regulation"} else 0.35
+
+    depth = tree_info.get("depth")
+    try:
+        depth_value = int(depth)
+    except (TypeError, ValueError):
+        depth_value = 3
+
+    if authority_kind == "school_rule":
+        return 1.0 if depth_value <= 1 else 0.90
+    if authority_kind == "regulation":
+        if depth_value <= 2:
+            return 1.0
+        if depth_value == 3:
+            return 0.80
+        return 0.65
+    if authority_kind == "bylaw_guideline":
+        if depth_value <= 2:
+            return 0.85
+        if depth_value == 3:
+            return 0.70
+        return 0.55
+    return 0.40
 
 
 def source_quality_score(metadata: dict[str, Any], content: str) -> float:
@@ -187,39 +240,52 @@ def calculate_rule_priority(
     title: str,
     content: str,
     metadata: dict[str, Any],
+    tree_info: dict[str, Any] | None = None,
     today: date | None = None,
 ) -> tuple[float, dict[str, float | int | str | bool | None]]:
-    latest_date = extract_latest_date(
+    authority_kind, band_base, band_span = authority_band(metadata, tree_info)
+    date_label = "revision_date" if authority_kind == "bylaw_guideline" else "effective_date"
+    priority_date = extract_latest_date(
+        tree_info.get("effective") if tree_info and authority_kind in {"school_rule", "regulation"} else None,
+        metadata.get("effective_at"),
         metadata.get("date"),
         metadata.get("doc_title"),
         metadata.get("source_file"),
         title,
-        content[:1500],
+        content[:2500] if authority_kind == "bylaw_guideline" else "",
     )
-    authority = authority_score(metadata)
-    student_relevance = student_relevance_score(title, content)
-    recency = recency_score(latest_date, today=today)
+    authority = authority_score(metadata, tree_info)
+    recency = recency_score(priority_date, today=today)
+    tree = tree_score(tree_info, authority_kind)
     source_quality = source_quality_score(metadata, content)
     deprecated = is_deprecated(title, content)
+    kind = document_kind(title, metadata)
+    kind_adjustment = document_kind_adjustment(kind)
 
-    score = (
-        0.30 * authority
-        + 0.40 * student_relevance
-        + 0.15 * recency
-        + 0.15 * source_quality
-    )
-    if deprecated:
-        score *= 0.2
-
+    top_school_rule = is_top_school_rule(title, metadata, tree_info)
+    if top_school_rule:
+        score = 1.0
+    else:
+        within_band = 0.50 * recency + 0.35 * tree + 0.15 * source_quality
+        score = band_base + band_span * within_band + kind_adjustment
     score = max(0.0, min(1.0, score))
     return score, {
-        "rule": "rule_authority_student_recency_quality",
+        "rule": "rule_authority_date_tree_quality_doc_kind_v3",
+        "authority_kind": authority_kind,
         "authority_score": authority,
-        "student_relevance_score": student_relevance,
+        "band_base": band_base,
+        "band_span": band_span,
         "recency_score": recency,
+        "tree_score": tree,
         "source_quality_score": source_quality,
+        "document_kind": kind,
+        "document_kind_adjustment": kind_adjustment,
+        "top_school_rule": top_school_rule,
         "deprecated": deprecated,
-        "latest_rule_date": latest_date.isoformat() if latest_date else None,
+        "date_label": date_label,
+        "priority_date": priority_date.isoformat() if priority_date else None,
+        "tree_node_id": tree_info.get("id") if tree_info else None,
+        "tree_depth": tree_info.get("depth") if tree_info else None,
         "content_chars": len(content),
     }
 
@@ -252,4 +318,3 @@ def aggregate_source_records(records: Iterable[dict[str, Any]]) -> list[dict[str
         }
         for source in sources.values()
     ]
-

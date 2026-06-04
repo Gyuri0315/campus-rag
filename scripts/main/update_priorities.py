@@ -1,4 +1,4 @@
-"""Fill CE document priority scores from CE/rule content overlap."""
+"""Update priority scores for PKNU notice and student_life RAG sources."""
 
 from __future__ import annotations
 
@@ -15,10 +15,12 @@ from dotenv import load_dotenv
 
 try:
     import psycopg
+    from psycopg import sql
     from psycopg.rows import dict_row
     from psycopg.types.json import Jsonb
 except ModuleNotFoundError:
     psycopg = None
+    sql = None
     dict_row = None
 
     class Jsonb:  # type: ignore[no-redef]
@@ -29,26 +31,31 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.ce.priority import (  # noqa: E402
-    build_reference_feature_set,
-    build_rule_feature_set,
-    calculate_ce_priority,
-)
+from scripts.rag.priority import build_rule_feature_set, calculate_main_priority  # noqa: E402
 
-LOG_DIR = PROJECT_ROOT / "logs"
-LOG_FILE = LOG_DIR / "update_ce_priorities.log"
-DEFAULT_CE_INDEX = PROJECT_ROOT / "files" / "ce" / "vectorized" / "index.jsonl"
+DATASET_TABLES = {
+    "pknu_notice": {
+        "sources": "pknu_notice_sources",
+        "chunks": "pknu_notice_chunks",
+        "index": PROJECT_ROOT / "files" / "pknu_notice" / "vectorized" / "index.jsonl",
+    },
+    "pknu_student_life": {
+        "sources": "pknu_student_life_sources",
+        "chunks": "pknu_student_life_chunks",
+        "index": PROJECT_ROOT / "files" / "pknu_student_life" / "vectorized" / "index.jsonl",
+    },
+}
 DEFAULT_RULE_INDEX = PROJECT_ROOT / "files" / "rule" / "vectorized" / "index.jsonl"
-DEFAULT_MAIN_INDEXES = (
-    PROJECT_ROOT / "files" / "pknu_notice" / "vectorized" / "index.jsonl",
-    PROJECT_ROOT / "files" / "pknu_student_life" / "vectorized" / "index.jsonl",
-)
+LOG_DIR = PROJECT_ROOT / "logs"
+LOG_FILE = LOG_DIR / "update_main_priorities.log"
 
 log = logging.getLogger(__name__)
 
 
 def configure_logging() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -154,54 +161,43 @@ def fetch_rule_contents(conn: Any) -> list[str]:
         return [str(row["content"] or "") for row in cur.fetchall()]
 
 
-def fetch_main_contents(conn: Any) -> list[str]:
-    query = """
-        select c.content
-        from public.pknu_notice_chunks as c
-        join public.pknu_notice_sources as s on s.id = c.source_id
-        where s.status = 'active'
-        union all
-        select c.content
-        from public.pknu_student_life_chunks as c
-        join public.pknu_student_life_sources as s on s.id = c.source_id
-        where s.status = 'active'
-    """
-    with conn.cursor() as cur:
-        cur.execute(query)
-        return [str(row["content"] or "") for row in cur.fetchall()]
-
-
-def fetch_ce_documents(conn: Any) -> list[dict[str, Any]]:
-    query = """
+def fetch_documents(conn: Any, dataset: str) -> list[dict[str, Any]]:
+    if sql is None:
+        raise RuntimeError("psycopg is required for database updates. Install backend requirements first.")
+    tables = DATASET_TABLES[dataset]
+    query = sql.SQL("""
         select
             s.id,
-            s.title,
+            coalesce(s.title, s.source_slug) as title,
             s.metadata,
             coalesce(string_agg(c.content, E'\n\n' order by c.chunk_index), '') as content
-        from public.rag_sources as s
-        left join public.rag_chunks as c on c.source_id = s.id
+        from public.{sources_table} as s
+        left join public.{chunks_table} as c on c.source_id = s.id
         where s.status = 'active'
-        group by s.id
-    """
+        group by s.id, s.title, s.source_slug, s.metadata
+    """).format(
+        sources_table=sql.Identifier(tables["sources"]),
+        chunks_table=sql.Identifier(tables["chunks"]),
+    )
     with conn.cursor() as cur:
         cur.execute(query)
         return list(cur.fetchall())
 
 
 def build_updates(
-    ce_documents: Iterable[dict[str, Any]],
+    dataset: str,
+    documents: Iterable[dict[str, Any]],
     rule_features: set[str],
-    main_features: set[str],
 ) -> list[dict[str, Any]]:
     updates: list[dict[str, Any]] = []
-    for doc in ce_documents:
+    for doc in documents:
         metadata = doc.get("metadata") or {}
         if not isinstance(metadata, dict):
             metadata = {}
-        score, details = calculate_ce_priority(
-            str(doc["content"] or ""),
-            rule_features,
-            main_features=main_features,
+        score, details = calculate_main_priority(
+            dataset=dataset,
+            content=str(doc.get("content") or ""),
+            rule_features=rule_features,
             metadata=metadata,
             title=str(doc.get("title") or ""),
         )
@@ -216,99 +212,104 @@ def build_updates(
     return updates
 
 
-def log_preview(updates: list[dict[str, Any]], limit: int) -> None:
-    preview = sorted(updates, key=lambda row: row["priority_score"], reverse=True)[:limit]
-    for row in preview:
-        log.info("[DRY-RUN] %.4f %s %s", row["priority_score"], row["id"], row.get("title") or "")
+def log_preview(dataset: str, updates: list[dict[str, Any]], limit: int) -> None:
+    for row in sorted(updates, key=lambda item: item["priority_score"], reverse=True)[:limit]:
+        log.info("[%s PREVIEW] %.4f %s %s", dataset, row["priority_score"], row["id"], row["title"])
 
 
-def update_ce_priorities(conn: Any, dry_run: bool, preview_limit: int) -> int:
-    rule_contents = fetch_rule_contents(conn)
-    rule_features = build_rule_feature_set(rule_contents)
-    main_contents = fetch_main_contents(conn)
-    main_features = build_reference_feature_set(main_contents)
-    ce_documents = fetch_ce_documents(conn)
-    log.info(
-        "loaded rule_chunks=%d rule_features=%d main_chunks=%d main_features=%d ce_sources=%d",
-        len(rule_contents),
-        len(rule_features),
-        len(main_contents),
-        len(main_features),
-        len(ce_documents),
-    )
-
-    updates = build_updates(ce_documents, rule_features, main_features)
+def update_dataset_priorities(
+    conn: Any,
+    dataset: str,
+    rule_features: set[str],
+    dry_run: bool,
+    preview_limit: int,
+) -> int:
+    if sql is None:
+        raise RuntimeError("psycopg is required for database updates. Install backend requirements first.")
+    documents = fetch_documents(conn, dataset)
+    updates = build_updates(dataset, documents, rule_features)
+    log.info("loaded %s sources=%d", dataset, len(updates))
 
     if dry_run:
-        log_preview(updates, preview_limit)
+        log_preview(dataset, updates, preview_limit)
         return len(updates)
 
-    update_sql = """
-        update public.rag_sources
+    sources_table = DATASET_TABLES[dataset]["sources"]
+    update_sql = sql.SQL("""
+        update public.{sources_table}
         set
             priority_score = %(priority_score)s,
             priority_details = %(priority_details)s,
             priority_updated_at = now()
         where id = %(id)s
-    """
+    """).format(sources_table=sql.Identifier(sources_table))
     with conn.cursor() as cur:
         cur.executemany(update_sql, updates)
     conn.commit()
     return len(updates)
 
 
-def preview_from_index(
-    ce_index: Path,
-    rule_index: Path,
-    main_indexes: Iterable[Path],
-    preview_limit: int,
-) -> int:
-    ce_documents = aggregate_source_records(iter_index_records(ce_index))
-    rule_documents = aggregate_source_records(iter_index_records(rule_index))
-    main_documents: list[dict[str, Any]] = []
-    for index_path in main_indexes:
-        if index_path.exists():
-            main_documents.extend(aggregate_source_records(iter_index_records(index_path)))
-
+def preview_from_index(dataset: str, index_path: Path, rule_index_path: Path, preview_limit: int) -> int:
+    documents = aggregate_source_records(iter_index_records(index_path))
+    rule_documents = aggregate_source_records(iter_index_records(rule_index_path))
     rule_features = build_rule_feature_set(str(doc.get("content") or "") for doc in rule_documents)
-    main_features = build_reference_feature_set(str(doc.get("content") or "") for doc in main_documents)
-    updates = build_updates(ce_documents, rule_features, main_features)
+    updates = build_updates(dataset, documents, rule_features)
     log.info(
-        "loaded local ce_sources=%d rule_sources=%d main_sources=%d rule_features=%d main_features=%d",
-        len(ce_documents),
+        "loaded local dataset=%s sources=%d rule_sources=%d rule_features=%d",
+        dataset,
+        len(updates),
         len(rule_documents),
-        len(main_documents),
         len(rule_features),
-        len(main_features),
     )
-    log_preview(updates, preview_limit)
+    log_preview(dataset, updates, preview_limit)
     return len(updates)
 
 
-def main() -> None:
-    configure_logging()
-    parser = argparse.ArgumentParser(description="Update CE document priority scores.")
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Update PKNU notice/student_life priority scores.")
+    parser.add_argument(
+        "--dataset",
+        choices=["pknu_notice", "pknu_student_life", "all"],
+        default="all",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument(
         "--from-index",
         action="store_true",
         help="Preview from local vectorized index files. Requires --dry-run.",
     )
-    parser.add_argument("--index-path", type=Path, default=DEFAULT_CE_INDEX)
+    parser.add_argument("--index-path", type=Path, default=None)
     parser.add_argument("--rule-index-path", type=Path, default=DEFAULT_RULE_INDEX)
     parser.add_argument("--preview-limit", type=int, default=10)
-    args = parser.parse_args()
+    return parser.parse_args()
 
+
+def main() -> None:
+    configure_logging()
+    args = parse_args()
     if args.preview_limit <= 0:
         raise ValueError("--preview-limit must be positive")
+    datasets = list(DATASET_TABLES) if args.dataset == "all" else [args.dataset]
+
     if args.from_index:
         if not args.dry_run:
             raise ValueError("--from-index is preview-only; pass --dry-run")
-        count = preview_from_index(args.index_path, args.rule_index_path, DEFAULT_MAIN_INDEXES, args.preview_limit)
+        if len(datasets) != 1 and args.index_path:
+            raise ValueError("--index-path can only be used with a single --dataset")
+        total = 0
+        for dataset in datasets:
+            index_path = args.index_path or DATASET_TABLES[dataset]["index"]
+            total += preview_from_index(dataset, index_path, args.rule_index_path, args.preview_limit)
     else:
         with connect() as conn:
-            count = update_ce_priorities(conn, args.dry_run, args.preview_limit)
-    log.info("done: processed %d CE source priorities", count)
+            rule_contents = fetch_rule_contents(conn)
+            rule_features = build_rule_feature_set(rule_contents)
+            log.info("loaded rule_chunks=%d rule_features=%d", len(rule_contents), len(rule_features))
+            total = 0
+            for dataset in datasets:
+                total += update_dataset_priorities(conn, dataset, rule_features, args.dry_run, args.preview_limit)
+
+    log.info("done: processed %d sources", total)
 
 
 if __name__ == "__main__":
