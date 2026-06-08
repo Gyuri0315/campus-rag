@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ..deps import AppState, get_state
 from ..generation import generate_answer
+from ..query_transform import transform_query
 from ..retrieval import search
 from ..schemas import AskRequest, AskResponse, Source
 
@@ -24,11 +25,13 @@ def _row_to_source(row: Dict[str, Any]) -> Source:
         metadata.get("doc_title")
         or metadata.get("source_file")
         or metadata.get("title")
+        or row.get("title")
         or row.get("source_slug")
         or "(제목 없음)"
     )
     uri = (
         row.get("uri")
+        or row.get("url")
         or metadata.get("doc_url")
         or metadata.get("source_page_url")
         or metadata.get("attachment_url")
@@ -48,10 +51,11 @@ def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskRespons
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
 
-    logger.info("ask: question=%s", question)
+    search_query = transform_query(question) or question
+    logger.info("ask: question=%r search=%r", question, search_query)
 
     try:
-        embedding = state.embedder.encode_query(question)
+        embedding = state.embedder.encode_query(search_query)
     except Exception:
         logger.exception("embedding failed")
         raise HTTPException(status_code=500, detail="embedding failed")
@@ -59,7 +63,7 @@ def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskRespons
     try:
         rows = search(
             state.supabase,
-            rpc_name=state.settings.rpc_name,
+            rpc_names=state.settings.rpc_names,
             embedding=embedding,
             top_k=state.settings.rag_top_k,
             min_similarity=state.settings.rag_min_similarity,

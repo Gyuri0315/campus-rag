@@ -27,21 +27,43 @@ def _vector_literal(vec: List[float]) -> str:
 def search(
     client: Client,
     *,
-    rpc_name: str,
+    rpc_names: List[str],
     embedding: List[float],
     top_k: int,
     min_similarity: float,
     metadata_filter: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
-    """Call the `match_rag_documents` (or compatible) RPC and return rows."""
+    """Fan out across RPCs, merge rows, sort by similarity desc, trim to top_k.
 
+    Each RPC must accept the same (query_embedding, match_count, min_similarity,
+    metadata_filter) signature and return rows with a `similarity` field. RPCs
+    apply min_similarity in-DB, so the merged set is already filtered. A failure
+    in one RPC is logged at WARN and skipped — partial results still flow.
+    """
     payload = {
         "query_embedding": _vector_literal(embedding),
         "match_count": top_k,
         "min_similarity": min_similarity,
         "metadata_filter": metadata_filter or {},
     }
-    response = client.rpc(rpc_name, payload).execute()
-    rows = response.data or []
-    logger.info("retrieval: rpc=%s rows=%d", rpc_name, len(rows))
-    return rows
+
+    merged: List[Dict[str, Any]] = []
+    for rpc_name in rpc_names:
+        try:
+            response = client.rpc(rpc_name, payload).execute()
+        except Exception:
+            logger.warning("retrieval: rpc=%s failed, skipping", rpc_name, exc_info=True)
+            continue
+        rows = response.data or []
+        logger.info("retrieval: rpc=%s rows=%d", rpc_name, len(rows))
+        merged.extend(rows)
+
+    merged.sort(key=lambda r: float(r.get("similarity") or 0.0), reverse=True)
+    trimmed = merged[:top_k]
+    logger.info(
+        "retrieval: merged=%d trimmed=%d top_sim=%.3f",
+        len(merged),
+        len(trimmed),
+        float(trimmed[0].get("similarity") or 0.0) if trimmed else 0.0,
+    )
+    return trimmed
