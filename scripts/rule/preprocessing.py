@@ -47,7 +47,7 @@ LOG_FILE = LOG_DIR / "rule_preprocessing.log"
 
 DEFAULT_CHUNK_SIZE = 900
 DEFAULT_CHUNK_OVERLAP = 120
-SUPPORTED_ATTACHMENT_EXTS = {".pdf", ".docx", ".doc", ".hwp", ".hwpx", ".csv", ".txt"}
+SUPPORTED_ATTACHMENT_EXTS = {".pdf", ".docx", ".doc", ".hwp", ".hwpx", ".csv", ".xls", ".xlsx", ".pptx", ".txt"}
 FORM_ATTACHMENT_PATTERN = re.compile(
     "(\ubcc4\uc9c0\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?\\s*\ud638?\\s*(?:\uc11c\uc2dd)?|"
     "\uc11c\uc2dd\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?)"
@@ -57,6 +57,22 @@ APPENDIX_TABLE_PATTERN = re.compile(
 )
 
 log = logging.getLogger(__name__)
+
+
+def parse_file_exts(values: list[str] | None) -> set[str] | None:
+    if not values:
+        return None
+
+    exts: set[str] = set()
+    for value in values:
+        for item in value.split(","):
+            ext = item.strip().lower()
+            if not ext:
+                continue
+            if not ext.startswith("."):
+                ext = f".{ext}"
+            exts.add(ext)
+    return exts or None
 
 
 def configure_logging() -> None:
@@ -550,9 +566,9 @@ def preprocess_attachment_file(
         return False, "empty attachment file"
 
     try:
-        from scripts.ce.preprocessing import extract_blocks
+        from scripts.extractors.common import extract_blocks
     except Exception as exc:
-        raise RuntimeError(f"scripts.ce.preprocessing.extract_blocks import failed: {exc}") from exc
+        raise RuntimeError(f"scripts.extractors.common.extract_blocks import failed: {exc}") from exc
 
     blocks = extract_blocks(input_file)
     for block in blocks:
@@ -591,22 +607,28 @@ def iter_html_files(input_root: Path) -> list[Path]:
     return sorted(path for path in input_root.rglob("*.html") if path.is_file())
 
 
-def iter_attachment_files(input_root: Path) -> list[Path]:
+def iter_attachment_files(input_root: Path, file_exts: set[str] | None = None) -> list[Path]:
     if not input_root.exists():
         return []
+    allowed_exts = file_exts or SUPPORTED_ATTACHMENT_EXTS
     return sorted(
         path
         for path in input_root.rglob("*")
-        if path.is_file() and path.suffix.lower() in SUPPORTED_ATTACHMENT_EXTS
+        if path.is_file() and path.suffix.lower() in allowed_exts
     )
 
 
-def iter_failed_files_from_log(log_path: Path, project_root: Path = PROJECT_ROOT) -> list[Path]:
+def iter_failed_files_from_log(
+    log_path: Path,
+    project_root: Path = PROJECT_ROOT,
+    file_exts: set[str] | None = None,
+) -> list[Path]:
     if not log_path.exists():
         return []
 
     statuses: dict[Path, str] = {}
     pattern = re.compile(r"\[(OK|SKIP|FAIL):file\]\s+(.+?)(?:\s+->|\s+\(|$)")
+    allowed_exts = file_exts or SUPPORTED_ATTACHMENT_EXTS
     for line in log_path.read_text(encoding="utf-8", errors="replace").splitlines():
         match = pattern.search(line)
         if not match:
@@ -616,7 +638,7 @@ def iter_failed_files_from_log(log_path: Path, project_root: Path = PROJECT_ROOT
         if not path.is_absolute():
             path = project_root / path
         path = path.resolve()
-        if not path.exists() or path.suffix.lower() not in SUPPORTED_ATTACHMENT_EXTS:
+        if not path.exists() or path.suffix.lower() not in allowed_exts:
             continue
         statuses[path] = status
     return sorted(path for path, status in statuses.items() if status == "FAIL")
@@ -632,18 +654,19 @@ def run_batch(
     dry_run: bool,
     chunk_size: int,
     chunk_overlap: int,
+    file_exts: set[str] | None = None,
 ) -> None:
     docs_by_key, attachments_by_path = load_rule_json_index(json_root)
     tasks: list[tuple[str, Path, Path]] = []
     if failed_from_log:
-        tasks.extend(("file", path, files_root) for path in iter_failed_files_from_log(failed_from_log))
+        tasks.extend(("file", path, files_root) for path in iter_failed_files_from_log(failed_from_log, file_exts=file_exts))
     else:
         if source_scope in {"json", "all"}:
             tasks.extend(("json", path, json_root) for path in iter_json_files(json_root))
         if source_scope in {"html", "all"}:
             tasks.extend(("html", path, html_root) for path in iter_html_files(html_root))
         if source_scope in {"files", "all"}:
-            tasks.extend(("file", path, files_root) for path in iter_attachment_files(files_root))
+            tasks.extend(("file", path, files_root) for path in iter_attachment_files(files_root, file_exts=file_exts))
 
     if not tasks:
         if failed_from_log:
@@ -726,9 +749,26 @@ def main() -> None:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
     parser.add_argument("--chunk-overlap", type=int, default=DEFAULT_CHUNK_OVERLAP)
+    parser.add_argument(
+        "--file-ext",
+        "--file-exts",
+        dest="file_exts",
+        nargs="+",
+        default=None,
+        help="Limit file attachment preprocessing to these extensions, e.g. --file-ext pdf hwp or --file-ext pdf,hwp.",
+    )
     args = parser.parse_args()
 
     configure_logging()
+    file_exts = parse_file_exts(args.file_exts)
+    unsupported_exts = sorted((file_exts or set()) - SUPPORTED_ATTACHMENT_EXTS)
+    if unsupported_exts:
+        parser.error(
+            "unsupported --file-ext value(s): "
+            + ", ".join(unsupported_exts)
+            + ". Supported: "
+            + ", ".join(sorted(SUPPORTED_ATTACHMENT_EXTS))
+        )
     run_batch(
         json_root=args.json_root.resolve(),
         html_root=args.html_root.resolve(),
@@ -739,6 +779,7 @@ def main() -> None:
         dry_run=args.dry_run,
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
+        file_exts=file_exts,
     )
 
 

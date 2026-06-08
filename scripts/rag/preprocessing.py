@@ -26,6 +26,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.text_cleaning import clean_extracted_text
+from scripts.extractors.pptx import extract_pptx_blocks
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +53,9 @@ SUPPORTED_EXTS = {
     ".hwp",
     ".hwpx",
     ".csv",
+    ".xls",
+    ".xlsx",
+    ".pptx",
     ".txt",
 }
 DEFAULT_CHUNK_SIZE = 900
@@ -455,6 +459,10 @@ def extract_txt_blocks(path: Path) -> list[dict]:
             }
         )
     return blocks
+
+
+def extract_pptx_like_blocks(path: Path) -> list[dict]:
+    return extract_pptx_blocks(path, normalize_text)
 
 
 def extract_json_blocks(path: Path) -> list[dict]:
@@ -991,6 +999,17 @@ def extract_blocks(
         return extract_html_blocks(path)
     if ext == ".csv":
         return extract_csv_blocks(path)
+    if ext in {".xls", ".xlsx"}:
+        from scripts.extractors.common import extract_blocks as extract_common_blocks
+
+        return extract_common_blocks(
+            path,
+            pdf_ocr_mode=pdf_ocr_mode,
+            ocr_language=ocr_language,
+            ocr_dpi=ocr_dpi,
+        )
+    if ext == ".pptx":
+        return extract_pptx_like_blocks(path)
     if ext == ".txt":
         return extract_txt_blocks(path)
     if ext == ".hwpx":
