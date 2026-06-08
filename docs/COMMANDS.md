@@ -115,12 +115,14 @@ CE 크롤링 결과를 RAG용 chunk JSON으로 전처리합니다.
 - `--ocr-language`: `kor+eng`
 - `--ocr-dpi`: `200`
 - `--layout`: `by_ext`
+- `--file-ext`: 지정하지 않으면 지원 확장자 전체
 
 자주 쓰는 예시:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\ce\preprocessing.py --input-root files\ce\output\json --output-root files\ce\preprocessed\json --output-json-root files\ce\output\json --layout flat
 .\.venv\Scripts\python.exe scripts\ce\preprocessing.py --input-root files\ce\output\files --output-root files\ce\preprocessed\files --output-json-root files\ce\output\json
+.\.venv\Scripts\python.exe scripts\ce\preprocessing.py --input-root files\ce\output\files --output-root files\ce\preprocessed\files --file-ext pdf hwp xls xlsx pptx zip
 ```
 
 주요 옵션:
@@ -136,6 +138,20 @@ CE 크롤링 결과를 RAG용 chunk JSON으로 전처리합니다.
 - `--ocr-language LANG`: Tesseract OCR 언어입니다.
 - `--ocr-dpi N`: OCR 렌더링 DPI입니다.
 - `--layout by_ext|flat`: 출력 경로 구조를 선택합니다.
+- `--file-ext EXT [EXT ...]`: 지정한 확장자만 전처리합니다. `pdf hwp xls xlsx pptx zip`처럼 공백으로 나열하거나 `pdf,hwp,xls,xlsx,pptx,zip`처럼 쉼표로 나열할 수 있으며, `.pdf`처럼 점을 붙여도 됩니다.
+
+### `scripts/rag/preprocess_files.py`
+
+학과/데이터셋과 무관하게 파일 루트를 지정해 첨부파일을 RAG용 chunk JSON으로 전처리합니다.
+CE 외의 다른 학과 크롤링 결과도 같은 JSON/파일 구조를 쓰면 이 명령을 그대로 사용할 수 있습니다.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\rag\preprocess_files.py --input-root files\ce\output\files --output-root files\ce\preprocessed\files --output-json-root files\ce\output\json
+.\.venv\Scripts\python.exe scripts\rag\preprocess_files.py --input-root files\cse\output\files --output-root files\cse\preprocessed\files --output-json-root files\cse\output\json
+.\.venv\Scripts\python.exe scripts\rag\preprocess_files.py --input-root files\cse\output\files --output-root files\cse\preprocessed\files --file-ext pdf hwp xls xlsx pptx zip
+```
+
+주요 옵션은 `scripts/ce/preprocessing.py`의 파일 전처리 옵션과 같습니다. `--output-json-root`가 없거나 비어 있으면 게시글 메타데이터 없이 파일 자체 provenance로 처리합니다.
 
 ### `scripts/ce/update_priorities.py`
 
@@ -192,6 +208,7 @@ JSON, HTML, 다운로드된 첨부파일을 모두 처리할 수 있습니다.
 - `--source-scope`: `all`
 - `--chunk-size`: `900`
 - `--chunk-overlap`: `120`
+- `--file-ext`: 지정하지 않으면 지원 첨부파일 확장자 전체
 
 출력 구조:
 
@@ -208,6 +225,7 @@ files/rule/preprocessed/file/
 - `--dry-run`: 저장 없이 대상만 확인합니다.
 - `--chunk-size N`: chunk 최대 문자 수입니다.
 - `--chunk-overlap N`: 인접 chunk 간 overlap 문자 수입니다.
+- `--file-ext EXT [EXT ...]`: `--source-scope files` 또는 `all`에서 지정한 첨부파일 확장자만 전처리합니다. `pdf hwp xls xlsx pptx` 또는 `pdf,hwp,xls,xlsx,pptx` 형식을 사용할 수 있습니다.
 
 예시:
 
@@ -215,6 +233,8 @@ files/rule/preprocessed/file/
 .\.venv\Scripts\python.exe scripts\rule\preprocessing.py --source-scope json
 .\.venv\Scripts\python.exe scripts\rule\preprocessing.py --source-scope html
 .\.venv\Scripts\python.exe scripts\rule\preprocessing.py --source-scope files
+.\.venv\Scripts\python.exe scripts\rule\preprocessing.py --source-scope files --file-ext pdf hwp xls xlsx pptx
+.\.venv\Scripts\python.exe scripts\rule\preprocessing.py --source-scope files --file-ext pdf,hwp,xls,xlsx,pptx
 .\.venv\Scripts\python.exe scripts\rule\preprocessing.py --failed-from-log logs\rule_preprocessing.log
 ```
 
