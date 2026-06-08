@@ -35,7 +35,11 @@ class Settings(BaseSettings):
     # Retrieval
     rag_top_k: int = 5
     rag_min_similarity: float = 0.35
-    rpc_name: str = "match_rag_documents"
+    rpc_names: Annotated[List[str], NoDecode] = [
+        "match_rag_documents",
+        "match_pknu_notice_documents",
+        "match_pknu_student_life_documents",
+    ]
     max_chars_per_chunk: int = 500
 
     # Server
@@ -47,22 +51,23 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     port: int = 8000
 
-    @field_validator("cors_origins", mode="before")
+    @field_validator("cors_origins", "rpc_names", mode="before")
     @classmethod
-    def _split_csv(cls, value):
+    def _split_csv(cls, value, info):
         if isinstance(value, str):
             stripped = value.strip()
             if not stripped:
                 return []
+            field_label = info.field_name.upper()
             if stripped.startswith("["):
                 try:
                     parsed = json.loads(stripped)
                 except json.JSONDecodeError as exc:
                     raise ValueError(
-                        f"CORS_ORIGINS looks like JSON but failed to parse: {exc}"
+                        f"{field_label} looks like JSON but failed to parse: {exc}"
                     ) from exc
                 if not isinstance(parsed, list):
-                    raise ValueError("CORS_ORIGINS JSON must be an array of strings")
+                    raise ValueError(f"{field_label} JSON must be an array of strings")
                 return [str(item).strip() for item in parsed if str(item).strip()]
             return [item.strip() for item in stripped.split(",") if item.strip()]
         return value
