@@ -33,12 +33,13 @@ class Settings(BaseSettings):
     expected_dimensions: int = 384
 
     # Retrieval
-    rag_top_k: int = 5
+    rag_top_k: int = 10
     rag_min_similarity: float = 0.35
     rpc_names: Annotated[List[str], NoDecode] = [
         "match_rag_documents",
         "match_pknu_notice_documents",
         "match_pknu_student_life_documents",
+        "match_rule_documents",
     ]
     max_chars_per_chunk: int = 500
 
