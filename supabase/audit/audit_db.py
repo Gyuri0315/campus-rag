@@ -2,36 +2,21 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
 import psycopg
-from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.db import connect_postgres  # noqa: E402
 
 
 def connect() -> psycopg.Connection:
-    load_dotenv(PROJECT_ROOT / "backend" / ".env")
-    conninfo = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
-    if conninfo:
-        return psycopg.connect(conninfo, row_factory=dict_row, prepare_threshold=None)
-    required = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]
-    missing = [n for n in required if not os.getenv(n)]
-    if missing:
-        raise RuntimeError(f"Missing DB config: {', '.join(missing)}")
-    return psycopg.connect(
-        host=os.environ["PGHOST"],
-        port=os.getenv("PGPORT", "5432"),
-        dbname=os.environ["PGDATABASE"],
-        user=os.environ["PGUSER"],
-        password=os.environ["PGPASSWORD"],
-        sslmode=os.getenv("PGSSLMODE", "require"),
-        row_factory=dict_row,
-        prepare_threshold=None,
-    )
+    return connect_postgres(row_factory=dict_row, prepare_threshold=None)
 
 
 QUERIES: list[tuple[str, str]] = [

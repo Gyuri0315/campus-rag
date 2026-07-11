@@ -94,10 +94,6 @@ export function parseStoredSources(raw: unknown): ChatSource[] | undefined {
       title: typeof o.title === "string" ? o.title : "(제목 없음)",
       category: typeof o.category === "string" ? o.category : "자료",
       chipMeta: typeof o.chipMeta === "string" ? o.chipMeta : undefined,
-      formatChip:
-        o.formatChip === "WEB" || o.formatChip === "PDF" || o.formatChip === "HWP"
-          ? o.formatChip
-          : undefined,
       quote: typeof o.quote === "string" ? o.quote : "",
       quoteSource: typeof o.quoteSource === "string" ? o.quoteSource : undefined,
       url: typeof o.url === "string" ? o.url : "#",

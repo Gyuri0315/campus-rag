@@ -4,10 +4,12 @@ output/
 preprocessed/
 vectorized/
 
+logs/
 logs/*.log
 *.log
 !logs/.gitkeep
 
+.venv/
 venv/
 __pycache__/
 state.json
