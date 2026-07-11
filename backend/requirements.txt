@@ -15,3 +15,30 @@ openai==1.58.1
 
 # Supabase SDK (RPC + auth)
 supabase==2.10.0
+
+# Crawling & HTTP
+beautifulsoup4==4.14.3
+certifi==2026.2.25
+charset-normalizer==3.4.6
+idna==3.11
+requests==2.33.0
+soupsieve==2.8.3
+urllib3==2.6.3
+
+# Document parsing
+lxml==6.0.2
+PyMuPDF==1.26.5
+pyhwp==0.1b15
+python-docx==1.2.0
+python-pptx==1.0.2
+xlrd==2.0.1
+
+# Database
+psycopg[binary]
+psycopg2==2.9.12
+
+# Utilities
+pywin32==311; platform_system == "Windows"
+schedule==1.2.2
+six
+typing_extensions==4.15.0

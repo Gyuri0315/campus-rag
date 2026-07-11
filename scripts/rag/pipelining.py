@@ -56,9 +56,7 @@ def run_preprocess_steps(python: str) -> None:
             "preprocess-json",
             [
                 python,
-                "scripts/rag/preprocessing.py",
-                "--dataset",
-                "ce",
+                "scripts/ce/preprocessing.py",
                 "--input-root",
                 str(json_input),
                 "--output-root",
@@ -77,9 +75,7 @@ def run_preprocess_steps(python: str) -> None:
             "preprocess-files",
             [
                 python,
-                "scripts/rag/preprocessing.py",
-                "--dataset",
-                "ce",
+                "scripts/ce/preprocessing.py",
                 "--input-root",
                 str(files_input),
                 "--output-root",
@@ -168,7 +164,7 @@ def run_scheduler(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run scripts/ce/crawler.py -> scripts/rag/preprocessing.py -> "
+            "Run scripts/ce/crawler.py -> scripts/ce/preprocessing.py -> "
             "scripts/rag/vectorization.py -> scripts/rag/load_to_supabase.py every day at 09:00."
         )
     )

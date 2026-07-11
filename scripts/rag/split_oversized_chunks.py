@@ -23,14 +23,12 @@ import argparse
 import hashlib
 import json
 import logging
-import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import psycopg
-from dotenv import load_dotenv
 from psycopg import sql
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
@@ -39,7 +37,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.rag.preprocessing import (  # noqa: E402
+from scripts.db import connect_postgres  # noqa: E402
+from scripts.rag.file_preprocessing import (  # noqa: E402
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
     chunk_blocks,
@@ -75,11 +74,7 @@ def configure_logging() -> None:
 
 
 def connect() -> psycopg.Connection:
-    load_dotenv(PROJECT_ROOT / "backend" / ".env")
-    dsn = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
-    if not dsn:
-        raise RuntimeError("DATABASE_URL not set in backend/.env")
-    return psycopg.connect(dsn, connect_timeout=15, autocommit=False)
+    return connect_postgres(autocommit=False, connect_timeout_seconds=15)
 
 
 def vector_literal(values: list[float]) -> str:

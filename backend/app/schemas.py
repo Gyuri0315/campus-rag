@@ -16,6 +16,11 @@ class Source(BaseModel):
     uri: str
     content: str
     similarity: float
+    priority_score: float = 0.0
+    dataset_priority: float = 0.0
+    final_score: float = 0.0
+    rerank_score: float = 0.0
+    rerank_final_score: float = 0.0
 
 
 class AskResponse(BaseModel):

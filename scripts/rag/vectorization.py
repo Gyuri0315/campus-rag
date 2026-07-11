@@ -75,6 +75,53 @@ DEFAULT_BACKEND = "sentence-transformers"
 DEFAULT_DIMENSIONS = 768
 DEFAULT_BATCH_SIZE = 32
 DEFAULT_SENTENCE_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+MIN_CHUNK_CHARS = 40
+MIN_UNIQUE_TOKENS = 4
+MIN_META_STUB_CHARS = 100
+MAX_META_STUB_UNIQUE_TOKENS = 6
+
+ACADEMIC_KEYWORDS = (
+    "학사",
+    "수강",
+    "졸업",
+    "전공",
+    "복수전공",
+    "부전공",
+    "전과",
+    "성적",
+    "학점",
+    "장학",
+    "휴학",
+    "복학",
+    "등록",
+    "신청",
+    "기간",
+    "자격",
+    "조건",
+    "이수",
+    "교직",
+    "현장실습",
+)
+
+NOISE_PHRASES = (
+    "개인정보 수집",
+    "저작물 활용 동의서",
+    "접수번호는 공란",
+    "글자크기",
+    "연구보고",
+    "contents",
+    "목 차",
+)
+
+GENERIC_STUB_TITLES = (
+    "학부 소개",
+    "학부소개",
+    "졸업 후 진로",
+    "졸업후진로",
+    "교육과정",
+    "국립 부경대학교 대학생활 E-하나로",
+    "대학생활 E-하나로",
+)
 
 
 class NoChunksError(ValueError):
@@ -99,6 +146,105 @@ def normalize_text(text: str) -> str:
     if not text:
         return ""
     return " ".join(text.replace("\u00a0", " ").split()).strip()
+
+
+def _tokenize_for_quality(text: str) -> list[str]:
+    return re.findall(r"[0-9A-Za-z\uac00-\ud7a3]+", normalize_text(text).lower())
+
+
+def assess_chunk_quality(text: str) -> tuple[bool, list[str]]:
+    """검색 품질을 떨어뜨리는 빈약한 청크를 걸러낸다."""
+
+    normalized = normalize_text(text)
+    flags: list[str] = []
+    if not normalized:
+        return False, ["empty"]
+
+    tokens = _tokenize_for_quality(normalized)
+    unique_tokens = set(tokens)
+    hangul_count = len(re.findall(r"[\uac00-\ud7a3]", normalized))
+    digit_count = len(re.findall(r"\d", normalized))
+    dot_count = normalized.count(".") + normalized.count("·") + normalized.count("_")
+    compact_len = max(1, len(re.sub(r"\s+", "", normalized)))
+    has_academic_keyword = any(keyword in normalized for keyword in ACADEMIC_KEYWORDS)
+    academic_keyword_hits = sum(
+        1 for keyword in ACADEMIC_KEYWORDS if keyword in normalized
+    )
+    lower_text = normalized.lower()
+    has_noise_phrase = any(phrase.lower() in lower_text for phrase in NOISE_PHRASES)
+
+    if len(normalized) < MIN_CHUNK_CHARS and not has_academic_keyword:
+        flags.append("too_short")
+    if len(unique_tokens) < MIN_UNIQUE_TOKENS and not has_academic_keyword:
+        flags.append("low_unique_tokens")
+    if (
+        len(normalized) < MIN_META_STUB_CHARS
+        and len(unique_tokens) <= MAX_META_STUB_UNIQUE_TOKENS
+        and academic_keyword_hits < 3
+    ):
+        flags.append("metadata_stub")
+    if dot_count / compact_len >= 0.20:
+        flags.append("punctuation_heavy")
+    if digit_count / compact_len >= 0.60 and hangul_count < 20:
+        flags.append("numeric_heavy")
+    if re.fullmatch(r"[\d\s.,:;~\-–—·ㆍ/()]+", normalized):
+        flags.append("no_words")
+    if has_noise_phrase and len(normalized) < 300:
+        flags.append("template_or_form_noise")
+
+    return not flags, flags
+
+
+def assess_record_quality(text: str, metadata: dict) -> tuple[bool, list[str]]:
+    is_useful, flags = assess_chunk_quality(text)
+    title = normalize_text(
+        str(metadata.get("doc_title") or metadata.get("source_file") or "")
+    )
+    normalized = normalize_text(text)
+    title_compact = re.sub(r"\s+", "", title)
+    text_compact = re.sub(r"\s+", "", normalized)
+
+    if title_compact in {
+        re.sub(r"\s+", "", item) for item in GENERIC_STUB_TITLES
+    } and len(normalized) < 160:
+        flags.append("generic_title_stub")
+
+    if title_compact and text_compact and title_compact in text_compact:
+        remainder = text_compact.replace(title_compact, "")
+        if len(normalized) < 180 and len(remainder) <= 20:
+            flags.append("title_only_stub")
+
+    return not flags, flags
+
+
+def build_context_prefix(metadata: dict, source_file: str) -> str:
+    """문서 제목/분류를 본문 앞에 붙여 짧은 청크의 검색 문맥을 보강한다."""
+
+    fields = [
+        ("문서제목", metadata.get("doc_title")),
+        ("분류", metadata.get("category")),
+        ("세부분류", metadata.get("subcategory")),
+        ("공지주제", metadata.get("notice_topic")),
+        ("첨부명", metadata.get("attachment_name")),
+        ("파일명", source_file),
+    ]
+    lines: list[str] = []
+    seen: set[str] = set()
+    for label, value in fields:
+        text = normalize_text(str(value or ""))
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        lines.append(f"{label}: {text}")
+    return "\n".join(lines)
+
+
+def build_embedding_text(text: str, metadata: dict, source_file: str) -> str:
+    prefix = build_context_prefix(metadata, source_file)
+    body = normalize_text(text)
+    if not prefix:
+        return body
+    return f"{prefix}\n본문: {body}"
 
 
 def rel_project_path(path: Path, root: Path) -> str:
@@ -130,6 +276,11 @@ def output_path_for(input_file: Path, input_root: Path, output_root: Path) -> Pa
 
     rel = input_file.resolve().relative_to(input_root.resolve())
     return output_root / rel
+
+
+def is_vectorized_current(input_file: Path, input_root: Path, output_root: Path) -> bool:
+    out_path = output_path_for(input_file, input_root, output_root)
+    return out_path.exists() and out_path.stat().st_mtime >= input_file.stat().st_mtime
 
 
 def batched(items: list[str], batch_size: int) -> Iterable[list[str]]:
@@ -299,13 +450,20 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
     }
 
     records: list[dict] = []
+    skipped_quality = 0
     for position, chunk in enumerate(chunks, start=1):
         # 잘못된 형식이거나 비어 있는 청크는 전체 파일 실패로 처리하지 않고 건너뛴다.
         if not isinstance(chunk, dict):
             continue
-        text = normalize_text(chunk.get("text", ""))
-        if not text:
+        raw_text = normalize_text(chunk.get("text", ""))
+        if not raw_text:
             continue
+        is_useful, quality_flags = assess_record_quality(raw_text, base_metadata)
+        if not is_useful:
+            skipped_quality += 1
+            continue
+
+        text = build_embedding_text(raw_text, base_metadata, doc.get("source_file", ""))
 
         chunk_id = chunk.get("chunk_id", position)
         chunk_index = position - 1
@@ -320,10 +478,21 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
                 "text": text,
                 "metadata": {
                     **base_metadata,
-                    "num_chars": chunk.get("num_chars", len(text)),
+                    "num_chars": chunk.get("num_chars", len(raw_text)),
+                    "indexed_num_chars": len(text),
                     "num_lines": chunk.get("num_lines"),
+                    "quality_flags": quality_flags,
+                    "quality_context_prefix": bool(
+                        build_context_prefix(base_metadata, doc.get("source_file", ""))
+                    ),
                 },
             }
+        )
+    if skipped_quality:
+        log.debug(
+            "Skipped %d low-quality chunks from %s",
+            skipped_quality,
+            rel_project_path(input_file, project_root),
         )
     return records
 
@@ -381,15 +550,45 @@ def run_batch(
     batch_size: int,
     dry_run: bool,
     dataset: str,
+    changed_only: bool = False,
+    target_files: list[Path] | None = None,
 ) -> None:
     """입력 폴더 아래의 모든 전처리 JSON 파일을 벡터화한다."""
 
-    files = iter_json_files(input_root)
+    if target_files is None:
+        files = iter_json_files(input_root)
+    else:
+        files = []
+        for path in target_files:
+            resolved = path.resolve()
+            if not resolved.exists() or resolved.suffix.lower() != ".json":
+                continue
+            try:
+                resolved.relative_to(input_root)
+            except ValueError:
+                continue
+            files.append(resolved)
+        files = sorted(dict.fromkeys(files))
     if not files:
         log.info("No preprocessed JSON files found under %s", input_root)
         return
 
-    log.info("Found %d preprocessed files", len(files))
+    total_files = len(files)
+    if changed_only:
+        unchanged_files = [
+            path
+            for path in files
+            if is_vectorized_current(path, input_root, output_root)
+        ]
+        files = [path for path in files if path not in set(unchanged_files)]
+        log.info(
+            "Found %d preprocessed files (%d changed, %d unchanged)",
+            total_files,
+            len(files),
+            len(unchanged_files),
+        )
+    else:
+        log.info("Found %d preprocessed files", len(files))
     if dry_run:
         for path in files:
             log.info("[DRY-RUN] %s", rel_project_path(path, project_root))
@@ -442,6 +641,7 @@ def run_batch(
         "embedding_backend": embedder.name,
         "embedding_dimensions": embedder.dimensions,
         "num_files": len(files),
+        "num_files_seen": total_files,
         "num_files_vectorized": ok,
         "num_files_skipped": skipped,
         "num_files_failed": failed,
@@ -449,6 +649,7 @@ def run_batch(
         "index_path": rel_project_path(index_path, project_root),
         "skipped_files": skipped_files,
         "failures": failures,
+        "changed_only": changed_only,
     }
     manifest_path.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2),
@@ -514,6 +715,11 @@ def main() -> None:
         action="store_true",
         help="List target files without writing vectorized outputs.",
     )
+    parser.add_argument(
+        "--changed-only",
+        action="store_true",
+        help="Vectorize only files whose vectorized JSON is missing or older than the preprocessed input.",
+    )
     args = parser.parse_args()
 
     configure_logging()
@@ -533,6 +739,7 @@ def main() -> None:
         batch_size=args.batch_size,
         dry_run=args.dry_run,
         dataset=args.dataset,
+        changed_only=args.changed_only,
     )
 
 
