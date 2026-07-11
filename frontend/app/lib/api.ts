@@ -2,7 +2,7 @@
  * Client-side helper for talking to the Next.js Route Handler at /api/ask,
  * which in turn proxies to the FastAPI backend.
  *
- * Also adapts the backend's lean Source shape ({title, uri, content})
+ * Also adapts the backend's lean Source shape ({title, uri, content, similarity})
  * into the richer Source shape the chat UI renders.
  */
 
@@ -13,6 +13,7 @@ export type ChatSource = {
   title: string;
   category: string;
   chipMeta?: string;
+  formatChip?: "WEB" | "PDF" | "HWP";
   quote: string;
   quoteSource?: string;
   url: string;
@@ -28,6 +29,7 @@ type BackendSource = {
   title?: string;
   uri?: string;
   content?: string;
+  similarity?: number;
 };
 
 type BackendAskResponse = {

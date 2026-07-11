@@ -2,21 +2,22 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
+import psycopg
+from dotenv import load_dotenv
 from psycopg.rows import dict_row
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts.db import connect_postgres  # noqa: E402
 
 
 def main() -> None:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    load_dotenv(PROJECT_ROOT / "backend" / ".env")
+    conninfo = os.environ["DATABASE_URL"]
     queries = {
         "ce_url_sources": "select count(*)::int as n from rag_sources where url like 'https://ce.pknu.ac.kr%'",
         "pknu_main_sources": "select count(*)::int as n from rag_sources where url like 'https://www.pknu.ac.kr/main/163%'",
@@ -36,7 +37,7 @@ def main() -> None:
         """,
     }
     out = {}
-    with connect_postgres(row_factory=dict_row) as conn:
+    with psycopg.connect(conninfo, row_factory=dict_row) as conn:
         with conn.cursor() as cur:
             for key, sql in queries.items():
                 cur.execute(sql)

@@ -34,10 +34,6 @@ LOG_FILE = LOG_DIR / "preprocessing.log"
 
 def configure_logging() -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
-    if hasattr(sys.stderr, "reconfigure"):
-        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -161,7 +157,6 @@ def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[st
                 "source_site": a.get("source_site", ""),
                 "downloaded_from_url": a.get("downloaded_from_url", ""),
                 "content_type": a.get("content_type", ""),
-                "_source_json_mtime": jf.stat().st_mtime,
             }
     return index
 
@@ -212,10 +207,6 @@ def build_metadata_fallback_blocks(
     if not lines:
         return []
     return [{"type": "metadata_fallback", "style": "Metadata", "text": "\n".join(lines)}]
-
-
-def public_provenance(provenance: dict) -> dict:
-    return {key: value for key, value in provenance.items() if not str(key).startswith("_")}
 
 
 _OVERSIZED_BOUNDARY_RE = re.compile(r"[\n。．\.!?！？]")
@@ -355,7 +346,6 @@ def save_preprocessed_file(
         provenance = {**extract_crawled_json_provenance(input_file), **provenance}
     elif not provenance.get("source_kind"):
         provenance = {**provenance, "source_kind": "attachment"}
-    provenance = public_provenance(provenance)
     blocks = extract_blocks(
         input_file,
         pdf_ocr_mode=pdf_ocr_mode,
@@ -429,7 +419,6 @@ def save_preprocessed_archive_member(
         "archive_member_path": member_name,
         "archive_file_name": archive_file.name,
     }
-    provenance = public_provenance(provenance)
 
     blocks = extract_blocks(
         member_file,
@@ -487,7 +476,7 @@ def save_preprocessed_archive(
     layout: str = "by_ext",
 ) -> tuple[bool, str]:
     archive_rel = rel_project_path(archive_file, project_root)
-    archive_provenance = public_provenance(attachment_index.get(archive_rel, {}))
+    archive_provenance = attachment_index.get(archive_rel, {})
     if not archive_provenance.get("source_kind"):
         archive_provenance = {**archive_provenance, "source_kind": "attachment_archive"}
 
@@ -583,27 +572,6 @@ def iter_target_files(input_root: Path, file_exts: set[str] | None = None) -> li
     return sorted(files)
 
 
-def is_preprocessed_current(
-    input_file: Path,
-    input_root: Path,
-    output_root: Path,
-    project_root: Path,
-    attachment_index: dict[str, dict],
-    *,
-    layout: str,
-) -> bool:
-    if input_file.suffix.lower() in ARCHIVE_EXTS:
-        return False
-    try:
-        out_path = ensure_output_path(input_file, input_root, output_root, layout=layout)
-    except ValueError:
-        return False
-    rel = rel_project_path(input_file, project_root)
-    provenance_mtime = float(attachment_index.get(rel, {}).get("_source_json_mtime") or 0.0)
-    newest_input_mtime = max(input_file.stat().st_mtime, provenance_mtime)
-    return out_path.exists() and out_path.stat().st_mtime >= newest_input_mtime
-
-
 def iter_failed_files_from_log(
     log_path: Path,
     input_root: Path,
@@ -650,8 +618,6 @@ def run_batch(
     ocr_dpi: int,
     layout: str = "by_ext",
     file_exts: set[str] | None = None,
-    changed_only: bool = False,
-    target_files: list[Path] | None = None,
 ) -> None:
     input_root = input_root.resolve()
     output_root = output_root.resolve()
@@ -659,25 +625,11 @@ def run_batch(
     project_root = project_root.resolve()
 
     attachment_index = load_attachment_index(output_json_root, project_root)
-    if target_files is not None:
-        allowed_exts = file_exts or SUPPORTED_EXTS
-        files = []
-        for path in target_files:
-            resolved = path.resolve()
-            if not resolved.exists() or resolved.suffix.lower() not in allowed_exts:
-                continue
-            try:
-                resolved.relative_to(input_root)
-            except ValueError:
-                continue
-            files.append(resolved)
-        files = sorted(dict.fromkeys(files))
-    else:
-        files = (
-            iter_failed_files_from_log(failed_from_log, input_root, project_root, file_exts=file_exts)
-            if failed_from_log
-            else iter_target_files(input_root, file_exts=file_exts)
-        )
+    files = (
+        iter_failed_files_from_log(failed_from_log, input_root, project_root, file_exts=file_exts)
+        if failed_from_log
+        else iter_target_files(input_root, file_exts=file_exts)
+    )
     if not files:
         if failed_from_log:
             log.info("No failed files found in %s", failed_from_log)
@@ -688,22 +640,10 @@ def run_batch(
     log.info("처리 대상: %d개", len(files))
     ok = 0
     skipped = 0
-    unchanged = 0
     failed = 0
 
     for file_path in files:
         rel = rel_project_path(file_path, project_root)
-        if changed_only and is_preprocessed_current(
-            file_path,
-            input_root,
-            output_root,
-            project_root,
-            attachment_index,
-            layout=layout,
-        ):
-            unchanged += 1
-            log.info("[SKIP:unchanged] %s", rel)
-            continue
         if dry_run:
             log.info("[DRY-RUN] %s", rel)
             continue
@@ -734,13 +674,7 @@ def run_batch(
     if dry_run:
         log.info("DRY-RUN 완료")
     else:
-        log.info(
-            "완료: 성공=%d, 변경없음=%d, 건너뜀=%d, 실패=%d",
-            ok,
-            unchanged,
-            skipped,
-            failed,
-        )
+        log.info("완료: 성공=%d, 건너뜀=%d, 실패=%d", ok, skipped, failed)
 
 
 def main() -> None:
@@ -775,11 +709,6 @@ def main() -> None:
         "--dry-run",
         action="store_true",
         help="실제 저장 없이 대상 파일만 확인",
-    )
-    parser.add_argument(
-        "--changed-only",
-        action="store_true",
-        help="출력 JSON이 입력 파일보다 최신이면 건너뜀",
     )
     parser.add_argument(
         "--chunk-size",
@@ -854,7 +783,6 @@ def main() -> None:
         ocr_dpi=args.ocr_dpi,
         layout=args.layout,
         file_exts=file_exts,
-        changed_only=args.changed_only,
     )
 
 

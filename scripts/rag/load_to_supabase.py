@@ -4,7 +4,7 @@ Expected input:
     files/ce/vectorized/index.jsonl
 
 Required environment:
-    DATABASE_URL, SUPABASE_POOLER_URL, SUPABASE_DATABASE_URL, or SUPABASE_DB_URL
+    DATABASE_URL or SUPABASE_DB_URL
 
 Alternative PG environment variables are also supported:
     PGHOST, PGPORT, PGDATABASE, PGUSER, PGPASSWORD, PGSSLMODE
@@ -16,21 +16,20 @@ import argparse
 import hashlib
 import json
 import logging
+import os
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import psycopg
+from dotenv import load_dotenv
 from psycopg import sql
 from psycopg.types.json import Jsonb
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts.db import connect_postgres  # noqa: E402
 DATASET_TABLES = {
     "ce": {
         "index": PROJECT_ROOT / "files" / "ce" / "vectorized" / "index.jsonl",
@@ -78,8 +77,48 @@ def vector_literal(values: list[float]) -> str:
     return "[" + ",".join(str(float(value)) for value in values) + "]"
 
 
+def with_connect_timeout(conninfo: str, timeout_seconds: int = 10) -> str:
+    parts = urlsplit(conninfo)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query.setdefault("connect_timeout", str(timeout_seconds))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 def connect() -> psycopg.Connection:
-    return connect_postgres(prepare_threshold=None)
+    load_dotenv(PROJECT_ROOT / "backend" / ".env")
+    conninfo = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
+    if conninfo:
+        log.info("Connecting to Supabase PostgreSQL from DATABASE_URL/SUPABASE_DB_URL")
+        try:
+            return psycopg.connect(with_connect_timeout(conninfo), prepare_threshold=None)
+        except psycopg.OperationalError as exc:
+            if "Permission denied" in str(exc) and ".supabase.co" in conninfo:
+                raise RuntimeError(
+                    "Could not connect to Supabase PostgreSQL. If this is a direct "
+                    "db.<project-ref>.supabase.co URL, use the Supabase connection "
+                    "pooler URL instead; direct connections may require IPv6 access."
+                ) from exc
+            raise
+
+    required = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]
+    missing = [name for name in required if not os.getenv(name)]
+    if missing:
+        raise RuntimeError(
+            "Missing database configuration. Set DATABASE_URL or SUPABASE_DB_URL, "
+            f"or set {', '.join(required)}."
+        )
+
+    log.info("Connecting to Supabase PostgreSQL from PG* environment variables")
+    return psycopg.connect(
+        host=os.environ["PGHOST"],
+        port=os.getenv("PGPORT", "5432"),
+        dbname=os.environ["PGDATABASE"],
+        user=os.environ["PGUSER"],
+        password=os.environ["PGPASSWORD"],
+        sslmode=os.getenv("PGSSLMODE", "require"),
+        connect_timeout=10,
+        prepare_threshold=None,
+    )
 
 
 def validate_table_name(value: str) -> str:
@@ -238,9 +277,6 @@ def flush_batch(
     rows: list[dict[str, dict[str, Any]]],
     sources_table: str,
     chunks_table: str,
-    *,
-    replace_sources: bool = False,
-    replaced_source_ids: set[str] | None = None,
 ) -> None:
     if not rows:
         return
@@ -304,19 +340,6 @@ def flush_batch(
     sources = {row["source"]["id"]: row["source"] for row in rows}
     chunks = [row["chunk"] for row in rows]
     with conn.cursor() as cur:
-        if replace_sources:
-            replaced_source_ids = replaced_source_ids if replaced_source_ids is not None else set()
-            source_ids_to_replace = [
-                source_id
-                for source_id in sources
-                if source_id not in replaced_source_ids
-            ]
-            if source_ids_to_replace:
-                delete_sql = sql.SQL(
-                    "delete from {chunks_table} where source_id = any(%s)"
-                ).format(chunks_table=sql.Identifier("public", chunks_table))
-                cur.execute(delete_sql, (source_ids_to_replace,))
-                replaced_source_ids.update(source_ids_to_replace)
         cur.executemany(source_sql, list(sources.values()))
         cur.executemany(chunk_sql, chunks)
 
@@ -327,7 +350,6 @@ def load(
     dataset: str,
     sources_table: str | None = None,
     chunks_table: str | None = None,
-    replace_sources: bool = False,
 ) -> int:
     if not index_path.exists():
         raise FileNotFoundError(f"Index file not found: {index_path}")
@@ -343,33 +365,18 @@ def load(
     log.info("embedding model: %s", embedding_model)
     total = 0
     batch: list[dict[str, dict[str, Any]]] = []
-    replaced_source_ids: set[str] = set()
     with connect() as conn:
         ensure_schema_ready(conn, resolved_sources_table, resolved_chunks_table)
         for record in iter_records(index_path):
             batch.append(prepare_row(record, embedding_model))
             if len(batch) >= batch_size:
-                flush_batch(
-                    conn,
-                    batch,
-                    resolved_sources_table,
-                    resolved_chunks_table,
-                    replace_sources=replace_sources,
-                    replaced_source_ids=replaced_source_ids,
-                )
+                flush_batch(conn, batch, resolved_sources_table, resolved_chunks_table)
                 total += len(batch)
                 conn.commit()
                 log.info("upserted %d rows", total)
                 batch.clear()
 
-        flush_batch(
-            conn,
-            batch,
-            resolved_sources_table,
-            resolved_chunks_table,
-            replace_sources=replace_sources,
-            replaced_source_ids=replaced_source_ids,
-        )
+        flush_batch(conn, batch, resolved_sources_table, resolved_chunks_table)
         total += len(batch)
         conn.commit()
 
@@ -384,11 +391,6 @@ def main() -> None:
     parser.add_argument("--sources-table", help="Override source table name in public schema.")
     parser.add_argument("--chunks-table", help="Override chunk table name in public schema.")
     parser.add_argument("--batch-size", type=int, default=200)
-    parser.add_argument(
-        "--replace-sources",
-        action="store_true",
-        help="Delete existing chunks for sources present in the index before inserting current chunks.",
-    )
     args = parser.parse_args()
 
     index_path = resolve_index_path(args.dataset, args.index)
@@ -398,7 +400,6 @@ def main() -> None:
         args.dataset,
         args.sources_table,
         args.chunks_table,
-        args.replace_sources,
     )
     log.info("done: upserted %d rows", count)
 

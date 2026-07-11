@@ -19,7 +19,6 @@ https://ce.pknu.ac.kr/ce/1
 실행:
   - python scripts/ce/crawler.py
   - python scripts/ce/crawler.py --once
-  - python scripts/ce/crawler.py --once --recent-only 3
 """
 
 import argparse
@@ -668,7 +667,6 @@ def crawl_board(
     section: dict,
     state: dict,
     is_initial: bool,
-    recent_only: int | None = None,
 ) -> tuple[int, int]:
     """
     게시판을 크롤링한다.
@@ -684,14 +682,10 @@ def crawl_board(
 
     state_key = board_url
     stored_last_no: int = state.get(state_key, {}).get("last_no", 0)
-    if recent_only is not None:
-        last_known_no = stored_last_no
-        max_pages = recent_only
-    else:
-        last_known_no = 0 if CRAWL_ALL_BOARD_PAGES else stored_last_no
-        max_pages = None if CRAWL_ALL_BOARD_PAGES else (
-            INITIAL_MAX_PAGES if is_initial else INCREMENTAL_MAX_PAGES
-        )
+    last_known_no = 0 if CRAWL_ALL_BOARD_PAGES else stored_last_no
+    max_pages = None if CRAWL_ALL_BOARD_PAGES else (
+        INITIAL_MAX_PAGES if is_initial else INCREMENTAL_MAX_PAGES
+    )
 
     log.info(
         "[게시판] %s | last_no=%d | max_pages=%s",
@@ -844,7 +838,7 @@ def crawl_static(session: requests.Session, section: dict) -> int:
 
 
 # ─── 전체 크롤링 실행 ─────────────────────────────────────────────────────────
-def run_crawl(recent_only: int | None = None) -> None:
+def run_crawl() -> None:
     start = datetime.now()
     log.info("=" * 60)
     log.info("크롤링 시작: %s", start.strftime("%Y-%m-%d %H:%M:%S"))
@@ -855,8 +849,6 @@ def run_crawl(recent_only: int | None = None) -> None:
         log.info("최초 실행: 게시판당 최대 %d페이지 수집", INITIAL_MAX_PAGES)
     else:
         log.info("증분 실행: 신규 게시글만 수집 (최대 %d페이지)", INCREMENTAL_MAX_PAGES)
-    if recent_only is not None:
-        log.info("최근 수집 모드: 게시판당 최근 %d페이지 목록만 확인", recent_only)
     log.info("=" * 60)
 
     session = build_session()
@@ -866,13 +858,7 @@ def run_crawl(recent_only: int | None = None) -> None:
     for section in SECTIONS:
         try:
             if section["is_board"]:
-                saved, new_max_no = crawl_board(
-                    session,
-                    section,
-                    state,
-                    is_initial,
-                    recent_only=recent_only,
-                )
+                saved, new_max_no = crawl_board(session, section, state, is_initial)
                 total_saved += saved
                 # 상태 갱신 (max_no 증가 시에만)
                 key = section["url"]
@@ -916,20 +902,10 @@ if __name__ == "__main__":
         action="store_true",
         help="state.json 초기화 후 처음부터 다시 수집",
     )
-    parser.add_argument(
-        "--recent-only",
-        type=int,
-        metavar="N",
-        default=None,
-        help="게시판별 최근 N페이지만 목록 수집",
-    )
     args = parser.parse_args()
-
-    if args.recent_only is not None and args.recent_only <= 0:
-        parser.error("--recent-only must be a positive integer")
 
     if args.reset_state and STATE_FILE.exists():
         STATE_FILE.unlink()
         log.info("state.json 초기화 완료")
 
-    run_crawl(recent_only=args.recent_only)
+    run_crawl()

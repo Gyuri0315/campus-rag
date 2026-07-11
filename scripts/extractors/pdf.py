@@ -5,7 +5,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-from collections import Counter
 from pathlib import Path
 
 from scripts.extractors.common import (

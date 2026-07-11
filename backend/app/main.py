@@ -13,7 +13,6 @@ from .config import get_settings
 from .deps import AppState
 from .embeddings import Embedder
 from .generation import load_system_prompt
-from .reranking import CrossEncoderReranker
 from .retrieval import build_supabase_client
 from .routers import ask as ask_router
 
@@ -38,15 +37,6 @@ async def lifespan(app: FastAPI):
         device=settings.embedding_device,
         expected_dimensions=settings.expected_dimensions,
     )
-    reranker = None
-    if settings.reranker_enabled:
-        try:
-            reranker = CrossEncoderReranker(
-                model_name=settings.reranker_model,
-                device=settings.reranker_device,
-            )
-        except Exception:
-            logger.exception("Reranker load failed; continuing without reranker")
     supabase = build_supabase_client(
         settings.supabase_url, settings.supabase_service_role_key
     )
@@ -59,7 +49,6 @@ async def lifespan(app: FastAPI):
     app.state.app_state = AppState(
         settings=settings,
         embedder=embedder,
-        reranker=reranker,
         supabase=supabase,
         openai=openai_client,
         system_prompt=system_prompt,

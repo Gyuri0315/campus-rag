@@ -68,11 +68,6 @@ def main() -> None:
         help="Reprocess only failed paths parsed from a preprocessing log.",
     )
     parser.add_argument("--dry-run", action="store_true")
-    parser.add_argument(
-        "--changed-only",
-        action="store_true",
-        help="Skip files whose preprocessed JSON is newer than the input file.",
-    )
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
     parser.add_argument("--chunk-overlap", type=int, default=DEFAULT_CHUNK_OVERLAP)
     parser.add_argument(
@@ -124,7 +119,6 @@ def main() -> None:
         ocr_dpi=args.ocr_dpi,
         layout=args.layout,
         file_exts=file_exts,
-        changed_only=args.changed_only,
     )
 
 

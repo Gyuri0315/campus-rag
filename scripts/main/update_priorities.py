@@ -5,15 +5,21 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Iterable
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+from dotenv import load_dotenv
 
 try:
+    import psycopg
     from psycopg import sql
     from psycopg.rows import dict_row
     from psycopg.types.json import Jsonb
 except ModuleNotFoundError:
+    psycopg = None
     sql = None
     dict_row = None
 
@@ -26,7 +32,6 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.rag.priority import build_rule_feature_set, calculate_main_priority  # noqa: E402
-from scripts.db import connect_postgres  # noqa: E402
 
 DATASET_TABLES = {
     "pknu_notice": {
@@ -61,10 +66,45 @@ def configure_logging() -> None:
     )
 
 
+def with_connect_timeout(conninfo: str, timeout_seconds: int = 10) -> str:
+    parts = urlsplit(conninfo)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query.setdefault("connect_timeout", str(timeout_seconds))
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
 def connect() -> Any:
-    if dict_row is None:
+    if psycopg is None or dict_row is None:
         raise RuntimeError("psycopg is required for database updates. Install backend requirements first.")
-    return connect_postgres(row_factory=dict_row, prepare_threshold=None)
+
+    load_dotenv(PROJECT_ROOT / "backend" / ".env")
+    conninfo = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
+    if conninfo:
+        return psycopg.connect(
+            with_connect_timeout(conninfo),
+            row_factory=dict_row,
+            prepare_threshold=None,
+        )
+
+    required = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]
+    missing = [name for name in required if not os.getenv(name)]
+    if missing:
+        raise RuntimeError(
+            "Missing database configuration. Set DATABASE_URL or SUPABASE_DB_URL, "
+            f"or set {', '.join(required)}."
+        )
+
+    return psycopg.connect(
+        host=os.environ["PGHOST"],
+        port=os.getenv("PGPORT", "5432"),
+        dbname=os.environ["PGDATABASE"],
+        user=os.environ["PGUSER"],
+        password=os.environ["PGPASSWORD"],
+        sslmode=os.getenv("PGSSLMODE", "require"),
+        connect_timeout=10,
+        row_factory=dict_row,
+        prepare_threshold=None,
+    )
 
 
 def iter_index_records(index_path: Path) -> Iterable[dict[str, Any]]:
