@@ -14,6 +14,18 @@ pnpm dev
 bun dev
 ```
 
+Supabase auth/chat history needs public Supabase client settings. The frontend
+loads them from `frontend/.env.local`, or from `../backend/.env` when running
+inside this repository:
+
+```env
+SUPABASE_URL=https://<project-ref>.supabase.co
+SUPABASE_ANON_KEY=<project anon public key>
+```
+
+`DATABASE_URL` is only for PostgreSQL scripts and must not be exposed to the
+browser. Do not use `SUPABASE_SERVICE_ROLE_KEY` in the frontend.
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.

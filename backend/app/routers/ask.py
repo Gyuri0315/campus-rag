@@ -1,4 +1,4 @@
-"""POST /ask — RAG question answering endpoint."""
+"""POST /ask RAG question answering endpoint."""
 
 from __future__ import annotations
 
@@ -17,6 +17,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 NO_INFO_ANSWER = "관련 정보를 찾을 수 없습니다."
+
+
+def _similarity(row: Dict[str, Any]) -> float:
+    try:
+        return float(row.get("similarity") or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _score(row: Dict[str, Any], key: str) -> float:
+    metadata = row.get("metadata") or {}
+    try:
+        return float(row.get(key, metadata.get(key)) or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _row_to_source(row: Dict[str, Any]) -> Source:
@@ -42,6 +57,11 @@ def _row_to_source(row: Dict[str, Any]) -> Source:
         uri=str(uri),
         content=str(row.get("content") or ""),
         similarity=float(row.get("similarity") or 0.0),
+        priority_score=_score(row, "priority_score"),
+        dataset_priority=_score(row, "dataset_priority"),
+        final_score=_score(row, "final_score"),
+        rerank_score=_score(row, "rerank_score"),
+        rerank_final_score=_score(row, "rerank_final_score"),
     )
 
 
@@ -66,13 +86,42 @@ def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskRespons
             rpc_names=state.settings.rpc_names,
             embedding=embedding,
             top_k=state.settings.rag_top_k,
+            first_stage_k=state.settings.rag_first_stage_k,
             min_similarity=state.settings.rag_min_similarity,
+            priority_weight=state.settings.rag_priority_weight,
+            dataset_priority_weight=state.settings.rag_dataset_priority_weight,
+            source_kind_weight=state.settings.rag_source_kind_weight,
+            reranker=state.reranker,
+            reranker_weight=state.settings.reranker_weight,
+            query_text=search_query,
         )
     except Exception:
         logger.exception("retrieval failed")
         raise HTTPException(status_code=502, detail="retrieval failed")
 
     sources = [_row_to_source(r) for r in rows]
+    top_similarity = max((_similarity(row) for row in rows), default=0.0)
+    logger.info(
+        "ask: final_sources=%d top_similarity=%.4f",
+        len(sources),
+        top_similarity,
+    )
+    if logger.isEnabledFor(logging.DEBUG):
+        source_summaries = [
+            {
+                "index": index,
+                "rpc": (row.get("metadata") or {}).get("rpc_name"),
+                "title": source.title[:120],
+                "similarity": round(source.similarity, 4),
+                "priority_score": round(source.priority_score, 4),
+                "dataset_priority": round(source.dataset_priority, 4),
+                "final_score": round(source.final_score, 4),
+                "rerank_score": round(source.rerank_score, 4),
+                "rerank_final_score": round(source.rerank_final_score, 4),
+            }
+            for index, (row, source) in enumerate(zip(rows, sources), start=1)
+        ]
+        logger.debug("ask: final_source_summaries=%s", source_summaries)
 
     if not sources:
         return AskResponse(answer=NO_INFO_ANSWER, sources=[])
@@ -86,6 +135,8 @@ def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskRespons
             rows=rows,
             max_chars_per_chunk=state.settings.max_chars_per_chunk,
             timeout=state.settings.openai_timeout_seconds,
+            temperature=state.settings.openai_temperature,
+            max_tokens=state.settings.openai_max_tokens,
         )
     except Exception:
         logger.exception("generation failed")

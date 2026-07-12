@@ -3,24 +3,24 @@
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import sys
 from pathlib import Path
 from typing import Any
 
-from dotenv import load_dotenv
-
 try:
-    import psycopg
     from psycopg import sql
     from psycopg.rows import dict_row
 except ModuleNotFoundError:
-    psycopg = None
     sql = None
     dict_row = None
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.db import connect_postgres  # noqa: E402
+
 DEFAULT_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 EXPECTED_DIMENSIONS = 384
 DATASET_MATCH_FUNCTIONS = {
@@ -76,32 +76,9 @@ APPENDIX_TABLE_REQUEST_KEYWORDS = (
 
 
 def connect() -> Any:
-    if psycopg is None or dict_row is None:
+    if dict_row is None:
         raise RuntimeError("psycopg is required for Supabase queries. Install backend requirements first.")
-
-    load_dotenv(PROJECT_ROOT / "backend" / ".env")
-    conninfo = os.getenv("DATABASE_URL") or os.getenv("SUPABASE_DB_URL")
-    if conninfo:
-        return psycopg.connect(conninfo, row_factory=dict_row, prepare_threshold=None)
-
-    required = ["PGHOST", "PGDATABASE", "PGUSER", "PGPASSWORD"]
-    missing = [name for name in required if not os.getenv(name)]
-    if missing:
-        raise RuntimeError(
-            "Missing database configuration. Set DATABASE_URL or SUPABASE_DB_URL, "
-            f"or set {', '.join(required)}."
-        )
-
-    return psycopg.connect(
-        host=os.environ["PGHOST"],
-        port=os.getenv("PGPORT", "5432"),
-        dbname=os.environ["PGDATABASE"],
-        user=os.environ["PGUSER"],
-        password=os.environ["PGPASSWORD"],
-        sslmode=os.getenv("PGSSLMODE", "require"),
-        row_factory=dict_row,
-        prepare_threshold=None,
-    )
+    return connect_postgres(row_factory=dict_row, prepare_threshold=None)
 
 
 def embed_query(question: str, model_name: str) -> list[float]:

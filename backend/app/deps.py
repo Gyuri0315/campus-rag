@@ -10,12 +10,14 @@ from supabase import Client
 
 from .config import Settings
 from .embeddings import Embedder
+from .reranking import CrossEncoderReranker
 
 
 @dataclass
 class AppState:
     settings: Settings
     embedder: Embedder
+    reranker: CrossEncoderReranker | None
     supabase: Client
     openai: OpenAI
     system_prompt: str

@@ -29,8 +29,6 @@ interface Source {
   category: string;
   /** e.g. "학과 홈페이지 · 공지사항" — falls back to 학과 홈페이지 · {category} */
   chipMeta?: string;
-  /** Header chip: WEB | PDF | HWP — inferred from attachments when omitted */
-  formatChip?: "WEB" | "PDF" | "HWP";
   quote: string;
   quoteSource?: string;
   url: string;

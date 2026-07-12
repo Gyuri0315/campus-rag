@@ -154,6 +154,24 @@ def output_path_for(input_file: Path, input_root: Path, output_root: Path) -> Pa
     return (output_root / rel).with_suffix(".json")
 
 
+def is_output_current(
+    source_kind: str,
+    input_file: Path,
+    input_root: Path,
+    output_root: Path,
+    attachments_by_path: dict[str, dict[str, Any]],
+) -> bool:
+    out_path = output_path_for(input_file, input_root, output_root / source_kind)
+    if not out_path.exists():
+        return False
+    provenance_mtime = 0.0
+    if source_kind == "file":
+        provenance = attachments_by_path.get(input_file.resolve().as_posix().lower(), {})
+        provenance_mtime = float(provenance.get("_source_json_mtime") or 0.0)
+    newest_input_mtime = max(input_file.stat().st_mtime, provenance_mtime)
+    return out_path.stat().st_mtime >= newest_input_mtime
+
+
 def load_rule_json_index(json_root: Path) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
     docs_by_key: dict[str, dict[str, Any]] = {}
     attachments_by_path: dict[str, dict[str, Any]] = {}
@@ -174,6 +192,7 @@ def load_rule_json_index(json_root: Path) -> tuple[dict[str, dict[str, Any]], di
         doc_info = {
             **build_provenance(doc, json_path),
             "source_json_path": rel_project_path(json_path),
+            "_source_json_mtime": json_path.stat().st_mtime,
         }
         docs_by_key[key] = doc_info
 
@@ -428,6 +447,10 @@ def build_provenance(doc: dict[str, Any], input_file: Path) -> dict[str, Any]:
     }
 
 
+def public_provenance(provenance: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in provenance.items() if not str(key).startswith("_")}
+
+
 def write_preprocessed_result(
     input_file: Path,
     input_root: Path,
@@ -439,6 +462,7 @@ def write_preprocessed_result(
     used_html_fallback: bool = False,
 ) -> str:
     rel_in_input = rel_project_path(input_file, input_root)
+    provenance = public_provenance(provenance)
     source_slug = provenance.get("source_slug") or stable_slug(source_kind, rel_in_input)
     if source_kind == "file":
         attachment_metadata = classify_attachment_metadata(
@@ -655,10 +679,27 @@ def run_batch(
     chunk_size: int,
     chunk_overlap: int,
     file_exts: set[str] | None = None,
+    changed_only: bool = False,
+    target_tasks: list[tuple[str, Path, Path]] | None = None,
 ) -> None:
     docs_by_key, attachments_by_path = load_rule_json_index(json_root)
     tasks: list[tuple[str, Path, Path]] = []
-    if failed_from_log:
+    if target_tasks is not None:
+        allowed_exts = file_exts or SUPPORTED_ATTACHMENT_EXTS
+        for source_kind, input_file, input_root in target_tasks:
+            input_file = input_file.resolve()
+            input_root = input_root.resolve()
+            if not input_file.exists():
+                continue
+            if source_kind == "file" and input_file.suffix.lower() not in allowed_exts:
+                continue
+            try:
+                input_file.relative_to(input_root)
+            except ValueError:
+                continue
+            tasks.append((source_kind, input_file, input_root))
+        tasks = list(dict.fromkeys(tasks))
+    elif failed_from_log:
         tasks.extend(("file", path, files_root) for path in iter_failed_files_from_log(failed_from_log, file_exts=file_exts))
     else:
         if source_scope in {"json", "all"}:
@@ -680,9 +721,19 @@ def run_batch(
         counts[source_kind] = counts.get(source_kind, 0) + 1
     log.info("Found rule artifacts: %s", ", ".join(f"{key}={value}" for key, value in sorted(counts.items())))
 
-    ok = skipped = failed = 0
+    ok = skipped = unchanged = failed = 0
     for source_kind, input_file, input_root in tasks:
         rel = rel_project_path(input_file)
+        if changed_only and is_output_current(
+            source_kind,
+            input_file,
+            input_root,
+            output_root,
+            attachments_by_path,
+        ):
+            unchanged += 1
+            log.info("[SKIP:unchanged:%s] %s", source_kind, rel)
+            continue
         if dry_run:
             log.info("[DRY-RUN:%s] %s", source_kind, rel)
             continue
@@ -730,7 +781,13 @@ def run_batch(
     if dry_run:
         log.info("Dry run complete")
     else:
-        log.info("Done: saved=%d, skipped=%d, failed=%d", ok, skipped, failed)
+        log.info(
+            "Done: saved=%d, unchanged=%d, skipped=%d, failed=%d",
+            ok,
+            unchanged,
+            skipped,
+            failed,
+        )
 
 
 def main() -> None:
@@ -747,6 +804,11 @@ def main() -> None:
         help="Reprocess only [FAIL:file] paths parsed from a preprocessing log.",
     )
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--changed-only",
+        action="store_true",
+        help="Skip artifacts whose preprocessed JSON is newer than the input artifact.",
+    )
     parser.add_argument("--chunk-size", type=int, default=DEFAULT_CHUNK_SIZE)
     parser.add_argument("--chunk-overlap", type=int, default=DEFAULT_CHUNK_OVERLAP)
     parser.add_argument(
@@ -780,6 +842,7 @@ def main() -> None:
         chunk_size=args.chunk_size,
         chunk_overlap=args.chunk_overlap,
         file_exts=file_exts,
+        changed_only=args.changed_only,
     )
 
 
