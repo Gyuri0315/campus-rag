@@ -28,6 +28,7 @@ type BackendSource = {
   title?: string;
   uri?: string;
   content?: string;
+  attachments?: Array<{ name?: unknown; url?: unknown }>;
 };
 
 type BackendAskResponse = {
@@ -46,7 +47,11 @@ function adaptSource(src: BackendSource, index: number): ChatSource {
     category: DEFAULT_CATEGORY,
     quote: (src.content ?? "").trim(),
     url: (src.uri ?? "").trim() || "#",
-    attachments: [],
+    attachments: (src.attachments ?? []).flatMap((attachment) => {
+      const name = typeof attachment.name === "string" ? attachment.name.trim() : "";
+      const url = typeof attachment.url === "string" ? attachment.url.trim() : "";
+      return name && url ? [{ name, url }] : [];
+    }),
   };
 }
 
