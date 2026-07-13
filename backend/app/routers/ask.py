@@ -4,14 +4,16 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict
+from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..deps import AppState, get_state
+from ..excerpts import extract_relevant_excerpt
 from ..generation import generate_answer
 from ..query_transform import transform_query
 from ..retrieval import search
-from ..schemas import AskRequest, AskResponse, Source
+from ..schemas import AskRequest, AskResponse, Attachment, Source
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -32,6 +34,43 @@ def _score(row: Dict[str, Any], key: str) -> float:
         return float(row.get(key, metadata.get(key)) or 0.0)
     except (TypeError, ValueError):
         return 0.0
+
+
+def _attachment_name(name: Any, url: str, index: int) -> str:
+    normalized = str(name or "").strip()
+    if normalized:
+        return normalized
+    filename = unquote(urlparse(url).path.rsplit("/", 1)[-1]).strip()
+    return filename or f"attachment-{index}"
+
+
+def _row_attachments(row: Dict[str, Any]) -> list[Attachment]:
+    metadata = row.get("metadata") or {}
+    candidates: list[tuple[Any, Any]] = []
+    raw_attachments = metadata.get("attachments")
+    if isinstance(raw_attachments, list):
+        for item in raw_attachments:
+            if isinstance(item, dict):
+                candidates.append((item.get("name"), item.get("url")))
+
+    candidates.append(
+        (metadata.get("attachment_name"), metadata.get("attachment_url"))
+    )
+
+    attachments: list[Attachment] = []
+    seen_urls: set[str] = set()
+    for name, raw_url in candidates:
+        url = str(raw_url or "").strip()
+        if not url.startswith(("http://", "https://")) or url in seen_urls:
+            continue
+        seen_urls.add(url)
+        attachments.append(
+            Attachment(
+                name=_attachment_name(name, url, len(attachments) + 1),
+                url=url,
+            )
+        )
+    return attachments
 
 
 def _row_to_source(row: Dict[str, Any]) -> Source:
@@ -62,6 +101,7 @@ def _row_to_source(row: Dict[str, Any]) -> Source:
         final_score=_score(row, "final_score"),
         rerank_score=_score(row, "rerank_score"),
         rerank_final_score=_score(row, "rerank_final_score"),
+        attachments=_row_attachments(row),
     )
 
 
@@ -141,5 +181,20 @@ def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskRespons
     except Exception:
         logger.exception("generation failed")
         raise HTTPException(status_code=502, detail="generation failed")
+
+    sources = [
+        source.model_copy(
+            update={
+                "content": extract_relevant_excerpt(
+                    source.content,
+                    question=question,
+                    answer=answer,
+                    source_index=index,
+                    max_chars=state.settings.source_excerpt_max_chars,
+                )
+            }
+        )
+        for index, source in enumerate(sources, start=1)
+    ]
 
     return AskResponse(answer=answer or NO_INFO_ANSWER, sources=sources)

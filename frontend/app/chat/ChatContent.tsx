@@ -49,6 +49,9 @@ interface HistoryItem {
 }
 
 const CHAT_TITLE_MAX_LEN = 80;
+const SIDEBAR_DEFAULT_WIDTH = 210;
+const SIDEBAR_MIN_WIDTH = 180;
+const SIDEBAR_MAX_WIDTH = 420;
 
 function chatTitleFromQuestion(question: string): string {
   const trimmed = question.trim().replace(/\s+/g, " ");
@@ -76,6 +79,12 @@ const IconSidebar = () => (
   <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.6">
     <rect x="2" y="2" width="14" height="14" rx="2" />
     <line x1="7" y1="2" x2="7" y2="16" />
+  </svg>
+);
+const IconArrowLeft = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="13" y1="8" x2="3" y2="8" />
+    <polyline points="7,4 3,8 7,12" />
   </svg>
 );
 const IconPlus = () => (
@@ -297,16 +306,11 @@ function chipMetaFromSource(source: Source): string {
   return source.chipMeta ?? `학과 홈페이지 · ${source.category}`;
 }
 
-function findAttachment(source: Source, needle: "PDF" | "HWP") {
-  return source.attachments?.find((a) => a.name.toUpperCase().includes(needle));
-}
-
 // ── 출처 카드 컴포넌트 ────────────────────────────────────────────────────────
 function SourceCard({ source }: { source: Source }) {
   const circled = circledSourceIndex(source.id);
   const chip1 = chipMetaFromSource(source);
-  const pdfAtt = findAttachment(source, "PDF");
-  const hwpAtt = findAttachment(source, "HWP");
+  const hasAttachments = source.attachments && source.attachments.length > 0;
 
   const chipClass =
     "inline-flex items-center max-w-full rounded-full px-2.5 py-1 text-[10px] sm:text-[11px] font-medium leading-tight truncate";
@@ -340,29 +344,7 @@ function SourceCard({ source }: { source: Source }) {
           <span className={chipClass} style={chipStyle} title={chip1}>
             {chip1}
           </span>
-          {pdfAtt && (
-            <a
-              href={pdfAtt.url}
-              download
-              className={`${chipClass} cursor-pointer transition-opacity hover:opacity-85`}
-              style={formatChipAccentStyle}
-              aria-label="PDF 파일 다운로드"
-            >
-              PDF ↓
-            </a>
-          )}
-          {hwpAtt && (
-            <a
-              href={hwpAtt.url}
-              download
-              className={`${chipClass} cursor-pointer transition-opacity hover:opacity-85`}
-              style={formatChipAccentStyle}
-              aria-label="HWP 파일 다운로드"
-            >
-              HWP ↓
-            </a>
-          )}
-          {!pdfAtt && !hwpAtt && (
+          {!hasAttachments && (
             <span className={chipClass} style={formatChipAccentStyle}>
               WEB
             </span>
@@ -384,6 +366,25 @@ function SourceCard({ source }: { source: Source }) {
         <h3 className="mb-2.5 text-sm font-bold leading-snug sm:text-[15px]" style={{ color: "var(--clr-text)" }}>
           {source.title}
         </h3>
+        {hasAttachments && (
+          <div className="mb-3 flex flex-col items-start gap-1.5">
+            {source.attachments.map((attachment) => (
+              <a
+                key={attachment.url}
+                href={attachment.url}
+                download
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex max-w-full items-center gap-1.5 text-[11px] font-semibold underline decoration-1 underline-offset-2 transition-opacity hover:opacity-70 sm:text-xs"
+                style={{ color: SOURCE_CARD_NAVY }}
+                title={`${attachment.name} 다운로드`}
+              >
+                <span className="shrink-0"><IconDownload /></span>
+                <span className="truncate">{attachment.name}</span>
+              </a>
+            ))}
+          </div>
+        )}
         {source.quote && (
           <blockquote
             className="rounded-r-md border-l-[3px] py-2.5 pl-3 pr-2.5"
@@ -408,8 +409,65 @@ function SourceCard({ source }: { source: Source }) {
 }
 
 // ── AI 답변 메시지 컴포넌트 ───────────────────────────────────────────────────
+function AnswerContent({ content }: { content: string }) {
+  const lines = content.replace(/\r\n?/g, "\n").split("\n");
+
+  return (
+    <div
+      className="flex flex-col gap-2.5 text-xs leading-7 sm:text-sm sm:leading-7"
+      style={{ color: "var(--clr-text)" }}
+    >
+      {lines.map((rawLine, index) => {
+        const line = rawLine.trim();
+        if (!line) return null;
+
+        const heading = line.match(/^#{1,3}\s+(.+)$/);
+        if (heading) {
+          return (
+            <h4 key={index} className="mt-1 font-bold leading-relaxed first:mt-0">
+              {heading[1]}
+            </h4>
+          );
+        }
+
+        const unordered = line.match(/^[-*•]\s+(.+)$/);
+        if (unordered) {
+          return (
+            <div key={index} className="flex items-start gap-2 pl-1">
+              <span className="mt-[0.05em] shrink-0 font-bold" aria-hidden="true">•</span>
+              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                {unordered[1]}
+              </p>
+            </div>
+          );
+        }
+
+        const ordered = line.match(/^(\d+)[.)]\s+(.+)$/);
+        if (ordered) {
+          return (
+            <div key={index} className="flex items-start gap-2 pl-1">
+              <span className="min-w-[1.25rem] shrink-0 font-semibold tabular-nums">
+                {ordered[1]}.
+              </span>
+              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                {ordered[2]}
+              </p>
+            </div>
+          );
+        }
+
+        return (
+          <p key={index} className="whitespace-pre-wrap break-words">
+            {line}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () => void }) {
-  const [activeSourceIds, setActiveSourceIds] = useState<Set<number>>(() => new Set());
+  const [activeSourceId, setActiveSourceId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState(false);
   const [dislikeOpen, setDislikeOpen] = useState(false);
@@ -422,17 +480,12 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
   };
 
   const toggleSourceId = (id: number) => {
-    setActiveSourceIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setActiveSourceId((currentId) => (currentId === id ? null : id));
   };
 
   const visibleSources =
-    hasSources && activeSourceIds.size > 0
-      ? msg.sources!.filter((s) => activeSourceIds.has(s.id))
+    hasSources && activeSourceId !== null
+      ? msg.sources!.filter((source) => source.id === activeSourceId)
       : [];
 
   const navyToggle = "#25348B";
@@ -443,9 +496,7 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
 
         {/* 답변 카드 */}
         <div className="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3 sm:gap-4 w-full">
-          <p className="text-xs sm:text-sm leading-relaxed" style={{ color: "var(--clr-text)" }}>
-            {msg.content}
-          </p>
+          <AnswerContent content={msg.content} />
 
           {/* 메시지 레벨 첨부파일 */}
           {msg.attachments && msg.attachments.length > 0 && (
@@ -504,7 +555,7 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
             {hasSources && (
               <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
                 {msg.sources!.map((src) => {
-                  const active = activeSourceIds.has(src.id);
+                  const active = activeSourceId === src.id;
                   return (
                     <button
                       key={src.id}
@@ -571,6 +622,8 @@ export default function ChatContent() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // isMobile: < 768px → 사이드바를 fixed 오버레이로 표시
   const [isMobile, setIsMobile] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
+  const [isSidebarResizing, setIsSidebarResizing] = useState(false);
 
   const [contextMenuId, setContextMenuId] = useState<string | null>(null);
   const [contextMenuPos, setContextMenuPos] = useState<{ top: number; left: number } | null>(null);
@@ -664,6 +717,20 @@ export default function ChatContent() {
       if (aiAbortRef.current) aiAbortRef.current.abort();
     };
   }, []);
+
+  useEffect(() => {
+    if (!isSidebarResizing) return;
+
+    const previousCursor = document.body.style.cursor;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }, [isSidebarResizing]);
 
   // ── 외부 클릭 / ESC → 컨텍스트 메뉴 + 사용자 메뉴 닫기 ───────
   useEffect(() => {
@@ -888,7 +955,33 @@ export default function ChatContent() {
   };
 
   // ── 사이드바 너비 ─────────────────────────────────────────────
-  const sidebarWidth = sidebarOpen ? (isMobile ? "min(280px, 80vw)" : "210px") : "0px";
+  const renderedSidebarWidth = sidebarOpen
+    ? isMobile
+      ? "min(280px, 80vw)"
+      : `${sidebarWidth}px`
+    : "0px";
+
+  const resizeSidebar = (clientX: number) => {
+    const viewportMax = Math.floor(window.innerWidth * 0.45);
+    const maxWidth = Math.max(
+      SIDEBAR_MIN_WIDTH,
+      Math.min(SIDEBAR_MAX_WIDTH, viewportMax),
+    );
+    setSidebarWidth(Math.min(maxWidth, Math.max(SIDEBAR_MIN_WIDTH, clientX)));
+  };
+
+  const handleSidebarResizeKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const direction = e.key === "ArrowRight" ? 1 : -1;
+    const step = e.shiftKey ? 25 : 10;
+    setSidebarWidth((width) =>
+      Math.min(
+        SIDEBAR_MAX_WIDTH,
+        Math.max(SIDEBAR_MIN_WIDTH, width + direction * step),
+      ),
+    );
+  };
 
   // ── 사용자 메뉴 토글 ──────────────────────────────────────────
   const handleUserMenuToggle = (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -918,7 +1011,9 @@ export default function ChatContent() {
 
       {/* ── 사이드바 ─────────────────────────────────────────── */}
       <aside
-        className="flex flex-col flex-shrink-0 transition-all duration-300 overflow-hidden"
+        className={`flex flex-col flex-shrink-0 overflow-hidden ${
+          isSidebarResizing ? "" : "transition-all duration-300"
+        }`}
         style={{
           // 모바일: fixed overlay / 데스크톱: 일반 flow
           position: isMobile ? "fixed" : "relative",
@@ -926,7 +1021,7 @@ export default function ChatContent() {
           left: isMobile ? 0 : undefined,
           bottom: isMobile ? 0 : undefined,
           zIndex: isMobile ? 40 : undefined,
-          width: sidebarWidth,
+          width: renderedSidebarWidth,
           background: "rgba(255,255,255,0.48)",
           backdropFilter: "blur(18px)",
           WebkitBackdropFilter: "blur(18px)",
@@ -936,7 +1031,9 @@ export default function ChatContent() {
         {sidebarOpen && (
           <div
             className="flex flex-col h-full px-3 py-4 overflow-hidden"
-            style={{ minWidth: isMobile ? "min(280px, 80vw)" : "210px" }}
+            style={{
+              minWidth: isMobile ? "min(280px, 80vw)" : `${sidebarWidth}px`,
+            }}
           >
             {/* ── 상단 로고 ── */}
             <div
@@ -1095,6 +1192,41 @@ export default function ChatContent() {
                 </span>
               </button>
             </div>
+          </div>
+        )}
+
+        {sidebarOpen && !isMobile && (
+          <div
+            role="separator"
+            aria-label="사이드바 너비 조절"
+            aria-orientation="vertical"
+            aria-valuemin={SIDEBAR_MIN_WIDTH}
+            aria-valuemax={SIDEBAR_MAX_WIDTH}
+            aria-valuenow={sidebarWidth}
+            tabIndex={0}
+            className="absolute inset-y-0 right-0 z-10 w-2 cursor-col-resize touch-none outline-none group"
+            onPointerDown={(e) => {
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setIsSidebarResizing(true);
+            }}
+            onPointerMove={(e) => {
+              if (!e.currentTarget.hasPointerCapture(e.pointerId)) return;
+              resizeSidebar(e.clientX);
+            }}
+            onPointerUp={(e) => {
+              if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+                e.currentTarget.releasePointerCapture(e.pointerId);
+              }
+              setIsSidebarResizing(false);
+            }}
+            onPointerCancel={() => setIsSidebarResizing(false)}
+            onKeyDown={handleSidebarResizeKeyDown}
+          >
+            <span
+              className={`absolute inset-y-0 right-0 w-0.5 transition-colors group-hover:bg-[var(--clr-navy)] group-focus:bg-[var(--clr-navy)] ${
+                isSidebarResizing ? "bg-[var(--clr-navy)]" : "bg-transparent"
+              }`}
+            />
           </div>
         )}
       </aside>
@@ -1276,11 +1408,21 @@ export default function ChatContent() {
           </button>
 
           <span
-            className="text-xs sm:text-sm font-semibold truncate"
+            className="min-w-0 flex-1 text-xs sm:text-sm font-semibold truncate"
             style={{ color: "var(--clr-text)" }}
           >
             {chatTitle}
           </span>
+
+          <Link
+            href="/"
+            aria-label="메인 홈페이지로 돌아가기"
+            title="메인 홈페이지로 돌아가기"
+            className="ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-white/40"
+            style={{ color: "var(--clr-text-muted)", textDecoration: "none" }}
+          >
+            <IconArrowLeft />
+          </Link>
         </div>
 
         {/* 메시지 영역 */}

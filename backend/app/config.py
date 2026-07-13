@@ -53,6 +53,7 @@ class Settings(BaseSettings):
         "match_rag_documents",
     ]
     max_chars_per_chunk: int = 500
+    source_excerpt_max_chars: int = Field(default=320, ge=80, le=2000)
 
     # Server
     # NoDecode disables pydantic-settings' default JSON-decode for complex types,

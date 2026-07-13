@@ -90,7 +90,10 @@ curl -X POST http://localhost:8000/ask `
       "title": "졸업요건 안내",
       "uri": "https://ce.pknu.ac.kr/...",
       "content": "...",
-      "similarity": 0.7821
+      "similarity": 0.7821,
+      "attachments": [
+        {"name": "졸업요건 안내.pdf", "url": "https://ce.pknu.ac.kr/.../download"}
+      ]
     }
   ]
 }
@@ -107,7 +110,8 @@ curl -X POST http://localhost:8000/ask `
 - **한국어 강제**: 시스템 프롬프트에서 한국어 외 답변 금지
 - **출처 인라인**: `[1]`, `[2]` 형식으로 답변 안에 표기, 자료 목록 순서와 일치
 - **자료 외 추측 금지**: 자료에 없는 내용은 "관련 정보를 찾을 수 없습니다." 로 대답
-- **컨텍스트 길이 제한**: 청크당 `MAX_CHARS_PER_CHUNK=500` 자로 컷 (응답 `sources` 의 `content` 는 컷하지 않음)
+- **컨텍스트 길이 제한**: GPT에 전달하는 청크는 `MAX_CHARS_PER_CHUNK=500`자로 제한
+- **출처 원문 발췌**: 답변의 `[1]`, `[2]` 인용 문장과 질문을 기준으로 관련 구간을 골라 `SOURCE_EXCERPT_MAX_CHARS=320`자 이내로 반환
 - **로깅**: 질문은 INFO 레벨로 남김. 답변/응답 본문은 로깅하지 않음
 - **에러 응답**: 임베딩/검색/생성 단계별로 500/502 분기
 

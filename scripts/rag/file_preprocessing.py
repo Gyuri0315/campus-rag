@@ -174,6 +174,12 @@ def extract_crawled_json_provenance(path: Path) -> dict:
     if not isinstance(doc, dict):
         return {}
 
+    attachments = [
+        {"name": str(item.get("name") or ""), "url": str(item.get("url") or "")}
+        for item in (doc.get("attachments") or [])
+        if isinstance(item, dict) and item.get("url")
+    ]
+
     return {
         "doc_title": doc.get("title", ""),
         "doc_url": doc.get("url", ""),
@@ -186,6 +192,7 @@ def extract_crawled_json_provenance(path: Path) -> dict:
         "source_page_url": doc.get("url", ""),
         "source_site": doc.get("source_site", ""),
         "crawled_at": doc.get("crawled_at", ""),
+        "attachments": attachments,
     }
 
 

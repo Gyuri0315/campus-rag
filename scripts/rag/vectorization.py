@@ -436,6 +436,7 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "attachment_name": provenance.get("attachment_name", ""),
         "attachment_url": provenance.get("attachment_url", ""),
         "attachment_kind": provenance.get("attachment_kind", ""),
+        "attachments": provenance.get("attachments", []),
         "document_kind": provenance.get("document_kind", ""),
         "is_form": provenance.get("is_form", False),
         "is_appendix_table": provenance.get("is_appendix_table", False),

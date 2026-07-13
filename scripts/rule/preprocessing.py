@@ -432,6 +432,11 @@ def chunk_blocks(
 
 
 def build_provenance(doc: dict[str, Any], input_file: Path) -> dict[str, Any]:
+    attachments = [
+        {"name": str(item.get("name") or ""), "url": str(item.get("url") or "")}
+        for item in (doc.get("attachments") or [])
+        if isinstance(item, dict) and item.get("url")
+    ]
     return {
         "doc_title": doc.get("title", ""),
         "doc_url": doc.get("url", ""),
@@ -444,6 +449,7 @@ def build_provenance(doc: dict[str, Any], input_file: Path) -> dict[str, Any]:
         "crawled_at": doc.get("crawled_at", ""),
         "source_page_url": doc.get("url", ""),
         "source_json_path": rel_project_path(input_file),
+        "attachments": attachments,
     }
 
 

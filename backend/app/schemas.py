@@ -11,6 +11,11 @@ class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
 
 
+class Attachment(BaseModel):
+    name: str
+    url: str
+
+
 class Source(BaseModel):
     title: str
     uri: str
@@ -21,6 +26,7 @@ class Source(BaseModel):
     final_score: float = 0.0
     rerank_score: float = 0.0
     rerank_final_score: float = 0.0
+    attachments: List[Attachment] = Field(default_factory=list)
 
 
 class AskResponse(BaseModel):
