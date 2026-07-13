@@ -57,6 +57,9 @@ GENERIC_STUB_TITLES = (
     "대학생활 E-하나로",
 )
 
+_REPEATED_CHAR_RE = re.compile(r"(.)\1{5,}")
+_STANDALONE_JAMO_RE = re.compile(r"[ㄱ-ㅎㅏ-ㅣ]{6,}")
+
 QUERY_TERM_GROUPS = {
     "복수전공": ("복수전공", "복수 전공", "다전공", "전공제도"),
     "부전공": ("부전공", "부 전공", "다전공", "전공제도"),
@@ -95,6 +98,32 @@ DATASET_PRIORITIES = {
     "match_pknu_student_life_documents": 0.70,
     "match_rag_documents": 0.40,
 }
+
+# Query-time dataset routing. 특정 키워드가 질문에 있으면 관련 dataset의
+# priority에 boost를 얹어서 상위로 끌어올림. 여러 규칙이 매칭되면 합산.
+# 시연 필수 3개(Q1 졸업학점, Q2 졸업유예, Q3 캡스톤)에 회귀 없이 Q4(복수전공)
+# 개선을 노림.
+DATASET_BOOST_RULES: tuple[tuple[tuple[str, ...], Dict[str, float]], ...] = (
+    (
+        (
+            "휴학", "복학", "결석", "출석", "재수강", "재이수", "전과",
+            "졸업요건", "복수전공", "부전공", "학사경고", "학점",
+            "학사학위취득유예", "졸업유예",
+        ),
+        {"match_rule_documents": 0.15, "match_pknu_student_life_documents": 0.10},
+    ),
+    (
+        (
+            "셔틀", "생활관", "기숙사", "도서관", "식당",
+            "보건진료소", "연락처", "사무실", "전화",
+        ),
+        {"match_pknu_student_life_documents": 0.15},
+    ),
+    (
+        ("캡스톤", "학부 사무실", "학과 사무실"),
+        {"match_rag_documents": 0.10},
+    ),
+)
 
 SOURCE_KIND_PRIORITIES = {
     "post": 1.00,
@@ -136,9 +165,28 @@ def _priority_score(row: Dict[str, Any]) -> float:
 
 
 def _dataset_priority(row: Dict[str, Any]) -> float:
+    override = row.get("_boosted_dataset_priority")
+    if override is not None:
+        try:
+            return float(override)
+        except (TypeError, ValueError):
+            pass
     metadata = row.get("metadata") or {}
     rpc_name = str(metadata.get("rpc_name") or "")
     return DATASET_PRIORITIES.get(rpc_name, 0.50)
+
+
+def _dataset_priority_boost(rpc_name: str, query_text: Optional[str]) -> float:
+    if not query_text:
+        return 0.0
+    text = _normalize_text(query_text)
+    if not text:
+        return 0.0
+    boost = 0.0
+    for keywords, boosts in DATASET_BOOST_RULES:
+        if any(kw in text for kw in keywords):
+            boost += boosts.get(rpc_name, 0.0)
+    return boost
 
 
 def _source_kind_priority(row: Dict[str, Any]) -> float:
@@ -228,6 +276,12 @@ def _noise_flags(row: Dict[str, Any]) -> list[str]:
     if len(text) < 80 and keyword_hits < 2:
         flags.append("weak_short_chunk")
 
+    # 반복 문자/자모 스팸 ("ㅇㅇㅇㅇㅇ", "!!!!!", "~~~~~")
+    if _REPEATED_CHAR_RE.search(text):
+        flags.append("repeated_char_spam")
+    if _STANDALONE_JAMO_RE.search(text):
+        flags.append("standalone_jamo_spam")
+
     return flags
 
 
@@ -300,9 +354,9 @@ def _dataset_mismatch_flags(
     return flags
 
 
-def _dedupe_key(row: Dict[str, Any]) -> str:
+def _row_uri(row: Dict[str, Any]) -> str:
     metadata = row.get("metadata") or {}
-    uri = (
+    return (
         row.get("uri")
         or row.get("url")
         or metadata.get("doc_url")
@@ -310,7 +364,21 @@ def _dedupe_key(row: Dict[str, Any]) -> str:
         or metadata.get("attachment_url")
         or ""
     )
+
+
+def _url_key(row: Dict[str, Any]) -> str:
+    """Per-URL cap 용 key. 쿼리스트링/앵커 제거해서 같은 문서 다른 뷰 통합."""
+    uri = re.sub(r"[?#].*$", "", _normalize_text(_row_uri(row)).lower())
+    if uri:
+        return f"url:{uri}"
+    return f"title:{_normalize_text(_title_for_row(row)).lower()}"
+
+
+def _dedupe_key(row: Dict[str, Any]) -> str:
+    """정확히 같은 chunk 제거용 (같은 chunk가 여러 RPC에서 반환되는 경우 대비)."""
+    uri = _row_uri(row)
     title = _title_for_row(row)
+    metadata = row.get("metadata") or {}
     content = str(row.get("content") or "")
     if content:
         digest = hashlib.sha1(
@@ -328,14 +396,36 @@ def _dedupe_key(row: Dict[str, Any]) -> str:
 def _add_row(
     selected: List[Dict[str, Any]],
     seen: set[str],
+    url_counts: Dict[str, int],
     row: Dict[str, Any],
+    *,
+    max_chunks_per_url: int,
 ) -> bool:
     key = _dedupe_key(row)
     if key in seen:
         return False
+    url_key = _url_key(row)
+    if url_counts.get(url_key, 0) >= max_chunks_per_url:
+        return False
     seen.add(key)
+    url_counts[url_key] = url_counts.get(url_key, 0) + 1
     selected.append(row)
     return True
+
+
+def _cap_per_url(
+    rows: List[Dict[str, Any]], *, max_chunks_per_url: int
+) -> List[Dict[str, Any]]:
+    """Preserve input order, keep at most `max_chunks_per_url` rows per URL."""
+    counts: Dict[str, int] = {}
+    kept: List[Dict[str, Any]] = []
+    for row in rows:
+        url_key = _url_key(row)
+        if counts.get(url_key, 0) >= max_chunks_per_url:
+            continue
+        counts[url_key] = counts.get(url_key, 0) + 1
+        kept.append(row)
+    return kept
 
 
 def _rerank_candidates(
@@ -343,6 +433,7 @@ def _rerank_candidates(
     question: str,
     candidates: List[Dict[str, Any]],
     top_k: int,
+    max_chunks_per_url: int,
     reranker: Optional[Reranker],
     reranker_weight: float,
     priority_weight: float,
@@ -353,7 +444,7 @@ def _rerank_candidates(
         return []
 
     if not reranker or not question.strip():
-        return sorted(
+        ordered = sorted(
             candidates,
             key=lambda row: _final_score(
                 row,
@@ -362,13 +453,14 @@ def _rerank_candidates(
                 source_kind_weight,
             ),
             reverse=True,
-        )[:top_k]
+        )
+        return _cap_per_url(ordered, max_chunks_per_url=max_chunks_per_url)[:top_k]
 
     try:
         raw_scores = reranker.score(question, candidates)
     except Exception:
         logger.exception("retrieval: reranker failed, falling back to initial scores")
-        return sorted(
+        ordered = sorted(
             candidates,
             key=lambda row: _final_score(
                 row,
@@ -377,7 +469,8 @@ def _rerank_candidates(
                 source_kind_weight,
             ),
             reverse=True,
-        )[:top_k]
+        )
+        return _cap_per_url(ordered, max_chunks_per_url=max_chunks_per_url)[:top_k]
 
     normalized_scores = normalize_scores(raw_scores)
     bounded_reranker_weight = max(0.0, min(1.0, reranker_weight))
@@ -400,7 +493,7 @@ def _rerank_candidates(
         rescored.append(copied)
 
     rescored.sort(key=lambda row: float(row.get("rerank_final_score") or 0.0), reverse=True)
-    return rescored[:top_k]
+    return _cap_per_url(rescored, max_chunks_per_url=max_chunks_per_url)[:top_k]
 
 
 def search(
@@ -416,6 +509,7 @@ def search(
     source_kind_weight: float = 0.10,
     reranker: Optional[Reranker] = None,
     reranker_weight: float = 0.80,
+    max_chunks_per_url: int = 2,
     query_text: Optional[str] = None,
     metadata_filter: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
@@ -491,6 +585,11 @@ def search(
                         _similarity(copied),
                     )
                 continue
+            base_dataset_priority = DATASET_PRIORITIES.get(rpc_name, 0.50)
+            boost = _dataset_priority_boost(rpc_name, query_text)
+            copied["_boosted_dataset_priority"] = min(
+                1.0, base_dataset_priority + boost
+            )
             copied["priority_score"] = _priority_score(copied)
             copied["dataset_priority"] = _dataset_priority(copied)
             copied["final_score"] = _final_score(
@@ -539,6 +638,7 @@ def search(
 
     candidates: List[Dict[str, Any]] = []
     seen: set[str] = set()
+    url_counts: Dict[str, int] = {}
 
     # Keep one high-scoring row from each successful RPC before global ranking.
     # This prevents one noisy collection from crowding out regulations/notices.
@@ -546,7 +646,13 @@ def search(
         if len(candidates) >= candidate_count:
             break
         for row in rows:
-            if _add_row(candidates, seen, row):
+            if _add_row(
+                candidates,
+                seen,
+                url_counts,
+                row,
+                max_chunks_per_url=max_chunks_per_url,
+            ):
                 break
 
     merged.sort(
@@ -561,12 +667,19 @@ def search(
     for row in merged:
         if len(candidates) >= candidate_count:
             break
-        _add_row(candidates, seen, row)
+        _add_row(
+            candidates,
+            seen,
+            url_counts,
+            row,
+            max_chunks_per_url=max_chunks_per_url,
+        )
 
     selected = _rerank_candidates(
         question=query_text or "",
         candidates=candidates,
         top_k=top_k,
+        max_chunks_per_url=max_chunks_per_url,
         reranker=reranker,
         reranker_weight=reranker_weight,
         priority_weight=priority_weight,

@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     rag_top_k: int = 10
     rag_first_stage_k: int = 30
     rag_min_similarity: float = 0.35
+    rag_max_chunks_per_url: int = 2
     rag_priority_weight: float = 0.30
     rag_dataset_priority_weight: float = 0.15
     rag_source_kind_weight: float = 0.10

@@ -93,6 +93,7 @@ def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskRespons
             source_kind_weight=state.settings.rag_source_kind_weight,
             reranker=state.reranker,
             reranker_weight=state.settings.reranker_weight,
+            max_chunks_per_url=state.settings.rag_max_chunks_per_url,
             query_text=search_query,
         )
     except Exception:

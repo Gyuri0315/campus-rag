@@ -9,6 +9,9 @@ logs/*.log
 *.log
 !logs/.gitkeep
 
+outputs/
+ask_results.json
+
 .venv/
 venv/
 __pycache__/
