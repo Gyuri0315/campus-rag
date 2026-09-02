@@ -11,6 +11,8 @@ logs/*.log
 
 outputs/
 ask_results.json
+eval/results/*
+!eval/results/.gitkeep
 
 .venv/
 venv/
