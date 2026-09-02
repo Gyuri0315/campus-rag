@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -14,8 +15,120 @@ from urllib.request import Request, urlopen
 
 
 DEFAULT_BASE_URL = "http://localhost:8000"
-DEFAULT_QUESTIONS_PATH = Path("eval/questions.jsonl")
-DEFAULT_OUTPUT_PATH = Path("outputs/eval_results.jsonl")
+DEFAULT_QUESTIONS_PATH = Path("eval/cases/smoke.jsonl")
+DEFAULT_OUTPUT_PATH = Path("eval/results/smoke.jsonl")
+STRUCTURED_REQUIRED_FIELDS = {
+    "id",
+    "question",
+    "category",
+    "answerable",
+    "expected_source",
+    "required_facts",
+    "forbidden_claims",
+    "expected_no_info",
+    "tags",
+    "difficulty",
+}
+STRUCTURED_MARKER_FIELDS = STRUCTURED_REQUIRED_FIELDS - {"question", "category"}
+CASE_ID_RE = re.compile(r"^[a-z0-9_]+$")
+DIFFICULTIES = {"easy", "medium", "hard"}
+EXPECTED_SOURCE_FIELDS = {"dataset", "title_keywords", "allowed_urls", "source_ids"}
+REQUIRED_FACT_FIELDS = {"id", "description", "keywords"}
+
+
+def _require_string_list(value: Any, *, location: str) -> None:
+    if not isinstance(value, list) or any(
+        not isinstance(item, str) or not item.strip() for item in value
+    ):
+        raise ValueError(f"{location}: expected a list of non-empty strings")
+
+
+def _validate_structured_case(row: dict[str, Any], *, location: str) -> None:
+    """Validate one structured evaluation case without external dependencies."""
+    missing = STRUCTURED_REQUIRED_FIELDS - row.keys()
+    if missing:
+        raise ValueError(f"{location}: missing fields: {', '.join(sorted(missing))}")
+
+    for key in ("id", "question", "category"):
+        if not isinstance(row[key], str) or not row[key].strip():
+            raise ValueError(f"{location}: {key} must be a non-empty string")
+    if not CASE_ID_RE.fullmatch(row["id"]):
+        raise ValueError(f"{location}: id must contain only lowercase letters, digits, and underscores")
+    for key in ("answerable", "expected_no_info"):
+        if not isinstance(row[key], bool):
+            raise ValueError(f"{location}: {key} must be a boolean")
+    if row["expected_no_info"] == row["answerable"]:
+        raise ValueError(
+            f"{location}: expected_no_info must be the inverse of answerable"
+        )
+    if row["difficulty"] not in DIFFICULTIES:
+        raise ValueError(
+            f"{location}: difficulty must be one of {sorted(DIFFICULTIES)}"
+        )
+
+    _require_string_list(row["forbidden_claims"], location=f"{location}.forbidden_claims")
+    _require_string_list(row["tags"], location=f"{location}.tags")
+
+    facts = row["required_facts"]
+    if not isinstance(facts, list):
+        raise ValueError(f"{location}.required_facts: expected a list")
+    fact_ids: set[str] = set()
+    for index, fact in enumerate(facts):
+        fact_location = f"{location}.required_facts[{index}]"
+        if not isinstance(fact, dict):
+            raise ValueError(f"{fact_location}: expected an object")
+        missing_fact = REQUIRED_FACT_FIELDS - fact.keys()
+        if missing_fact:
+            raise ValueError(
+                f"{fact_location}: missing fields: {', '.join(sorted(missing_fact))}"
+            )
+        if not isinstance(fact["id"], str) or not fact["id"].strip():
+            raise ValueError(f"{fact_location}.id: expected a non-empty string")
+        if not CASE_ID_RE.fullmatch(fact["id"]):
+            raise ValueError(
+                f"{fact_location}.id: use only lowercase letters, digits, and underscores"
+            )
+        if fact["id"] in fact_ids:
+            raise ValueError(f"{fact_location}.id: duplicate fact id {fact['id']!r}")
+        fact_ids.add(fact["id"])
+        if not isinstance(fact["description"], str) or not fact["description"].strip():
+            raise ValueError(f"{fact_location}.description: expected a non-empty string")
+        _require_string_list(fact["keywords"], location=f"{fact_location}.keywords")
+
+    expected_source = row["expected_source"]
+    if row["answerable"]:
+        if not isinstance(expected_source, dict):
+            raise ValueError(f"{location}.expected_source: answerable cases require an object")
+        missing_source = EXPECTED_SOURCE_FIELDS - expected_source.keys()
+        if missing_source:
+            raise ValueError(
+                f"{location}.expected_source: missing fields: "
+                f"{', '.join(sorted(missing_source))}"
+            )
+        for key in EXPECTED_SOURCE_FIELDS:
+            _require_string_list(
+                expected_source[key],
+                location=f"{location}.expected_source.{key}",
+            )
+        if not any(expected_source[key] for key in EXPECTED_SOURCE_FIELDS):
+            raise ValueError(
+                f"{location}.expected_source: at least one source criterion is required"
+            )
+    elif expected_source is not None:
+        raise ValueError(f"{location}.expected_source: unanswerable cases must use null")
+    elif facts:
+        raise ValueError(f"{location}.required_facts: unanswerable cases must use []")
+
+
+def _is_structured_case(row: dict[str, Any]) -> bool:
+    return bool(STRUCTURED_MARKER_FIELDS & row.keys())
+
+
+def _validate_unique_ids(rows: list[dict[str, Any]], *, location: str) -> None:
+    ids = [str(row["id"]) for row in rows if "id" in row]
+    duplicate_ids = sorted({case_id for case_id in ids if ids.count(case_id) > 1})
+    if duplicate_ids:
+        raise ValueError(f"{location}: duplicate case ids: {', '.join(duplicate_ids)}")
 
 
 def _read_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -33,7 +146,10 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f"{path}:{line_no}: each JSONL row must be an object")
             if not str(row.get("question") or "").strip():
                 raise ValueError(f"{path}:{line_no}: missing question")
+            if _is_structured_case(row):
+                _validate_structured_case(row, location=f"{path}:{line_no}")
             rows.append(row)
+    _validate_unique_ids(rows, location=str(path))
     return rows
 
 
@@ -83,8 +199,16 @@ def _result_row(
         sources = []
     error = response.get("error")
     return {
+        "id": question_row.get("id", ""),
         "question": question_row.get("question", ""),
         "category": question_row.get("category", ""),
+        "answerable": question_row.get("answerable"),
+        "expected_no_info": question_row.get("expected_no_info"),
+        "expected_source": question_row.get("expected_source"),
+        "required_facts": question_row.get("required_facts", []),
+        "forbidden_claims": question_row.get("forbidden_claims", []),
+        "tags": question_row.get("tags", []),
+        "difficulty": question_row.get("difficulty", ""),
         "expected_behavior": question_row.get("expected_behavior", ""),
         "answer": response.get("answer", "") if not error else "",
         "sources": sources,
