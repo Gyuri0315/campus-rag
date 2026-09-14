@@ -603,6 +603,13 @@ export default function ChatContent() {
   const { pendingQuery, setPendingQuery } = useQueryContext();
   const { user, loading: authLoading, signOut } = useAuth();
 
+  // 로그인 필수: 세션 없으면 로그인 화면으로 (비회원 채팅 더 이상 허용 안 함)
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/auth?next=/chat");
+    }
+  }, [authLoading, user, router]);
+
   const [history, setHistory] = useState<HistoryItem[]>(sidebarHistory);
   const [activeId, setActiveId] = useState<string>(() => sidebarHistory[0]?.id ?? "");
   const persistChatIdRef = useRef<string | null>(null);
