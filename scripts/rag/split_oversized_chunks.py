@@ -51,6 +51,8 @@ LOG_FILE = LOG_DIR / "split_oversized_chunks.log"
 DATASET_TABLES = {
     "pknu_notice": {"sources": "pknu_notice_sources", "chunks": "pknu_notice_chunks"},
     "pknu_student_life": {"sources": "pknu_student_life_sources", "chunks": "pknu_student_life_chunks"},
+    "rule": {"sources": "rule_sources", "chunks": "rule_chunks"},
+    "rag": {"sources": "rag_sources", "chunks": "rag_chunks"},
 }
 
 DEFAULT_THRESHOLD = 5000
