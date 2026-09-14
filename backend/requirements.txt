@@ -42,3 +42,6 @@ pywin32==311; platform_system == "Windows"
 schedule==1.2.2
 six
 typing_extensions==4.15.0
+
+# Testing (dev)
+pytest==8.3.4

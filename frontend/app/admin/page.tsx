@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import adminData from "@/data/routes/admin.json";
 
@@ -506,9 +506,10 @@ export default function AdminPage() {
   const [commentsPage, setCommentsPage] = useState(1);
 
   // 필터가 바뀌면 1페이지로 되돌린다 (현재 페이지가 결과 범위를 벗어나는 문제 방지)
-  useEffect(() => {
+  const handleThumbsFilterChange = (value: "all" | "up" | "down") => {
+    setThumbsFilter(value);
     setThumbsPage(1);
-  }, [thumbsFilter]);
+  };
 
   const [uploads, setUploads] = useState<UploadEntry[]>(
     () => adminData.uploads.recent as UploadEntry[],
@@ -635,7 +636,7 @@ export default function AdminPage() {
           action={
             <FilterPills
               value={thumbsFilter}
-              onChange={setThumbsFilter}
+              onChange={handleThumbsFilterChange}
               options={THUMBS_FILTER_OPTIONS}
             />
           }

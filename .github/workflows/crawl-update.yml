@@ -1,0 +1,58 @@
+name: Crawl update
+
+# 매일 00:00 UTC(=09:00 KST)에 학교 사이트를 증분 크롤링하고,
+# 전처리 -> 벡터화 -> Supabase 적재 -> 우선순위(priority_score) 재계산까지 실행한다.
+# 수동으로도 Actions 탭에서 "Run workflow"로 즉시 실행할 수 있다.
+#
+# 필요한 저장소 시크릿: DATABASE_URL (Supabase Postgres 연결 문자열)
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: crawl-update
+  cancel-in-progress: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies (Korean OCR)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-kor
+
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Crawl + preprocess + vectorize + load (all datasets)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/rag/preprocessing_pipeline_recent.py --dataset all
+
+      - name: Recompute priority scores
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/ce/update_priorities.py
+          python scripts/rule/update_priorities.py
+          python scripts/main/update_priorities.py --dataset all
+
+      - name: Commit updated crawl state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json state_pknu_notice.json state_pknu_student_life.json
+          git diff --cached --quiet || git commit -m "chore(crawler): update crawl state [skip ci]"
+          git push

@@ -17,9 +17,6 @@ eval/results/*
 .venv/
 venv/
 __pycache__/
-state.json
-state_pknu_notice.json
-state_pknu_student_life.json
 inspect_site.py
 nav_output.txt
 .env

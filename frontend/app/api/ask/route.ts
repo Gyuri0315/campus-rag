@@ -22,6 +22,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const authHeader = request.headers.get("authorization");
+  if (!authHeader) {
+    return Response.json({ detail: "로그인이 필요합니다." }, { status: 401 });
+  }
+
   // AbortController bridges the browser-aborted request to the upstream fetch
   // and also enforces a hard timeout so a hung backend can't hang Next.js.
   const controller = new AbortController();
@@ -32,7 +37,10 @@ export async function POST(request: NextRequest) {
   try {
     const upstream = await fetch(`${BACKEND_URL}/ask`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: authHeader,
+      },
       body: JSON.stringify({ question: question.trim() }),
       cache: "no-store",
       signal: controller.signal,

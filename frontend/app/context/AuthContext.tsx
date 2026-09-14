@@ -19,10 +19,6 @@ import type { Session, User } from "@supabase/supabase-js";
 
 import { supabase } from "@/app/lib/supabase/client";
 
-// ── OAuth 프로바이더 ──────────────────────────────────────────────────────────
-// 현재 활성화된 것만 노출. (Supabase 대시보드에서 활성 처리 필요)
-export type OAuthProvider = "google" | "kakao";
-
 // ── 액션 결과 타입 ────────────────────────────────────────────────────────────
 // 성공/실패만 구분하는 단순 형태. UI 가 에러 메시지를 그대로 띄울 수 있게 message 를 둠.
 export interface AuthActionResult {
@@ -41,7 +37,6 @@ interface AuthContextValue {
 
   signInWithPassword: (email: string, password: string) => Promise<AuthActionResult>;
   signUpWithPassword: (email: string, password: string) => Promise<AuthActionResult>;
-  signInWithOAuth: (provider: OAuthProvider, redirectTo?: string) => Promise<AuthActionResult>;
   signOut: () => Promise<AuthActionResult>;
 }
 
@@ -68,15 +63,6 @@ function normalizeAuthError(message: string | undefined | null): string {
     return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
   }
   return message;
-}
-
-// ── OAuth 콜백 redirect 계산 ──────────────────────────────────────────────────
-// 브라우저에서만 호출됨 (signInWithOAuth 내부). origin + /auth/callback + ?next=...
-function buildOAuthRedirect(nextPath?: string): string {
-  if (typeof window === "undefined") return "";
-  const url = new URL("/auth/callback", window.location.origin);
-  if (nextPath) url.searchParams.set("next", nextPath);
-  return url.toString();
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -145,35 +131,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const signInWithOAuth = useCallback(
-    async (provider: OAuthProvider, nextPath?: string): Promise<AuthActionResult> => {
-      // NOTE — 카카오 scope 처리 관련.
-      //
-      // GoTrue 의 kakao 프로바이더는 기본 scope 인
-      //   ["account_email", "profile_image", "profile_nickname"]
-      // 를 하드코드해 두고, 클라이언트가 보낸 `scopes` 는 *replace* 가 아니라
-      // *append* 한다. 즉 client 에서 scope 를 어떻게 보내도 account_email 은 항상 포함된다.
-      //   참고: https://github.com/supabase/auth/blob/master/internal/api/provider/kakao.go
-      //
-      // 따라서 KOE205("설정하지 않은 동의 항목 포함") 는 클라이언트에서 못 막고,
-      //   1) Kakao 콘솔의 동의항목에서 account_email 을 사용 가능한 상태로 만들거나
-      //      ("Register as Individual" 또는 비즈앱 전환), 또는
-      //   2) Kakao 동의항목에서 email 을 빼고 Supabase 의 Kakao provider 설정에서
-      //      "Allow users without an email" 을 켜는
-      // 두 방향 중 하나로 풀어야 한다.
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          redirectTo: buildOAuthRedirect(nextPath),
-        },
-      });
-      if (error) return { ok: false, message: normalizeAuthError(error.message) };
-      // 성공 시엔 즉시 외부 IdP 로 redirect 되므로 호출부 코드는 거의 실행되지 않는다.
-      return { ok: true };
-    },
-    [],
-  );
-
   const signOut = useCallback(async (): Promise<AuthActionResult> => {
     const { error } = await supabase.auth.signOut();
     if (error) return { ok: false, message: normalizeAuthError(error.message) };
@@ -187,10 +144,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       signInWithPassword,
       signUpWithPassword,
-      signInWithOAuth,
       signOut,
     }),
-    [session, loading, signInWithPassword, signUpWithPassword, signInWithOAuth, signOut],
+    [session, loading, signInWithPassword, signUpWithPassword, signOut],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
