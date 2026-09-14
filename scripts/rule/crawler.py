@@ -94,6 +94,14 @@ class PknuSslAdapter(HTTPAdapter):
     def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
         context = ssl.create_default_context()
         context.set_ciphers("DEFAULT@SECLEVEL=1")
+        # requests' verify=False (see fetch()) tells urllib3 to set
+        # context.verify_mode = CERT_NONE at request time, which newer Python
+        # ssl module versions reject while check_hostname is still True
+        # ("Cannot set verify_mode to CERT_NONE when check_hostname is
+        # enabled"). Disable both up front on the context itself instead of
+        # relying on requests to do it dynamically later.
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
         kwargs["ssl_context"] = context
         return super().init_poolmanager(*args, **kwargs)
 
@@ -163,6 +171,11 @@ def build_session() -> requests.Session:
 
 
 def fetch(session: requests.Session, url: str, **kwargs: Any) -> requests.Response:
+    # www.pknu.ac.kr sends only its leaf cert, no intermediate (missing chain,
+    # confirmed via `openssl s_client -showcerts`) -> "unable to get local
+    # issuer certificate". notice_crawler.py already works around this same
+    # server misconfiguration with verify=False; match that here.
+    kwargs.setdefault("verify", False)
     resp = session.get(url, timeout=REQUEST_TIMEOUT, **kwargs)
     resp.raise_for_status()
     content_type = resp.headers.get("Content-Type", "").lower()
