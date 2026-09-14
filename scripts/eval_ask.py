@@ -153,13 +153,18 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _post_ask(base_url: str, question: str, timeout: float) -> tuple[int | None, dict[str, Any]]:
+def _post_ask(
+    base_url: str, question: str, timeout: float, *, token: str | None = None
+) -> tuple[int | None, dict[str, Any]]:
     url = urljoin(base_url.rstrip("/") + "/", "ask")
     body = json.dumps({"question": question}, ensure_ascii=False).encode("utf-8")
+    headers = {"Content-Type": "application/json; charset=utf-8"}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
     request = Request(
         url,
         data=body,
-        headers={"Content-Type": "application/json; charset=utf-8"},
+        headers=headers,
         method="POST",
     )
     try:
@@ -228,6 +233,7 @@ def run_eval(
     timeout: float,
     limit: int | None,
     sleep_seconds: float,
+    token: str | None = None,
 ) -> None:
     questions = _read_jsonl(questions_path)
     if limit is not None:
@@ -241,7 +247,7 @@ def run_eval(
         for index, row in enumerate(questions, start=1):
             question = str(row["question"]).strip()
             started = time.perf_counter()
-            status_code, response = _post_ask(base_url, question, timeout)
+            status_code, response = _post_ask(base_url, question, timeout, token=token)
             elapsed = time.perf_counter() - started
             result = _result_row(
                 question_row=row,
@@ -307,6 +313,14 @@ def parse_args() -> argparse.Namespace:
         default=0.0,
         help="Sleep seconds between requests.",
     )
+    parser.add_argument(
+        "--token",
+        default=os.getenv("ASK_API_TOKEN"),
+        help=(
+            "Supabase access token sent as 'Authorization: Bearer <token>'. "
+            "/ask requires login; defaults to the ASK_API_TOKEN env var."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -317,6 +331,7 @@ def main() -> int:
         questions_path=args.questions,
         output_path=args.output,
         timeout=args.timeout,
+        token=args.token,
         limit=args.limit,
         sleep_seconds=args.sleep,
     )
