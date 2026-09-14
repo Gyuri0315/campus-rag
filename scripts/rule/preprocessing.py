@@ -37,6 +37,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.text_cleaning import clean_extracted_text
+from scripts.crawlers.common.reader import read_document
 
 DEFAULT_INPUT_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "json"
 DEFAULT_HTML_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "html"
@@ -180,7 +181,8 @@ def load_rule_json_index(json_root: Path) -> tuple[dict[str, dict[str, Any]], di
 
     for json_path in json_root.rglob("*.json"):
         try:
-            doc = json.loads(json_path.read_text(encoding="utf-8-sig"))
+            payload = json.loads(json_path.read_text(encoding="utf-8-sig"))
+            doc = read_document(payload, dataset="rule", project_root=PROJECT_ROOT)
         except Exception:
             continue
         if not isinstance(doc, dict):
@@ -206,8 +208,11 @@ def load_rule_json_index(json_root: Path) -> tuple[dict[str, dict[str, Any]], di
             attachments_by_path[abs_path.as_posix().lower()] = {
                 **doc_info,
                 "attachment_name": attachment.get("name", ""),
-                "attachment_url": attachment.get("url", ""),
-                "downloaded_from_url": attachment.get("downloaded_from_url", ""),
+                "attachment_url": attachment.get("final_url") or attachment.get("url", ""),
+                "downloaded_from_url": attachment.get("final_url")
+                or attachment.get("downloaded_from_url", ""),
+                "attachment_id": attachment.get("id", ""),
+                "attachment_sha256": attachment.get("sha256", ""),
                 "content_type": attachment.get("content_type", ""),
             }
 
@@ -291,7 +296,7 @@ def extract_rule_json_blocks(doc: dict[str, Any], html_root: Path) -> tuple[list
         ("category", "category"),
         ("subcategory", "subcategory"),
         ("type", "type"),
-        ("date", "date"),
+        ("published_at", "published_at"),
         ("source_id", "source_id"),
         ("url", "url"),
     ):
@@ -300,9 +305,7 @@ def extract_rule_json_blocks(doc: dict[str, Any], html_root: Path) -> tuple[list
             metadata_lines.append(f"{label}: {value}")
     append_block(blocks, seen, "metadata", "metadata", "\n".join(metadata_lines))
 
-    html_text = doc.get("html_text") or doc.get("page_content")
-    append_block(blocks, seen, "body", "html_text", html_text)
-    append_block(blocks, seen, "body", "page_content", doc.get("page_content"))
+    append_block(blocks, seen, "body", "content", doc.get("content"))
     append_block(blocks, seen, "body", "preview_content", doc.get("preview_content"))
 
     for index, preview in enumerate(iter_text_items(doc.get("preview_texts")), start=1):
@@ -316,7 +319,26 @@ def extract_rule_json_blocks(doc: dict[str, Any], html_root: Path) -> tuple[list
             source_index=index,
         )
 
-    file_previews = iter_text_items(doc.get("file_preview_texts"))
+    file_previews = []
+    for attachment in doc.get("attachments", []) or []:
+        if not isinstance(attachment, dict):
+            continue
+        text_info = attachment.get("text")
+        if not isinstance(text_info, dict) or text_info.get("status") != "success":
+            continue
+        text_value = normalize_text(text_info.get("content"))
+        if not text_value:
+            continue
+        file_previews.append(
+            {
+                "text": text_value,
+                "name": attachment.get("name", ""),
+                "url": attachment.get("url", ""),
+                "saved_path": attachment.get("saved_path", ""),
+            }
+        )
+    if not file_previews:
+        file_previews = iter_text_items(doc.get("file_preview_texts"))
     if not file_previews:
         file_previews = iter_text_items(doc.get("attachment_texts"))
     for index, preview in enumerate(file_previews, start=1):
@@ -438,15 +460,21 @@ def build_provenance(doc: dict[str, Any], input_file: Path) -> dict[str, Any]:
         if isinstance(item, dict) and item.get("url")
     ]
     return {
+        "schema_version": doc.get("schema_version", ""),
+        "document_id": doc.get("id", ""),
         "doc_title": doc.get("title", ""),
         "doc_url": doc.get("url", ""),
         "category": doc.get("category", ""),
         "subcategory": doc.get("subcategory", ""),
         "doc_type": doc.get("type", ""),
-        "date": doc.get("date", ""),
+        "published_at": doc.get("published_at"),
+        "updated_at": doc.get("updated_at"),
+        "effective_at": doc.get("effective_at"),
+        "content_hash": doc.get("content_hash", ""),
+        "source_dataset": doc.get("source_dataset", ""),
         "source_id": doc.get("source_id", ""),
         "source_site": doc.get("source_site", ""),
-        "crawled_at": doc.get("crawled_at", ""),
+        "crawl": doc.get("crawl", {}),
         "source_page_url": doc.get("url", ""),
         "source_json_path": rel_project_path(input_file),
         "attachments": attachments,
@@ -519,9 +547,10 @@ def preprocess_json_file(
     chunk_size: int,
     chunk_overlap: int,
 ) -> tuple[bool, str]:
-    doc = json.loads(input_file.read_text(encoding="utf-8-sig"))
-    if not isinstance(doc, dict):
+    payload = json.loads(input_file.read_text(encoding="utf-8-sig"))
+    if not isinstance(payload, dict):
         return False, "JSON root is not an object"
+    doc = read_document(payload, dataset="rule", project_root=PROJECT_ROOT)
 
     blocks, used_html_fallback = extract_rule_json_blocks(doc, html_root)
     chunks = chunk_blocks(blocks, chunk_size=chunk_size, overlap=chunk_overlap)

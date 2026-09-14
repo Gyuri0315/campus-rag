@@ -180,6 +180,32 @@ def infer_source_type(metadata: dict[str, Any]) -> str:
     return "unknown"
 
 
+def normalize_vector_metadata(metadata: dict[str, Any]) -> dict[str, Any]:
+    """Prefer schema 1.0 metadata while accepting transition-period aliases."""
+    normalized = dict(metadata)
+    normalized["published_at"] = normalized.get("published_at") or normalized.get("date")
+    crawl = normalized.get("crawl") if isinstance(normalized.get("crawl"), dict) else {}
+    if not crawl and normalized.get("crawled_at"):
+        crawl = {"crawled_at": normalized.get("crawled_at")}
+    normalized["crawl"] = crawl
+    normalized.pop("date", None)
+    normalized.pop("crawled_at", None)
+    for key in ("num_chars", "indexed_num_chars", "num_lines", "year", "notice_no"):
+        value = normalized.get(key)
+        if isinstance(value, str) and re.fullmatch(r"-?\d+", value.strip()):
+            normalized[key] = int(value)
+    attachments = normalized.get("attachments")
+    if isinstance(attachments, list):
+        for attachment in attachments:
+            if not isinstance(attachment, dict):
+                continue
+            for key in ("size_bytes",):
+                value = attachment.get(key)
+                if isinstance(value, str) and value.isdigit():
+                    attachment[key] = int(value)
+    return normalized
+
+
 def prepare_row(record: dict[str, Any], embedding_model: str) -> dict[str, dict[str, Any]]:
     embedding = record.get("embedding")
     if not isinstance(embedding, list):
@@ -197,6 +223,7 @@ def prepare_row(record: dict[str, Any], embedding_model: str) -> dict[str, dict[
     metadata = remove_nul_bytes(record.get("metadata") or {})
     if not isinstance(metadata, dict):
         raise ValueError(f"Record {record.get('id')} has non-object metadata")
+    metadata = normalize_vector_metadata(metadata)
 
     source_slug = str(record["source_slug"])
     now = datetime.now(timezone.utc)

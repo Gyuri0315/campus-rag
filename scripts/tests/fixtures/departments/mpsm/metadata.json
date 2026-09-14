@@ -1,0 +1,15 @@
+{
+  "schema_version": "1.0",
+  "dataset": "mpsm",
+  "source": "https://mpsm.pknu.ac.kr",
+  "transport": {
+    "https_started_directly": true,
+    "system_trust_fallback": true,
+    "verify_false_used": false
+  },
+  "url_rules": {
+    "menu": "/view.do?no=<menu_no>",
+    "detail": "/view.do?no=<menu_no>&idx=<item_id>&view=view",
+    "attachment": "javascript:downFile(<file_id>)"
+  }
+}

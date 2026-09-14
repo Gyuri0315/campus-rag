@@ -185,8 +185,10 @@ def calculate_main_priority(
     dataset_kind, band_base, band_span = DATASET_BANDS[dataset]
     overlap, feature_count, matched_count = rule_overlap_score(content, rule_features)
     latest_date = extract_latest_date(
-        metadata.get("date"),
         metadata.get("published_at"),
+        metadata.get("updated_at"),
+        (metadata.get("crawl") or {}).get("crawled_at") if isinstance(metadata.get("crawl"), dict) else None,
+        metadata.get("date"),
         metadata.get("crawled_at"),
         metadata.get("doc_title"),
         metadata.get("source_file"),

@@ -1,7 +1,12 @@
 import json
+import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.crawlers.common.reader import read_document
 root = PROJECT_ROOT / "files" / "pknu_student_life" / "output" / "json"
 guide_dirs = [d for d in root.iterdir() if d.is_dir() and d.name != "E-하나로"]
 
@@ -11,7 +16,10 @@ total_chars = 0
 
 for d in guide_dirs:
     for p in d.glob("*.json"):
-        doc = json.loads(p.read_text(encoding="utf-8"))
+        doc = read_document(
+            json.loads(p.read_text(encoding="utf-8")),
+            dataset="pknu_student_life", project_root=PROJECT_ROOT,
+        )
         n = len(doc.get("content") or "")
         total_chars += n
         entry = {
@@ -31,7 +39,10 @@ ebook = None
 eb = root / "E-하나로"
 if eb.exists():
     for p in eb.glob("*.json"):
-        ebook = json.loads(p.read_text(encoding="utf-8"))
+        ebook = read_document(
+            json.loads(p.read_text(encoding="utf-8")),
+            dataset="pknu_student_life", project_root=PROJECT_ROOT,
+        )
 
 n_guide = len(text_pdfs) + len(image_pdfs)
 pct = (len(image_pdfs) / n_guide * 100) if n_guide else 0

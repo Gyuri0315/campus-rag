@@ -102,7 +102,10 @@ def run_pipeline(args: argparse.Namespace) -> None:
 
     try:
         python = sys.executable
-        run_command("crawler", [python, "scripts/ce/crawler.py", "--once"])
+        run_command(
+            "crawler",
+            [python, "scripts/crawlers/departments/engine.py", "--dataset", "ce", "--once"],
+        )
         run_preprocess_steps(python)
         run_command(
             "vectorization",
@@ -164,7 +167,8 @@ def run_scheduler(args: argparse.Namespace) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run scripts/ce/crawler.py -> scripts/ce/preprocessing.py -> "
+            "Run scripts/crawlers/departments/engine.py --dataset ce -> "
+            "scripts/ce/preprocessing.py -> "
             "scripts/rag/vectorization.py -> scripts/rag/load_to_supabase.py every day at 09:00."
         )
     )

@@ -1,0 +1,11 @@
+{
+  "source_urls": {
+    "root": "http://geoinfo.pknu.ac.kr/",
+    "homepage": "http://geoinfo.pknu.ac.kr/00main/main.php",
+    "static": "http://geoinfo.pknu.ac.kr/01about/00.php",
+    "board": "http://geoinfo.pknu.ac.kr/05piazza/08.php",
+    "detail": "http://geoinfo.pknu.ac.kr/05piazza/08.php?idx=8800&bbscode=cate0501&kind=view"
+  },
+  "collected_at": "2026-09-12T19:35:00+09:00",
+  "sanitized": true
+}

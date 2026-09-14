@@ -416,8 +416,16 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
 
     source_slug = doc.get("slug") or stable_id(rel_project_path(input_file, project_root))
     provenance = doc.get("provenance") or {}
+    crawl = provenance.get("crawl") if isinstance(provenance.get("crawl"), dict) else {}
+    if not crawl and provenance.get("crawled_at"):
+        crawl = {"crawled_at": provenance.get("crawled_at")}
     # RAG 답변에서 출처를 표시할 수 있도록 모든 청크에 provenance 메타데이터를 보존한다.
     base_metadata = {
+        "schema_version": provenance.get("schema_version", ""),
+        "document_id": provenance.get("document_id", ""),
+        "source_dataset": provenance.get("source_dataset", ""),
+        "source_id": provenance.get("source_id", ""),
+        "content_hash": provenance.get("content_hash", ""),
         "source_slug": source_slug,
         "source_file": doc.get("source_file", ""),
         "source_path": doc.get("source_path", ""),
@@ -430,9 +438,11 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "subcategory": provenance.get("subcategory", ""),
         "doc_type": provenance.get("doc_type", ""),
         "source_kind": doc.get("source_kind", provenance.get("source_kind", "")),
-        "date": provenance.get("date", ""),
+        "published_at": provenance.get("published_at") or provenance.get("date"),
+        "updated_at": provenance.get("updated_at"),
+        "effective_at": provenance.get("effective_at"),
         "is_notice": provenance.get("is_notice", False),
-        "crawled_at": provenance.get("crawled_at", ""),
+        "crawl": crawl,
         "attachment_name": provenance.get("attachment_name", ""),
         "attachment_url": provenance.get("attachment_url", ""),
         "attachment_kind": provenance.get("attachment_kind", ""),
