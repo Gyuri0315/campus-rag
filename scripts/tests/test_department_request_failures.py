@@ -170,6 +170,93 @@ class DepartmentRequestFailureTests(unittest.TestCase):
         )
         self.assertEqual("failed", result.status)
 
+    def test_empty_list_and_parser_mismatch_are_distinguished(self) -> None:
+        section = engine.SECTIONS[0]
+        page = response(text='<a href="?action=view&bbsId=123&nttId=9">candidate</a>')
+        diagnostics = engine.CrawlDiagnostics()
+        with (
+            patch.object(engine, "fetch", return_value=page),
+            patch.object(engine, "parse_list_page", return_value=[]),
+            patch.object(engine, "log_event") as log_event,
+        ):
+            stats, _ = engine.crawl_board(
+                Mock(), section, {"items": {}}, is_initial=True, diagnostics=diagnostics,
+            )
+        self.assertEqual(1, stats.failed)
+        self.assertEqual("PARSER_MISMATCH", diagnostics.errors[0]["code"])
+        self.assertFalse(diagnostics.errors[0]["retryable"])
+        self.assertEqual(0, diagnostics.empty_sections)
+        self.assertTrue(any(
+            call.kwargs.get("reason") == "parser_mismatch"
+            for call in log_event.call_args_list
+        ))
+
+        diagnostics = engine.CrawlDiagnostics(sections_selected=1)
+        with (
+            patch.object(engine, "fetch", return_value=response(text="<table><tbody></tbody></table>")),
+            patch.object(engine, "parse_list_page", return_value=[]),
+        ):
+            stats, _ = engine.crawl_board(
+                Mock(), section, {"items": {}}, is_initial=True, diagnostics=diagnostics,
+            )
+        result = RunResult(dataset="ce", mode="incremental", stats=stats)
+        engine.finish_run_result(result, diagnostics)
+        self.assertEqual(1, diagnostics.empty_sections)
+        self.assertEqual("partial_success", result.status)
+        self.assertEqual("NO_DOCUMENTS_VERIFIED", result.errors[0].code)
+        self.assertFalse(result.errors[0].retryable)
+
+    def test_output_path_failure_is_non_retryable_and_next_section_runs(self) -> None:
+        sections = [
+            {"id": "one", "name": "One", "url": "https://example.test/1", "is_board": False},
+            {"id": "two", "name": "Two", "url": "https://example.test/2", "is_board": False},
+        ]
+        diagnostics = engine.CrawlDiagnostics()
+
+        def fake_static(_session, section, diagnostics=None):
+            if section["id"] == "one":
+                raise OSError("output directory is not writable")
+            diagnostics.sections_initialized += 1
+            return CrawlStats(requested=1, unchanged=1)
+
+        with (
+            patch.object(engine, "SECTIONS", sections),
+            patch.object(engine, "load_state", return_value={"items": {}}),
+            patch.object(engine, "save_state"),
+            patch.object(engine, "build_session", return_value=Mock()),
+            patch.object(engine, "crawl_static", side_effect=fake_static) as crawl_static,
+        ):
+            stats = engine.run_crawl(diagnostics=diagnostics)
+        self.assertEqual(2, crawl_static.call_count)
+        self.assertEqual(1, stats.failed)
+        self.assertEqual(1, stats.unchanged)
+        self.assertEqual("OUTPUT_PATH_ERROR", diagnostics.errors[0]["code"])
+        self.assertFalse(diagnostics.errors[0]["retryable"])
+
+    def test_source_id_variant_stops_when_next_page_repeats(self) -> None:
+        section = engine.SECTIONS[0]
+        item = {
+            "source_id": "card-A", "post_url": "https://example.test/view/card-A",
+            "post_no": None, "is_notice": False, "date": "2026-09-15",
+        }
+        detail = {
+            "title": "Card fixture", "date": "2026-09-15", "url": item["post_url"],
+            "is_notice": False, "body": "content", "attachments": [],
+        }
+        page = Mock(text="<html></html>")
+        with (
+            patch.object(engine, "fetch", return_value=page) as fetch,
+            patch.object(engine, "parse_list_page", return_value=[item]),
+            patch.object(engine, "parse_view_page", return_value=detail),
+            patch.object(engine, "save_document"),
+            patch.object(engine, "CRAWL_ALL_BOARD_PAGES", True),
+        ):
+            stats, _ = engine.crawl_board(
+                Mock(), section, {"items": {}}, is_initial=True, no_download_files=True,
+            )
+        self.assertEqual(1, stats.requested)
+        self.assertEqual(3, fetch.call_count)  # page 1, detail, repeated page 2
+
     def test_success_and_unchanged_status_are_unchanged(self) -> None:
         result = RunResult(dataset="ce", mode="incremental", stats=CrawlStats(unchanged=3))
         engine.finish_run_result(

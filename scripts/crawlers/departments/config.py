@@ -20,6 +20,28 @@ SECTION_DOCUMENT_TYPES = {
     "notice", "static_page", "guide", "law", "regulation", "bylaw", "guideline",
 }
 CMS_ADAPTERS = {"numeric_cms", "query_view_do", "query_view_legacy", "query_mcode", "legacy_php", "html_php"}
+WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{index}" for index in range(1, 10)),
+    *(f"LPT{index}" for index in range(1, 10)),
+}
+
+
+def validate_path_component(value: str, label: str) -> None:
+    """Reject values that cannot safely form a Windows output path component."""
+    if not value or value in {".", ".."}:
+        raise ValueError(f"{label} must not be empty")
+    if value.endswith((" ", ".")) or re.search(r'[<>:"/\\|?*\x00-\x1f]', value):
+        raise ValueError(f"{label} is not path-safe: {value!r}")
+    if value.split(".", 1)[0].upper() in WINDOWS_RESERVED_NAMES:
+        raise ValueError(f"{label} uses a reserved Windows name: {value!r}")
+
+
+@dataclass(frozen=True)
+class RegistryAudit:
+    configs: dict[str, "DepartmentConfig"]
+    errors: tuple[dict[str, Any], ...]
+    registered: int
 
 
 @dataclass(frozen=True)
@@ -93,14 +115,22 @@ class SectionConfig:
     def validate(self) -> None:
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", self.id):
             raise ValueError(f"invalid section id: {self.id!r}")
+        validate_path_component(self.id, "section id")
         if not self.name or not self.category:
             raise ValueError(f"section {self.id!r} requires name and category")
+        if self.category == "미분류" or "?" in self.category:
+            raise ValueError(f"section {self.id!r} has invalid category {self.category!r}")
+        validate_path_component(self.category, f"section {self.id!r} category")
         if self.kind not in SECTION_KINDS:
             raise ValueError(f"unsupported section kind: {self.kind!r}")
         if self.document_type not in SECTION_DOCUMENT_TYPES:
             raise ValueError(f"unsupported section document_type: {self.document_type!r}")
         if not self.path.startswith("/"):
             raise ValueError(f"section {self.id!r} path must start with '/'")
+        if self.path.startswith("//") or "\\" in self.path or "#" in self.path:
+            raise ValueError(f"section {self.id!r} has unsafe path: {self.path!r}")
+        if re.search(r"[\x00-\x1f\x7f]", self.path):
+            raise ValueError(f"section {self.id!r} path contains control characters")
 
     def runtime_dict(self, base_url: str) -> dict[str, Any]:
         return {
@@ -171,6 +201,7 @@ class DepartmentConfig:
     def validate(self) -> None:
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", self.dataset):
             raise ValueError(f"invalid dataset: {self.dataset!r}")
+        validate_path_component(self.dataset, "dataset")
         if not self.name or not self.site_prefix:
             raise ValueError(f"department {self.dataset!r} requires name and site_prefix")
         parsed = urlsplit(self.base_url)
@@ -210,15 +241,53 @@ class DepartmentConfig:
         return self.enabled and bool(self.active_sections)
 
 
-def load_registry(path: Path = DEFAULT_REGISTRY_PATH) -> dict[str, DepartmentConfig]:
+def audit_registry(path: Path = DEFAULT_REGISTRY_PATH) -> RegistryAudit:
+    """Validate every registry entry without stopping at the first bad dataset."""
     payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return RegistryAudit({}, ({
+            "dataset": None, "code": "INVALID_REGISTRY_ROOT",
+            "message": "department registry root must be an object",
+        },), 0)
+    departments = payload.get("departments")
+    if not isinstance(departments, list):
+        departments = []
+    errors: list[dict[str, Any]] = []
     if payload.get("schema_version") != REGISTRY_SCHEMA_VERSION:
-        raise ValueError(f"unsupported department registry schema: {payload.get('schema_version')!r}")
-    configs = [DepartmentConfig.from_dict(item) for item in payload.get("departments") or []]
-    registry = {config.dataset: config for config in configs}
-    if len(registry) != len(configs):
-        raise ValueError("department registry contains duplicate datasets")
-    return registry
+        errors.append({
+            "dataset": None, "code": "UNSUPPORTED_REGISTRY_SCHEMA",
+            "message": f"unsupported department registry schema: {payload.get('schema_version')!r}",
+        })
+    configs: dict[str, DepartmentConfig] = {}
+    seen: set[str] = set()
+    for index, item in enumerate(departments):
+        dataset = str(item.get("dataset") or "").strip() if isinstance(item, dict) else ""
+        label = dataset or f"entry_{index + 1}"
+        if dataset in seen:
+            configs.pop(dataset, None)
+            errors.append({
+                "dataset": label, "code": "DUPLICATE_DATASET",
+                "message": f"department registry contains duplicate datasets: {dataset!r}",
+            })
+            continue
+        seen.add(dataset)
+        try:
+            if not isinstance(item, dict):
+                raise ValueError("department entry must be an object")
+            configs[dataset] = DepartmentConfig.from_dict(item)
+        except (TypeError, ValueError) as exc:
+            errors.append({
+                "dataset": label, "code": "INVALID_DATASET_CONFIG", "message": str(exc),
+            })
+    return RegistryAudit(configs, tuple(errors), len(departments))
+
+
+def load_registry(path: Path = DEFAULT_REGISTRY_PATH) -> dict[str, DepartmentConfig]:
+    audit = audit_registry(path)
+    if audit.errors:
+        first = audit.errors[0]
+        raise ValueError(f"{first['dataset'] or 'registry'}: {first['message']}")
+    return audit.configs
 
 
 def load_site_catalog(path: Path = DEFAULT_SITE_CATALOG_PATH) -> list[DepartmentSite]:

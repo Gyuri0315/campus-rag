@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "departments": [
+    {
+      "dataset": "bad-category",
+      "name": "Bad Category",
+      "base_url": "https://bad-category.example.test",
+      "site_prefix": "bad-category",
+      "enabled": true,
+      "sections": [
+        {
+          "id": "notice",
+          "name": "공지사항",
+          "category": "????",
+          "kind": "board",
+          "path": "/notice",
+          "document_type": "notice",
+          "bbs_id": "1"
+        }
+      ]
+    },
+    {
+      "dataset": "con",
+      "name": "Reserved Dataset",
+      "base_url": "https://reserved.example.test",
+      "site_prefix": "reserved",
+      "enabled": true,
+      "sections": [
+        {
+          "id": "notice",
+          "name": "공지사항",
+          "category": "공지사항",
+          "kind": "board",
+          "path": "/notice",
+          "document_type": "notice",
+          "bbs_id": "2"
+        }
+      ]
+    }
+  ]
+}

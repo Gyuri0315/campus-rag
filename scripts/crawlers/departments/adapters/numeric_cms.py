@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -25,6 +25,67 @@ def _text(element) -> str:
 
 def _slug(url: str, extra: str = "") -> str:
     return hashlib.md5(f"{url}|{extra}".encode()).hexdigest()[:12]
+
+
+def _detail_source_id(href: str, board_url: str) -> str:
+    absolute = urljoin(board_url, href)
+    parsed = urlparse(absolute)
+    if parse_qs(parsed.query).get("action", [""])[0].lower() != "view":
+        return ""
+    source_id = str(parse_qs(parsed.query).get("no", [""])[0]).strip()
+    return source_id if re.fullmatch(r"[A-Za-z0-9_-]+", source_id) else ""
+
+
+def _list_date(container) -> str:
+    date_element = container.select_one(".bdlDate, .date, [class*='date']")
+    text = _text(date_element) if date_element else _text(container)
+    match = re.search(r"20\d{2}[-./]\d{1,2}[-./]\d{1,2}", text)
+    return match.group().replace(".", "-").replace("/", "-") if match else ""
+
+
+def _fallback_list_items(soup: BeautifulSoup, board_url: str) -> list[dict[str, Any]]:
+    """Parse newer numeric CMS table, card, and gallery list variants."""
+    items: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for link in soup.find_all("a", href=True):
+        href = str(link.get("href") or "").strip()
+        source_id = _detail_source_id(href, board_url)
+        if not source_id or source_id in seen:
+            continue
+        if link.find_parent(class_=re.compile(r"(?:paging|pagination|board-nav|bdvNav)", re.I)):
+            continue
+        container = link.find_parent(["tr", "li"])
+        if container is None:
+            continue
+        if container.name == "tr" and not container.select("td"):
+            continue
+        title = _text(link)
+        if not title or title.strip().lower() in _NAV_TEXTS:
+            continue
+
+        number = ""
+        if container.name == "tr":
+            number_element = container.select_one(".bdlNum, .num, td:first-child")
+            number = _text(number_element)
+        marker = number.strip().upper()
+        notice_badge = container.select_one('img[alt*="공지"], img[title*="공지"], em')
+        badge_text = _text(notice_badge).strip().upper()
+        notice = (
+            marker in {"NOTICE", "N", "공지"}
+            or badge_text in {"NOTICE", "N", "공지"}
+        )
+        post_no = int(marker) if marker.isdigit() else None
+        seen.add(source_id)
+        items.append({
+            "source_id": source_id,
+            "post_url": urljoin(board_url, href),
+            "num": "NOTICE" if notice else number,
+            "post_no": post_no,
+            "is_notice": notice,
+            "date": _list_date(container),
+            "title": title,
+        })
+    return items
 
 
 def extract_bbs_id(html: str, page_url: str) -> str | None:
@@ -99,6 +160,7 @@ def _attachment_candidate(href: str, name: str) -> bool:
 
 
 class NumericCMSAdapter(DepartmentCMSAdapter):
+    uses_numeric_post_order = True
     name = "numeric_cms"
 
     def discover_menus(self, html: str, base_url: str) -> list[dict[str, str]]:
@@ -162,7 +224,7 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
             items.append({"post_url": urljoin(board_url, link.get("href", "")), "num": number,
                           "post_no": post_no, "is_notice": notice,
                           "date": cells[-2].get_text(strip=True) if len(cells) >= 2 else ""})
-        return items
+        return items or _fallback_list_items(soup, board_url)
 
     def parse_attachments(self, content, *, page_url: str, base_url: str, site_prefix: str) -> list[dict[str, str]]:
         attachments = []

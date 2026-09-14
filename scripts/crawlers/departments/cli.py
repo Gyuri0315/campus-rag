@@ -16,7 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.crawlers.departments.config import (  # noqa: E402
-    DEFAULT_REGISTRY_PATH, DEFAULT_SITE_CATALOG_PATH, find_sites,
+    DEFAULT_REGISTRY_PATH, DEFAULT_SITE_CATALOG_PATH, audit_registry, find_sites,
     load_registry, load_site_catalog, validate_catalog,
 )
 from scripts.crawlers.departments.discovery import discover_site  # noqa: E402
@@ -287,25 +287,38 @@ def apply_discovery(args: argparse.Namespace, parser: argparse.ArgumentParser) -
 def main() -> int:
     parser = build_parser()
     args = parser.parse_args()
+    try:
+        registry_audit = audit_registry(args.registry)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"invalid registry: {exc}", file=sys.stderr)
+        return 1
     if args.command == "list-ready":
-        try:
-            registry = load_registry(args.registry)
-            report = build_preflight(
-                registry,
-                discovery_root=args.output_root or PROJECT_ROOT / "files" / "_discovery",
-            )
-        except (OSError, ValueError, json.JSONDecodeError) as exc:
-            print(f"invalid registry: {exc}", file=sys.stderr)
-            return 1
+        report = build_preflight(
+            registry_audit.configs,
+            discovery_root=args.output_root or PROJECT_ROOT / "files" / "_discovery",
+            registry_audit=registry_audit,
+        )
         if args.json_output:
             print(json.dumps(report, ensure_ascii=False, indent=2))
         else:
             print(render_preflight_table(report))
-        return 0
+        return 1 if registry_audit.errors else 0
     if args.command == "validate":
-        report = validate_catalog(load_site_catalog(args.sites), load_registry(args.registry))
+        try:
+            report = validate_catalog(load_site_catalog(args.sites), registry_audit.configs)
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"invalid registry or site catalog: {exc}", file=sys.stderr)
+            return 1
+        if registry_audit.errors:
+            report["errors"] = [*report.get("errors", []), *registry_audit.errors]
+            report["status"] = "invalid"
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0 if report["status"] == "valid" else 1
+    if registry_audit.errors:
+        print(json.dumps({
+            "status": "invalid", "errors": registry_audit.errors,
+        }, ensure_ascii=False, indent=2), file=sys.stderr)
+        return 1
     if args.command in {"probe-all", "discover-all"}:
         return run_batch(args)
     if args.command == "apply-discovery":

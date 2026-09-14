@@ -230,7 +230,7 @@
         {
           "id": "menu_3936",
           "name": "학부",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/english/3936",
           "document_type": "notice",
@@ -240,7 +240,7 @@
         {
           "id": "menu_3937",
           "name": "일반대학원",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/english/3937",
           "document_type": "notice",
@@ -250,7 +250,7 @@
         {
           "id": "menu_3938",
           "name": "교육대학원(영어교육전공)",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/english/3938",
           "document_type": "notice",
@@ -260,7 +260,7 @@
         {
           "id": "menu_3939",
           "name": "글로벌정책대학원(TESOL 학과)",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/english/3939",
           "document_type": "notice",
@@ -270,7 +270,7 @@
         {
           "id": "menu_3852",
           "name": "채용공고",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/english/3852",
           "document_type": "notice",
@@ -280,7 +280,7 @@
         {
           "id": "menu_3853",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/english/3853",
           "document_type": "notice",
@@ -290,7 +290,7 @@
         {
           "id": "menu_5018",
           "name": "학생회 행사",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/english/5018",
           "document_type": "notice",
@@ -300,7 +300,7 @@
         {
           "id": "menu_5746",
           "name": "재학생 소식",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/english/5746",
           "document_type": "notice",
@@ -310,7 +310,7 @@
         {
           "id": "menu_5020",
           "name": "졸업생 동정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/english/5020",
           "document_type": "notice",
@@ -334,7 +334,7 @@
         {
           "id": "menu_4336",
           "name": "교육과정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4336",
           "document_type": "notice",
@@ -344,7 +344,7 @@
         {
           "id": "menu_4337",
           "name": "교과목해설",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4337",
           "document_type": "notice",
@@ -354,7 +354,7 @@
         {
           "id": "menu_4340",
           "name": "교육과정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4340",
           "document_type": "notice",
@@ -364,7 +364,7 @@
         {
           "id": "menu_4338",
           "name": "교과목해설",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4338",
           "document_type": "notice",
@@ -374,7 +374,7 @@
         {
           "id": "menu_4334",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4334",
           "document_type": "notice",
@@ -384,7 +384,7 @@
         {
           "id": "menu_4342",
           "name": "교육과정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4342",
           "document_type": "notice",
@@ -394,7 +394,7 @@
         {
           "id": "menu_8186",
           "name": "조교소개",
-          "category": "????",
+          "category": "교수진",
           "kind": "static_page",
           "path": "/japanese/8186",
           "document_type": "guide",
@@ -403,7 +403,7 @@
         {
           "id": "menu_4347",
           "name": "학사안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4347",
           "document_type": "notice",
@@ -413,7 +413,7 @@
         {
           "id": "menu_4348",
           "name": "등록·장학",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/japanese/4348",
           "document_type": "notice",
@@ -423,7 +423,7 @@
         {
           "id": "menu_4350",
           "name": "행사안내",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/japanese/4350",
           "document_type": "notice",
@@ -433,7 +433,7 @@
         {
           "id": "menu_4351",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/japanese/4351",
           "document_type": "notice",
@@ -443,7 +443,7 @@
         {
           "id": "menu_4328",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/japanese/4328",
           "document_type": "notice",
@@ -453,7 +453,7 @@
         {
           "id": "menu_4329",
           "name": "취업안내",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/japanese/4329",
           "document_type": "notice",
@@ -463,7 +463,7 @@
         {
           "id": "menu_4331",
           "name": "일문동감",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/japanese/4331",
           "document_type": "notice",
@@ -473,7 +473,7 @@
         {
           "id": "menu_4332",
           "name": "일문사진",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/japanese/4332",
           "document_type": "notice",
@@ -483,7 +483,7 @@
         {
           "id": "menu_7081",
           "name": "학생회 소식",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/japanese/7081",
           "document_type": "notice",
@@ -493,7 +493,7 @@
         {
           "id": "menu_8194",
           "name": "홍보",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/japanese/8194",
           "document_type": "notice",
@@ -503,7 +503,7 @@
         {
           "id": "menu_8195",
           "name": "SNS",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/japanese/8195",
           "document_type": "notice",
@@ -527,7 +527,7 @@
         {
           "id": "menu_3899",
           "name": "위치안내",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/history/3899",
           "document_type": "guide",
@@ -536,7 +536,7 @@
         {
           "id": "menu_3893",
           "name": "졸업안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/history/3893",
           "document_type": "notice",
@@ -546,7 +546,7 @@
         {
           "id": "menu_3895",
           "name": "장학안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/history/3895",
           "document_type": "notice",
@@ -556,7 +556,7 @@
         {
           "id": "menu_3913",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/history/3913",
           "document_type": "notice",
@@ -566,7 +566,7 @@
         {
           "id": "menu_3914",
           "name": "일반대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/history/3914",
           "document_type": "notice",
@@ -576,7 +576,7 @@
         {
           "id": "menu_3915",
           "name": "글로벌정책대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/history/3915",
           "document_type": "notice",
@@ -586,7 +586,7 @@
         {
           "id": "menu_6418",
           "name": "사학과 소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/history/6418",
           "document_type": "notice",
@@ -596,7 +596,7 @@
         {
           "id": "menu_6419",
           "name": "갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/history/6419",
           "document_type": "notice",
@@ -606,7 +606,7 @@
         {
           "id": "menu_6420",
           "name": "취업 및 진로 정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/history/6420",
           "document_type": "notice",
@@ -754,7 +754,7 @@
         {
           "id": "menu_3805",
           "name": "구성원 소개",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/pknulaw/3805",
           "document_type": "notice",
@@ -764,7 +764,7 @@
         {
           "id": "menu_3806",
           "name": "학술대회 사진",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/pknulaw/3806",
           "document_type": "notice",
@@ -774,7 +774,7 @@
         {
           "id": "menu_3807",
           "name": "학술대회 일정",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/pknulaw/3807",
           "document_type": "notice",
@@ -784,7 +784,7 @@
         {
           "id": "menu_3808",
           "name": "세미나",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/pknulaw/3808",
           "document_type": "notice",
@@ -794,7 +794,7 @@
         {
           "id": "menu_3809",
           "name": "부경법학",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/pknulaw/3809",
           "document_type": "notice",
@@ -804,7 +804,7 @@
         {
           "id": "menu_3764",
           "name": "교수동정",
-          "category": "????",
+          "category": "교수진",
           "kind": "board",
           "path": "/pknulaw/3764",
           "document_type": "notice",
@@ -814,7 +814,7 @@
         {
           "id": "menu_6238",
           "name": "학생회",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknulaw/6238",
           "document_type": "notice",
@@ -824,7 +824,7 @@
         {
           "id": "menu_6287",
           "name": "활동사진",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknulaw/6287",
           "document_type": "notice",
@@ -834,7 +834,7 @@
         {
           "id": "menu_3770",
           "name": "사진자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/pknulaw/3770",
           "document_type": "notice",
@@ -844,7 +844,7 @@
         {
           "id": "menu_3917",
           "name": "학부공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pknulaw/3917",
           "document_type": "notice",
@@ -854,7 +854,7 @@
         {
           "id": "menu_3918",
           "name": "대학원공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pknulaw/3918",
           "document_type": "notice",
@@ -864,7 +864,7 @@
         {
           "id": "menu_3919",
           "name": "졸업관련게시판",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/pknulaw/3919",
           "document_type": "notice",
@@ -874,7 +874,7 @@
         {
           "id": "menu_6249",
           "name": "학내프로그램",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknulaw/6249",
           "document_type": "notice",
@@ -884,7 +884,7 @@
         {
           "id": "menu_3920",
           "name": "취업프로그램",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/pknulaw/3920",
           "document_type": "notice",
@@ -894,7 +894,7 @@
         {
           "id": "menu_3921",
           "name": "장학공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pknulaw/3921",
           "document_type": "notice",
@@ -904,7 +904,7 @@
         {
           "id": "menu_6247",
           "name": "국제화프로그램",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknulaw/6247",
           "document_type": "notice",
@@ -914,7 +914,7 @@
         {
           "id": "menu_6274",
           "name": "학외프로그램",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknulaw/6274",
           "document_type": "notice",
@@ -924,7 +924,7 @@
         {
           "id": "menu_6322",
           "name": "다전공게시판",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/pknulaw/6322",
           "document_type": "notice",
@@ -934,7 +934,7 @@
         {
           "id": "menu_6625",
           "name": "공모전게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/pknulaw/6625",
           "document_type": "notice",
@@ -944,7 +944,7 @@
         {
           "id": "menu_7654",
           "name": "초빙/채용",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/pknulaw/7654",
           "document_type": "notice",
@@ -954,7 +954,7 @@
         {
           "id": "menu_3771",
           "name": "자주 묻는 질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/pknulaw/3771",
           "document_type": "notice",
@@ -964,7 +964,7 @@
         {
           "id": "menu_6124",
           "name": "비교과(사회적약자 법률지원)",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknulaw/6124",
           "document_type": "notice",
@@ -974,7 +974,7 @@
         {
           "id": "menu_8647",
           "name": "모의재판경연대회",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknulaw/8647",
           "document_type": "notice",
@@ -984,7 +984,7 @@
         {
           "id": "menu_4998",
           "name": "졸업생 취업동향",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/pknulaw/4998",
           "document_type": "notice",
@@ -1008,7 +1008,7 @@
         {
           "id": "menu_5808",
           "name": "학부 연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/pknupasw/5808",
           "document_type": "guide",
@@ -1017,7 +1017,7 @@
         {
           "id": "menu_5571",
           "name": "학부",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pknupasw/5571",
           "document_type": "notice",
@@ -1027,7 +1027,7 @@
         {
           "id": "menu_3168",
           "name": "자주 찾는 질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/pknupasw/3168",
           "document_type": "notice",
@@ -1037,7 +1037,7 @@
         {
           "id": "menu_3176",
           "name": "채용·모집 공고",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/pknupasw/3176",
           "document_type": "notice",
@@ -1047,7 +1047,7 @@
         {
           "id": "menu_3175",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/pknupasw/3175",
           "document_type": "notice",
@@ -1057,7 +1057,7 @@
         {
           "id": "menu_6007",
           "name": "행정복지학부",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/pknupasw/6007",
           "document_type": "notice",
@@ -1067,7 +1067,7 @@
         {
           "id": "menu_3173",
           "name": "학생회 활동",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/3173",
           "document_type": "notice",
@@ -1077,7 +1077,7 @@
         {
           "id": "menu_3157",
           "name": "모의국무회의준비위원회",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/3157",
           "document_type": "notice",
@@ -1087,7 +1087,7 @@
         {
           "id": "menu_6431",
           "name": "HORA(오라)",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/6431",
           "document_type": "notice",
@@ -1097,7 +1097,7 @@
         {
           "id": "menu_3159",
           "name": "Air-up(에어업)",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/3159",
           "document_type": "notice",
@@ -1107,7 +1107,7 @@
         {
           "id": "menu_5828",
           "name": "LiNK",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/5828",
           "document_type": "notice",
@@ -1117,7 +1117,7 @@
         {
           "id": "menu_6493",
           "name": "MYTH(클럽신화)",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/6493",
           "document_type": "notice",
@@ -1127,7 +1127,7 @@
         {
           "id": "menu_6432",
           "name": "LA_ON(라온)",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/6432",
           "document_type": "notice",
@@ -1137,7 +1137,7 @@
         {
           "id": "menu_3160",
           "name": "ACE",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/3160",
           "document_type": "notice",
@@ -1147,7 +1147,7 @@
         {
           "id": "menu_5833",
           "name": "i;Dear(아이디어)",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/pknupasw/5833",
           "document_type": "notice",
@@ -1157,7 +1157,7 @@
         {
           "id": "menu_5582",
           "name": "대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pknupasw/5582",
           "document_type": "notice",
@@ -1167,7 +1167,7 @@
         {
           "id": "menu_5583",
           "name": "자주 찾는 질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/pknupasw/5583",
           "document_type": "notice",
@@ -1177,7 +1177,7 @@
         {
           "id": "menu_5584",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/pknupasw/5584",
           "document_type": "notice",
@@ -1203,7 +1203,7 @@
         {
           "id": "menu_6389",
           "name": "전공연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ps1/6389",
           "document_type": "guide",
@@ -1212,7 +1212,7 @@
         {
           "id": "menu_6396",
           "name": "학사안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/ps1/6396",
           "document_type": "notice",
@@ -1222,7 +1222,7 @@
         {
           "id": "menu_8115",
           "name": "모집공고",
-          "category": "????",
+          "category": "입학안내",
           "kind": "board",
           "path": "/ps1/8115",
           "document_type": "notice",
@@ -1232,7 +1232,7 @@
         {
           "id": "menu_6400",
           "name": "채용공고",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/ps1/6400",
           "document_type": "notice",
@@ -1242,7 +1242,7 @@
         {
           "id": "menu_6397",
           "name": "사회복지현장실습",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ps1/6397",
           "document_type": "notice",
@@ -1252,7 +1252,7 @@
         {
           "id": "menu_6398",
           "name": "자주찾는질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ps1/6398",
           "document_type": "notice",
@@ -1262,7 +1262,7 @@
         {
           "id": "menu_6399",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/ps1/6399",
           "document_type": "notice",
@@ -1272,7 +1272,7 @@
         {
           "id": "menu_6512",
           "name": "교수동정",
-          "category": "????",
+          "category": "교수진",
           "kind": "board",
           "path": "/ps1/6512",
           "document_type": "notice",
@@ -1282,7 +1282,7 @@
         {
           "id": "menu_6856",
           "name": "전공성과",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/ps1/6856",
           "document_type": "notice",
@@ -1292,7 +1292,7 @@
         {
           "id": "menu_6386",
           "name": "커뮤니티",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ps1/6386",
           "document_type": "notice",
@@ -1302,7 +1302,7 @@
         {
           "id": "menu_6912",
           "name": "사회복지전공 팟캐스트",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/ps1/6912",
           "document_type": "notice",
@@ -1312,7 +1312,7 @@
         {
           "id": "menu_8201",
           "name": "뉴스레터",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ps1/8201",
           "document_type": "notice",
@@ -1322,7 +1322,7 @@
         {
           "id": "menu_8743",
           "name": "AI 박람회",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ps1/8743",
           "document_type": "notice",
@@ -1332,7 +1332,7 @@
         {
           "id": "menu_6406",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ps1/6406",
           "document_type": "notice",
@@ -1342,7 +1342,7 @@
         {
           "id": "menu_7048",
           "name": "학과소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/ps1/7048",
           "document_type": "notice",
@@ -1352,7 +1352,7 @@
         {
           "id": "menu_7750",
           "name": "자주찾는질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ps1/7750",
           "document_type": "notice",
@@ -1362,7 +1362,7 @@
         {
           "id": "menu_6407",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/ps1/6407",
           "document_type": "notice",
@@ -1372,7 +1372,7 @@
         {
           "id": "menu_7049",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ps1/7049",
           "document_type": "notice",
@@ -1382,7 +1382,7 @@
         {
           "id": "menu_8288",
           "name": "학과소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/ps1/8288",
           "document_type": "notice",
@@ -1392,7 +1392,7 @@
         {
           "id": "menu_7742",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/ps1/7742",
           "document_type": "notice",
@@ -1416,7 +1416,7 @@
         {
           "id": "menu_3985",
           "name": "오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/dias/3985",
           "document_type": "guide",
@@ -1425,7 +1425,7 @@
         {
           "id": "menu_3995",
           "name": "취업정보 게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/dias/3995",
           "document_type": "notice",
@@ -1435,7 +1435,7 @@
         {
           "id": "menu_3996",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/dias/3996",
           "document_type": "notice",
@@ -1445,7 +1445,7 @@
         {
           "id": "menu_3999",
           "name": "FAQ",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/dias/3999",
           "document_type": "notice",
@@ -1455,7 +1455,7 @@
         {
           "id": "menu_4000",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/dias/4000",
           "document_type": "notice",
@@ -1465,7 +1465,7 @@
         {
           "id": "menu_4002",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/dias/4002",
           "document_type": "notice",
@@ -1489,7 +1489,7 @@
         {
           "id": "menu_4274",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/chinese/4274",
           "document_type": "guide",
@@ -1498,7 +1498,7 @@
         {
           "id": "menu_4282",
           "name": "교수·학과 소식",
-          "category": "????",
+          "category": "교수진",
           "kind": "board",
           "path": "/chinese/4282",
           "document_type": "notice",
@@ -1508,7 +1508,7 @@
         {
           "id": "menu_4289",
           "name": "학과 자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/chinese/4289",
           "document_type": "notice",
@@ -1518,7 +1518,7 @@
         {
           "id": "menu_4290",
           "name": "각종서식",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/chinese/4290",
           "document_type": "notice",
@@ -1528,7 +1528,7 @@
         {
           "id": "menu_4285",
           "name": "사진첩",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/chinese/4285",
           "document_type": "notice",
@@ -1538,7 +1538,7 @@
         {
           "id": "menu_4286",
           "name": "중국학과 학생회",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/chinese/4286",
           "document_type": "notice",
@@ -1548,7 +1548,7 @@
         {
           "id": "menu_4287",
           "name": "중국학과 인스타",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/chinese/4287",
           "document_type": "guide",
@@ -1557,7 +1557,7 @@
         {
           "id": "menu_4288",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/chinese/4288",
           "document_type": "notice",
@@ -1567,7 +1567,7 @@
         {
           "id": "menu_4295",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/chinese/4295",
           "document_type": "notice",
@@ -1577,7 +1577,7 @@
         {
           "id": "menu_4300",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/chinese/4300",
           "document_type": "notice",
@@ -1601,7 +1601,7 @@
         {
           "id": "menu_3778",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/politics/3778",
           "document_type": "guide",
@@ -1610,7 +1610,7 @@
         {
           "id": "menu_8669",
           "name": "먼저 걸어본 길",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/politics/8669",
           "document_type": "notice",
@@ -1620,7 +1620,7 @@
         {
           "id": "menu_3781",
           "name": "학부 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/politics/3781",
           "document_type": "notice",
@@ -1630,7 +1630,7 @@
         {
           "id": "menu_3785",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/politics/3785",
           "document_type": "notice",
@@ -1640,7 +1640,7 @@
         {
           "id": "menu_3787",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/politics/3787",
           "document_type": "notice",
@@ -1650,7 +1650,7 @@
         {
           "id": "menu_3788",
           "name": "서식자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/politics/3788",
           "document_type": "notice",
@@ -1660,7 +1660,7 @@
         {
           "id": "menu_3789",
           "name": "FAQ",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/politics/3789",
           "document_type": "notice",
@@ -1670,7 +1670,7 @@
         {
           "id": "menu_3791",
           "name": "대학원 규정",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/politics/3791",
           "document_type": "notice",
@@ -1680,7 +1680,7 @@
         {
           "id": "menu_3792",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/politics/3792",
           "document_type": "notice",
@@ -1690,7 +1690,7 @@
         {
           "id": "menu_3796",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/politics/3796",
           "document_type": "notice",
@@ -1700,7 +1700,7 @@
         {
           "id": "menu_3798",
           "name": "모의UN",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/politics/3798",
           "document_type": "notice",
@@ -1710,7 +1710,7 @@
         {
           "id": "menu_3800",
           "name": "위버멘시",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/politics/3800",
           "document_type": "notice",
@@ -1720,7 +1720,7 @@
         {
           "id": "menu_3801",
           "name": "PKIR세미나",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/politics/3801",
           "document_type": "notice",
@@ -1730,7 +1730,7 @@
         {
           "id": "menu_3802",
           "name": "학생회소식",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/politics/3802",
           "document_type": "notice",
@@ -1740,7 +1740,7 @@
         {
           "id": "menu_3803",
           "name": "학과갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/politics/3803",
           "document_type": "notice",
@@ -1764,7 +1764,7 @@
         {
           "id": "menu_5072",
           "name": "학과 연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/education/5072",
           "document_type": "guide",
@@ -1773,7 +1773,7 @@
         {
           "id": "menu_7298",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/education/7298",
           "document_type": "guide",
@@ -1782,7 +1782,7 @@
         {
           "id": "menu_1552",
           "name": "전체공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/education/1552",
           "document_type": "notice",
@@ -1792,7 +1792,7 @@
         {
           "id": "menu_1553",
           "name": "학부공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/education/1553",
           "document_type": "notice",
@@ -1802,7 +1802,7 @@
         {
           "id": "menu_1554",
           "name": "일반대학원 공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/education/1554",
           "document_type": "notice",
@@ -1812,7 +1812,7 @@
         {
           "id": "menu_1555",
           "name": "교육대학원 공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/education/1555",
           "document_type": "notice",
@@ -1822,7 +1822,7 @@
         {
           "id": "menu_1556",
           "name": "학부",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/education/1556",
           "document_type": "notice",
@@ -1832,7 +1832,7 @@
         {
           "id": "menu_1557",
           "name": "일반대학원",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/education/1557",
           "document_type": "notice",
@@ -1842,7 +1842,7 @@
         {
           "id": "menu_1558",
           "name": "교육대학원",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/education/1558",
           "document_type": "notice",
@@ -1852,7 +1852,7 @@
         {
           "id": "menu_7293",
           "name": "학과SNS",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/education/7293",
           "document_type": "notice",
@@ -1862,7 +1862,7 @@
         {
           "id": "menu_5122",
           "name": "배움나눔",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/education/5122",
           "document_type": "notice",
@@ -1872,7 +1872,7 @@
         {
           "id": "menu_1548",
           "name": "Q&A",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/education/1548",
           "document_type": "notice",
@@ -1882,7 +1882,7 @@
         {
           "id": "menu_1551",
           "name": "학생회(학부)",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/education/1551",
           "document_type": "notice",
@@ -1892,7 +1892,7 @@
         {
           "id": "menu_5070",
           "name": "전공동아리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/education/5070",
           "document_type": "notice",
@@ -1902,7 +1902,7 @@
         {
           "id": "menu_5071",
           "name": "포토앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/education/5071",
           "document_type": "notice",
@@ -1912,7 +1912,7 @@
         {
           "id": "menu_1549",
           "name": "채용 공고",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/education/1549",
           "document_type": "notice",
@@ -1936,7 +1936,7 @@
         {
           "id": "menu_2115",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/fashion/2115",
           "document_type": "guide",
@@ -1945,7 +1945,7 @@
         {
           "id": "menu_2129",
           "name": "대학원공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/fashion/2129",
           "document_type": "notice",
@@ -1955,7 +1955,7 @@
         {
           "id": "menu_2119",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/fashion/2119",
           "document_type": "notice",
@@ -1965,7 +1965,7 @@
         {
           "id": "menu_2120",
           "name": "학생회소식",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/fashion/2120",
           "document_type": "notice",
@@ -1975,7 +1975,7 @@
         {
           "id": "menu_2121",
           "name": "추억저장소",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/fashion/2121",
           "document_type": "notice",
@@ -1985,7 +1985,7 @@
         {
           "id": "menu_2122",
           "name": "졸업작품패션쇼",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/fashion/2122",
           "document_type": "notice",
@@ -1995,7 +1995,7 @@
         {
           "id": "menu_7071",
           "name": "홍보",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/fashion/7071",
           "document_type": "notice",
@@ -2005,7 +2005,7 @@
         {
           "id": "menu_2109",
           "name": "커뮤니티",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/fashion/2109",
           "document_type": "notice",
@@ -2015,7 +2015,7 @@
         {
           "id": "menu_2124",
           "name": "취업·진로정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/fashion/2124",
           "document_type": "notice",
@@ -2025,7 +2025,7 @@
         {
           "id": "menu_2125",
           "name": "공모전안내",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/fashion/2125",
           "document_type": "notice",
@@ -2035,7 +2035,7 @@
         {
           "id": "menu_2126",
           "name": "Q&A",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/fashion/2126",
           "document_type": "notice",
@@ -2045,7 +2045,7 @@
         {
           "id": "menu_2127",
           "name": "서식자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/fashion/2127",
           "document_type": "notice",
@@ -2191,7 +2191,7 @@
         {
           "id": "menu_258",
           "name": "학과안내",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/math/258",
           "document_type": "guide",
@@ -2200,7 +2200,7 @@
         {
           "id": "menu_309",
           "name": "응용수학과 소개",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/math/309",
           "document_type": "guide",
@@ -2209,7 +2209,7 @@
         {
           "id": "menu_310",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/math/310",
           "document_type": "guide",
@@ -2218,7 +2218,7 @@
         {
           "id": "menu_384",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/math/384",
           "document_type": "guide",
@@ -2227,7 +2227,7 @@
         {
           "id": "menu_332",
           "name": "학사서식",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/math/332",
           "document_type": "notice",
@@ -2237,7 +2237,7 @@
         {
           "id": "menu_339",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/math/339",
           "document_type": "notice",
@@ -2247,7 +2247,7 @@
         {
           "id": "menu_343",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/math/343",
           "document_type": "notice",
@@ -2257,7 +2257,7 @@
         {
           "id": "menu_368",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/math/368",
           "document_type": "notice",
@@ -2281,7 +2281,7 @@
         {
           "id": "menu_446",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/physics/446",
           "document_type": "guide",
@@ -2290,7 +2290,7 @@
         {
           "id": "menu_6704",
           "name": "조교 소개",
-          "category": "????",
+          "category": "교수진",
           "kind": "static_page",
           "path": "/physics/6704",
           "document_type": "guide",
@@ -2299,7 +2299,7 @@
         {
           "id": "menu_543",
           "name": "학부",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/physics/543",
           "document_type": "notice",
@@ -2309,7 +2309,7 @@
         {
           "id": "menu_544",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/physics/544",
           "document_type": "notice",
@@ -2319,7 +2319,7 @@
         {
           "id": "menu_545",
           "name": "장학제도",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/physics/545",
           "document_type": "notice",
@@ -2329,7 +2329,7 @@
         {
           "id": "menu_6746",
           "name": "취업 후기",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/physics/6746",
           "document_type": "notice",
@@ -2339,7 +2339,7 @@
         {
           "id": "menu_6749",
           "name": "취업 공고",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/physics/6749",
           "document_type": "notice",
@@ -2349,7 +2349,7 @@
         {
           "id": "menu_376",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/physics/376",
           "document_type": "notice",
@@ -2359,7 +2359,7 @@
         {
           "id": "menu_377",
           "name": "강의자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/physics/377",
           "document_type": "notice",
@@ -2369,7 +2369,7 @@
         {
           "id": "menu_378",
           "name": "FAQ",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/physics/378",
           "document_type": "notice",
@@ -2393,7 +2393,7 @@
         {
           "id": "menu_2164",
           "name": "학과연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/chem/2164",
           "document_type": "guide",
@@ -2402,7 +2402,7 @@
         {
           "id": "menu_2165",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/chem/2165",
           "document_type": "guide",
@@ -2411,7 +2411,7 @@
         {
           "id": "menu_2168",
           "name": "입학관련FAQ",
-          "category": "????",
+          "category": "입학안내",
           "kind": "board",
           "path": "/chem/2168",
           "document_type": "notice",
@@ -2421,7 +2421,7 @@
         {
           "id": "menu_2172",
           "name": "조교 소개",
-          "category": "????",
+          "category": "교수진",
           "kind": "static_page",
           "path": "/chem/2172",
           "document_type": "guide",
@@ -2430,7 +2430,7 @@
         {
           "id": "menu_2179",
           "name": "대학원 Q&A",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/chem/2179",
           "document_type": "notice",
@@ -2440,7 +2440,7 @@
         {
           "id": "menu_2180",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/chem/2180",
           "document_type": "notice",
@@ -2450,7 +2450,7 @@
         {
           "id": "menu_2181",
           "name": "취업관련게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/chem/2181",
           "document_type": "notice",
@@ -2460,7 +2460,7 @@
         {
           "id": "menu_2182",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/chem/2182",
           "document_type": "notice",
@@ -2470,7 +2470,7 @@
         {
           "id": "menu_2183",
           "name": "교내외 장학 및 행사",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/chem/2183",
           "document_type": "notice",
@@ -2595,7 +2595,7 @@
         {
           "id": "menu_426",
           "name": "캠퍼스 약도",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/nursing/426",
           "document_type": "guide",
@@ -2604,7 +2604,7 @@
         {
           "id": "menu_432",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/nursing/432",
           "document_type": "notice",
@@ -2614,7 +2614,7 @@
         {
           "id": "menu_433",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/nursing/433",
           "document_type": "notice",
@@ -2624,7 +2624,7 @@
         {
           "id": "menu_436",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/nursing/436",
           "document_type": "notice",
@@ -2634,7 +2634,7 @@
         {
           "id": "menu_549",
           "name": "학과 동영상",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/nursing/549",
           "document_type": "notice",
@@ -2644,7 +2644,7 @@
         {
           "id": "menu_437",
           "name": "자유게시판",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/nursing/437",
           "document_type": "notice",
@@ -2654,7 +2654,7 @@
         {
           "id": "menu_440",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/nursing/440",
           "document_type": "notice",
@@ -2678,7 +2678,7 @@
         {
           "id": "menu_568",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/scicomp/568",
           "document_type": "guide",
@@ -2687,7 +2687,7 @@
         {
           "id": "menu_575",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/scicomp/575",
           "document_type": "notice",
@@ -2697,7 +2697,7 @@
         {
           "id": "menu_7706",
           "name": "공모전 및 대외활동",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/scicomp/7706",
           "document_type": "notice",
@@ -2707,7 +2707,7 @@
         {
           "id": "menu_577",
           "name": "서식 및 자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/scicomp/577",
           "document_type": "notice",
@@ -2717,7 +2717,7 @@
         {
           "id": "menu_578",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/scicomp/578",
           "document_type": "notice",
@@ -2727,7 +2727,7 @@
         {
           "id": "menu_5382",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/scicomp/5382",
           "document_type": "notice",
@@ -2737,7 +2737,7 @@
         {
           "id": "menu_5384",
           "name": "서식 및 자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/scicomp/5384",
           "document_type": "notice",
@@ -2747,7 +2747,7 @@
         {
           "id": "menu_6097",
           "name": "교육과정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/scicomp/6097",
           "document_type": "notice",
@@ -2757,7 +2757,7 @@
         {
           "id": "menu_7012",
           "name": "게시판",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/scicomp/7012",
           "document_type": "notice",
@@ -2906,7 +2906,7 @@
         {
           "id": "menu_6503",
           "name": "대학연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/cba/6503",
           "document_type": "guide",
@@ -2915,7 +2915,7 @@
         {
           "id": "menu_6509",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/cba/6509",
           "document_type": "notice",
@@ -2939,7 +2939,7 @@
         {
           "id": "menu_2956",
           "name": "오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/dba/2956",
           "document_type": "guide",
@@ -2948,7 +2948,7 @@
         {
           "id": "menu_2944",
           "name": "학생회 게시판",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/dba/2944",
           "document_type": "notice",
@@ -2958,7 +2958,7 @@
         {
           "id": "menu_3812",
           "name": "고시반 게시판",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/dba/3812",
           "document_type": "notice",
@@ -2968,7 +2968,7 @@
         {
           "id": "menu_2979",
           "name": "동아리 게시판",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/dba/2979",
           "document_type": "notice",
@@ -2978,7 +2978,7 @@
         {
           "id": "menu_8310",
           "name": "경영학부 갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/dba/8310",
           "document_type": "notice",
@@ -2988,7 +2988,7 @@
         {
           "id": "menu_1235",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/dba/1235",
           "document_type": "notice",
@@ -2998,7 +2998,7 @@
         {
           "id": "menu_1237",
           "name": "학사 안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/dba/1237",
           "document_type": "notice",
@@ -3008,7 +3008,7 @@
         {
           "id": "menu_1236",
           "name": "졸업 안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/dba/1236",
           "document_type": "notice",
@@ -3018,7 +3018,7 @@
         {
           "id": "menu_1238",
           "name": "장학 안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/dba/1238",
           "document_type": "notice",
@@ -3028,7 +3028,7 @@
         {
           "id": "menu_1244",
           "name": "취업 정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/dba/1244",
           "document_type": "notice",
@@ -3038,7 +3038,7 @@
         {
           "id": "menu_7924",
           "name": "채용/초빙",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/dba/7924",
           "document_type": "notice",
@@ -3048,7 +3048,7 @@
         {
           "id": "menu_7915",
           "name": "Q&A",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/dba/7915",
           "document_type": "notice",
@@ -3058,7 +3058,7 @@
         {
           "id": "menu_2098",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/dba/2098",
           "document_type": "notice",
@@ -3068,7 +3068,7 @@
         {
           "id": "menu_1249",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/dba/1249",
           "document_type": "notice",
@@ -3078,7 +3078,7 @@
         {
           "id": "menu_1250",
           "name": "각종 서식 및 자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/dba/1250",
           "document_type": "notice",
@@ -3593,7 +3593,7 @@
         {
           "id": "menu_4073",
           "name": "오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/electric-eng/4073",
           "document_type": "guide",
@@ -3602,7 +3602,7 @@
         {
           "id": "menu_8038",
           "name": "신입생게시판",
-          "category": "????",
+          "category": "입학안내",
           "kind": "board",
           "path": "/electric-eng/8038",
           "document_type": "notice",
@@ -3612,7 +3612,7 @@
         {
           "id": "menu_4066",
           "name": "커뮤니티",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/electric-eng/4066",
           "document_type": "notice",
@@ -3622,7 +3622,7 @@
         {
           "id": "menu_4080",
           "name": "취업정보게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/electric-eng/4080",
           "document_type": "notice",
@@ -3632,7 +3632,7 @@
         {
           "id": "menu_4082",
           "name": "각종양식",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/electric-eng/4082",
           "document_type": "notice",
@@ -3658,7 +3658,7 @@
         {
           "id": "menu_3867",
           "name": "오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/control/3867",
           "document_type": "guide",
@@ -3667,7 +3667,7 @@
         {
           "id": "menu_3883",
           "name": "전공게시판",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/control/3883",
           "document_type": "notice",
@@ -3677,7 +3677,7 @@
         {
           "id": "menu_6227",
           "name": "신입생게시판",
-          "category": "????",
+          "category": "입학안내",
           "kind": "board",
           "path": "/control/6227",
           "document_type": "notice",
@@ -3687,7 +3687,7 @@
         {
           "id": "menu_6229",
           "name": "대학원게시판",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/control/6229",
           "document_type": "notice",
@@ -3697,7 +3697,7 @@
         {
           "id": "menu_4057",
           "name": "프로그램",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/control/4057",
           "document_type": "notice",
@@ -3707,7 +3707,7 @@
         {
           "id": "menu_3884",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/control/3884",
           "document_type": "notice",
@@ -3717,7 +3717,7 @@
         {
           "id": "menu_3886",
           "name": "양식자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/control/3886",
           "document_type": "notice",
@@ -3727,7 +3727,7 @@
         {
           "id": "menu_3872",
           "name": "학과활동",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/control/3872",
           "document_type": "notice",
@@ -3737,7 +3737,7 @@
         {
           "id": "menu_3889",
           "name": "과제게시판",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/control/3889",
           "document_type": "notice",
@@ -3763,7 +3763,7 @@
         {
           "id": "menu_3649",
           "name": "오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/semicon/3649",
           "document_type": "guide",
@@ -3772,7 +3772,7 @@
         {
           "id": "menu_3684",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/semicon/3684",
           "document_type": "notice",
@@ -3782,7 +3782,7 @@
         {
           "id": "menu_4837",
           "name": "프로그램·취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/semicon/4837",
           "document_type": "notice",
@@ -3792,7 +3792,7 @@
         {
           "id": "menu_3685",
           "name": "신입생게시판",
-          "category": "????",
+          "category": "입학안내",
           "kind": "board",
           "path": "/semicon/3685",
           "document_type": "notice",
@@ -3802,7 +3802,7 @@
         {
           "id": "menu_6382",
           "name": "양식게시판",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/semicon/6382",
           "document_type": "notice",
@@ -3812,7 +3812,7 @@
         {
           "id": "menu_8123",
           "name": "대학원게시판",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/semicon/8123",
           "document_type": "notice",
@@ -3838,7 +3838,7 @@
         {
           "id": "menu_1281",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/me/1281",
           "document_type": "guide",
@@ -3847,7 +3847,7 @@
         {
           "id": "menu_1283",
           "name": "오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/me/1283",
           "document_type": "guide",
@@ -3856,7 +3856,7 @@
         {
           "id": "menu_1274",
           "name": "취업공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/me/1274",
           "document_type": "notice",
@@ -3866,7 +3866,7 @@
         {
           "id": "menu_1290",
           "name": "학과 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/me/1290",
           "document_type": "notice",
@@ -3876,7 +3876,7 @@
         {
           "id": "menu_1291",
           "name": "장학 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/me/1291",
           "document_type": "notice",
@@ -3886,7 +3886,7 @@
         {
           "id": "menu_1292",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/me/1292",
           "document_type": "notice",
@@ -3896,7 +3896,7 @@
         {
           "id": "menu_1293",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/me/1293",
           "document_type": "notice",
@@ -3922,7 +3922,7 @@
         {
           "id": "menu_2201",
           "name": "학과연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/mae/2201",
           "document_type": "guide",
@@ -3931,7 +3931,7 @@
         {
           "id": "menu_2205",
           "name": "연구실소개",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "static_page",
           "path": "/mae/2205",
           "document_type": "guide",
@@ -3940,7 +3940,7 @@
         {
           "id": "menu_2206",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/mae/2206",
           "document_type": "guide",
@@ -3949,7 +3949,7 @@
         {
           "id": "menu_2216",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/mae/2216",
           "document_type": "notice",
@@ -3959,7 +3959,7 @@
         {
           "id": "menu_2217",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/mae/2217",
           "document_type": "notice",
@@ -3969,7 +3969,7 @@
         {
           "id": "menu_2218",
           "name": "게시판",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/mae/2218",
           "document_type": "notice",
@@ -3995,7 +3995,7 @@
         {
           "id": "menu_1768",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ref/1768",
           "document_type": "guide",
@@ -4004,7 +4004,7 @@
         {
           "id": "menu_1783",
           "name": "학과공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ref/1783",
           "document_type": "notice",
@@ -4014,7 +4014,7 @@
         {
           "id": "menu_1784",
           "name": "대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ref/1784",
           "document_type": "notice",
@@ -4024,7 +4024,7 @@
         {
           "id": "menu_1786",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/ref/1786",
           "document_type": "notice",
@@ -4034,7 +4034,7 @@
         {
           "id": "menu_1787",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ref/1787",
           "document_type": "notice",
@@ -4044,7 +4044,7 @@
         {
           "id": "menu_1788",
           "name": "각종양식",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/ref/1788",
           "document_type": "notice",
@@ -4054,7 +4054,7 @@
         {
           "id": "menu_1789",
           "name": "묻고답하기",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ref/1789",
           "document_type": "notice",
@@ -4080,7 +4080,7 @@
         {
           "id": "menu_5594",
           "name": "연구실소개",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "static_page",
           "path": "/mse/5594",
           "document_type": "guide",
@@ -4089,7 +4089,7 @@
         {
           "id": "menu_5596",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/mse/5596",
           "document_type": "guide",
@@ -4098,7 +4098,7 @@
         {
           "id": "menu_5597",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/mse/5597",
           "document_type": "guide",
@@ -4107,7 +4107,7 @@
         {
           "id": "menu_5613",
           "name": "채용공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/mse/5613",
           "document_type": "notice",
@@ -4117,7 +4117,7 @@
         {
           "id": "menu_5615",
           "name": "취업자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/mse/5615",
           "document_type": "notice",
@@ -4127,7 +4127,7 @@
         {
           "id": "menu_5616",
           "name": "진로취업 길라잡이",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/mse/5616",
           "document_type": "notice",
@@ -4137,7 +4137,7 @@
         {
           "id": "menu_5618",
           "name": "학과 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/mse/5618",
           "document_type": "notice",
@@ -4147,7 +4147,7 @@
         {
           "id": "menu_5619",
           "name": "일반대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/mse/5619",
           "document_type": "notice",
@@ -4157,7 +4157,7 @@
         {
           "id": "menu_5620",
           "name": "산업대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/mse/5620",
           "document_type": "notice",
@@ -4167,7 +4167,7 @@
         {
           "id": "menu_5621",
           "name": "해기사",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/mse/5621",
           "document_type": "notice",
@@ -4177,7 +4177,7 @@
         {
           "id": "menu_5623",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/mse/5623",
           "document_type": "notice",
@@ -4187,7 +4187,7 @@
         {
           "id": "menu_5624",
           "name": "매뉴얼",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/mse/5624",
           "document_type": "notice",
@@ -4197,7 +4197,7 @@
         {
           "id": "menu_5625",
           "name": "기타",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/mse/5625",
           "document_type": "notice",
@@ -4223,7 +4223,7 @@
         {
           "id": "menu_2481",
           "name": "학과 연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/name/2481",
           "document_type": "guide",
@@ -4232,7 +4232,7 @@
         {
           "id": "menu_2511",
           "name": "교직원",
-          "category": "????",
+          "category": "교수진",
           "kind": "static_page",
           "path": "/name/2511",
           "document_type": "guide",
@@ -4241,7 +4241,7 @@
         {
           "id": "menu_2480",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/name/2480",
           "document_type": "guide",
@@ -4250,7 +4250,7 @@
         {
           "id": "menu_2500",
           "name": "대학원 규정",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/name/2500",
           "document_type": "notice",
@@ -4260,7 +4260,7 @@
         {
           "id": "menu_2502",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/name/2502",
           "document_type": "notice",
@@ -4270,7 +4270,7 @@
         {
           "id": "menu_2493",
           "name": "학부 규정",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/name/2493",
           "document_type": "notice",
@@ -4280,7 +4280,7 @@
         {
           "id": "menu_2494",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/name/2494",
           "document_type": "notice",
@@ -4290,7 +4290,7 @@
         {
           "id": "menu_6275",
           "name": "취업 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/name/6275",
           "document_type": "notice",
@@ -4300,7 +4300,7 @@
         {
           "id": "menu_6276",
           "name": "학사 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/name/6276",
           "document_type": "notice",
@@ -4472,7 +4472,7 @@
         {
           "id": "menu_1309",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/polymer/1309",
           "document_type": "guide",
@@ -4481,7 +4481,7 @@
         {
           "id": "menu_1314",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/polymer/1314",
           "document_type": "notice",
@@ -4491,7 +4491,7 @@
         {
           "id": "menu_1315",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/polymer/1315",
           "document_type": "notice",
@@ -4501,7 +4501,7 @@
         {
           "id": "menu_1316",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/polymer/1316",
           "document_type": "notice",
@@ -4527,7 +4527,7 @@
         {
           "id": "menu_1904",
           "name": "학과 발전계획",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/nano/1904",
           "document_type": "notice",
@@ -4537,7 +4537,7 @@
         {
           "id": "menu_1882",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/nano/1882",
           "document_type": "guide",
@@ -4546,7 +4546,7 @@
         {
           "id": "menu_1884",
           "name": "학과 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/nano/1884",
           "document_type": "notice",
@@ -4556,7 +4556,7 @@
         {
           "id": "menu_1885",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/nano/1885",
           "document_type": "notice",
@@ -4566,7 +4566,7 @@
         {
           "id": "menu_2432",
           "name": "장학 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/nano/2432",
           "document_type": "notice",
@@ -4576,7 +4576,7 @@
         {
           "id": "menu_1891",
           "name": "취업 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/nano/1891",
           "document_type": "notice",
@@ -4602,7 +4602,7 @@
         {
           "id": "menu_5509",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/semiconductor/5509",
           "document_type": "guide",
@@ -4611,7 +4611,7 @@
         {
           "id": "menu_6018",
           "name": "장학안내",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/semiconductor/6018",
           "document_type": "notice",
@@ -4621,7 +4621,7 @@
         {
           "id": "menu_5508",
           "name": "학과소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/semiconductor/5508",
           "document_type": "notice",
@@ -4631,7 +4631,7 @@
         {
           "id": "menu_5518",
           "name": "채용정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/semiconductor/5518",
           "document_type": "notice",
@@ -4641,7 +4641,7 @@
         {
           "id": "menu_5834",
           "name": "학과뉴스",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/semiconductor/5834",
           "document_type": "notice",
@@ -4668,7 +4668,7 @@
         {
           "id": "menu_1871",
           "name": "학과발전계획",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/sme/1871",
           "document_type": "notice",
@@ -4678,7 +4678,7 @@
         {
           "id": "menu_1845",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/sme/1845",
           "document_type": "guide",
@@ -4687,7 +4687,7 @@
         {
           "id": "menu_1846",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/sme/1846",
           "document_type": "guide",
@@ -4696,7 +4696,7 @@
         {
           "id": "menu_1850",
           "name": "교과과정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/sme/1850",
           "document_type": "notice",
@@ -4706,7 +4706,7 @@
         {
           "id": "menu_1851",
           "name": "학사일정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/sme/1851",
           "document_type": "notice",
@@ -4716,7 +4716,7 @@
         {
           "id": "menu_1852",
           "name": "전공시간표",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/sme/1852",
           "document_type": "notice",
@@ -4726,7 +4726,7 @@
         {
           "id": "menu_1855",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/sme/1855",
           "document_type": "notice",
@@ -4736,7 +4736,7 @@
         {
           "id": "menu_1849",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/sme/1849",
           "document_type": "notice",
@@ -4746,7 +4746,7 @@
         {
           "id": "menu_1848",
           "name": "교육과정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/sme/1848",
           "document_type": "notice",
@@ -4756,7 +4756,7 @@
         {
           "id": "menu_721",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/sme/721",
           "document_type": "notice",
@@ -4766,7 +4766,7 @@
         {
           "id": "menu_1856",
           "name": "학부소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/sme/1856",
           "document_type": "notice",
@@ -4776,7 +4776,7 @@
         {
           "id": "menu_1857",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/sme/1857",
           "document_type": "notice",
@@ -4786,7 +4786,7 @@
         {
           "id": "menu_1859",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/sme/1859",
           "document_type": "notice",
@@ -4812,7 +4812,7 @@
         {
           "id": "menu_2066",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/safety/2066",
           "document_type": "guide",
@@ -4821,7 +4821,7 @@
         {
           "id": "menu_2067",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/safety/2067",
           "document_type": "guide",
@@ -4830,7 +4830,7 @@
         {
           "id": "menu_3580",
           "name": "학부게시판",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/safety/3580",
           "document_type": "notice",
@@ -4840,7 +4840,7 @@
         {
           "id": "menu_2082",
           "name": "대학원게시판",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/safety/2082",
           "document_type": "notice",
@@ -4850,7 +4850,7 @@
         {
           "id": "menu_2080",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/safety/2080",
           "document_type": "notice",
@@ -4860,7 +4860,7 @@
         {
           "id": "menu_2081",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/safety/2081",
           "document_type": "notice",
@@ -4870,7 +4870,7 @@
         {
           "id": "menu_2079",
           "name": "질문과 답변",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/safety/2079",
           "document_type": "notice",
@@ -4880,7 +4880,7 @@
         {
           "id": "menu_2088",
           "name": "Q & A",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/safety/2088",
           "document_type": "notice",
@@ -4904,7 +4904,7 @@
         {
           "id": "menu_853",
           "name": "학과연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/fire/853",
           "document_type": "guide",
@@ -4913,7 +4913,7 @@
         {
           "id": "menu_855",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/fire/855",
           "document_type": "guide",
@@ -4922,7 +4922,7 @@
         {
           "id": "menu_867",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/fire/867",
           "document_type": "notice",
@@ -4932,7 +4932,7 @@
         {
           "id": "menu_973",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/fire/973",
           "document_type": "notice",
@@ -4942,7 +4942,7 @@
         {
           "id": "menu_884",
           "name": "학과소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/fire/884",
           "document_type": "notice",
@@ -4952,7 +4952,7 @@
         {
           "id": "menu_1014",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/fire/1014",
           "document_type": "notice",
@@ -4962,7 +4962,7 @@
         {
           "id": "menu_886",
           "name": "사진첩",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/fire/886",
           "document_type": "notice",
@@ -4988,7 +4988,7 @@
         {
           "id": "menu_2231",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/metal/2231",
           "document_type": "guide",
@@ -4997,7 +4997,7 @@
         {
           "id": "menu_2250",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/metal/2250",
           "document_type": "notice",
@@ -5007,7 +5007,7 @@
         {
           "id": "menu_2251",
           "name": "학과 갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/metal/2251",
           "document_type": "notice",
@@ -5017,7 +5017,7 @@
         {
           "id": "menu_2252",
           "name": "취업 정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/metal/2252",
           "document_type": "notice",
@@ -5043,7 +5043,7 @@
         {
           "id": "menu_5757",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/materials-eng/5757",
           "document_type": "guide",
@@ -5052,7 +5052,7 @@
         {
           "id": "menu_5758",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/materials-eng/5758",
           "document_type": "guide",
@@ -5061,7 +5061,7 @@
         {
           "id": "menu_5775",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/materials-eng/5775",
           "document_type": "notice",
@@ -5071,7 +5071,7 @@
         {
           "id": "menu_5777",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/materials-eng/5777",
           "document_type": "notice",
@@ -5081,7 +5081,7 @@
         {
           "id": "menu_5778",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/materials-eng/5778",
           "document_type": "notice",
@@ -5107,7 +5107,7 @@
         {
           "id": "menu_912",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/materials/912",
           "document_type": "guide",
@@ -5116,7 +5116,7 @@
         {
           "id": "menu_1059",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/materials/1059",
           "document_type": "notice",
@@ -5126,7 +5126,7 @@
         {
           "id": "menu_1060",
           "name": "취업/장학 정보게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/materials/1060",
           "document_type": "notice",
@@ -5136,7 +5136,7 @@
         {
           "id": "menu_1296",
           "name": "전공 소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/materials/1296",
           "document_type": "notice",
@@ -5146,7 +5146,7 @@
         {
           "id": "menu_1061",
           "name": "양식 모음",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/materials/1061",
           "document_type": "notice",
@@ -5170,7 +5170,7 @@
         {
           "id": "menu_1403",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/archieng/1403",
           "document_type": "guide",
@@ -5179,7 +5179,7 @@
         {
           "id": "menu_1426",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/archieng/1426",
           "document_type": "notice",
@@ -5189,7 +5189,7 @@
         {
           "id": "menu_1427",
           "name": "일반대학원공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/archieng/1427",
           "document_type": "notice",
@@ -5199,7 +5199,7 @@
         {
           "id": "menu_1428",
           "name": "산업대학원공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/archieng/1428",
           "document_type": "notice",
@@ -5209,7 +5209,7 @@
         {
           "id": "menu_1429",
           "name": "구인구직정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/archieng/1429",
           "document_type": "notice",
@@ -5219,7 +5219,7 @@
         {
           "id": "menu_2782",
           "name": "취업사례",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/archieng/2782",
           "document_type": "notice",
@@ -5229,7 +5229,7 @@
         {
           "id": "menu_1430",
           "name": "공모전및경진대회",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/archieng/1430",
           "document_type": "notice",
@@ -5239,7 +5239,7 @@
         {
           "id": "menu_5297",
           "name": "전공 갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/archieng/5297",
           "document_type": "notice",
@@ -5265,7 +5265,7 @@
         {
           "id": "menu_5311",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/civil/5311",
           "document_type": "guide",
@@ -5274,7 +5274,7 @@
         {
           "id": "menu_5314",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/civil/5314",
           "document_type": "guide",
@@ -5283,7 +5283,7 @@
         {
           "id": "menu_5329",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/civil/5329",
           "document_type": "notice",
@@ -5293,7 +5293,7 @@
         {
           "id": "menu_5344",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/civil/5344",
           "document_type": "notice",
@@ -5319,7 +5319,7 @@
         {
           "id": "menu_5650",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ecoeng/5650",
           "document_type": "guide",
@@ -5328,7 +5328,7 @@
         {
           "id": "menu_5653",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ecoeng/5653",
           "document_type": "guide",
@@ -5337,7 +5337,7 @@
         {
           "id": "menu_5664",
           "name": "학과 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ecoeng/5664",
           "document_type": "notice",
@@ -5347,7 +5347,7 @@
         {
           "id": "menu_5665",
           "name": "대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ecoeng/5665",
           "document_type": "notice",
@@ -5357,7 +5357,7 @@
         {
           "id": "menu_5666",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/ecoeng/5666",
           "document_type": "notice",
@@ -5367,7 +5367,7 @@
         {
           "id": "menu_5667",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ecoeng/5667",
           "document_type": "notice",
@@ -5377,7 +5377,7 @@
         {
           "id": "menu_5668",
           "name": "Q&A",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ecoeng/5668",
           "document_type": "notice",
@@ -5401,7 +5401,7 @@
         {
           "id": "menu_7114",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/engopen/7114",
           "document_type": "guide",
@@ -5410,7 +5410,7 @@
         {
           "id": "menu_8274",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/engopen/8274",
           "document_type": "guide",
@@ -5419,7 +5419,7 @@
         {
           "id": "menu_7117",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/engopen/7117",
           "document_type": "notice",
@@ -5429,7 +5429,7 @@
         {
           "id": "menu_7118",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/engopen/7118",
           "document_type": "notice",
@@ -5439,7 +5439,7 @@
         {
           "id": "menu_7341",
           "name": "자유전공학부란?",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/engopen/7341",
           "document_type": "notice",
@@ -5449,7 +5449,7 @@
         {
           "id": "menu_7342",
           "name": "수업/수강신청",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/engopen/7342",
           "document_type": "notice",
@@ -5459,7 +5459,7 @@
         {
           "id": "menu_7344",
           "name": "전공선택/배정",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/engopen/7344",
           "document_type": "notice",
@@ -5469,7 +5469,7 @@
         {
           "id": "menu_7345",
           "name": "학교생활/기타",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/engopen/7345",
           "document_type": "notice",
@@ -5479,7 +5479,7 @@
         {
           "id": "menu_7121",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/engopen/7121",
           "document_type": "notice",
@@ -5693,12 +5693,22 @@
           "enabled": true
         },
         {
+          "id": "menu_44",
+          "name": "공지사항",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/kor/view.do?no=44",
+          "document_type": "notice",
+          "bbs_id": null,
+          "enabled": true
+        },
+        {
           "id": "menu_36",
           "name": "선박실습운영센터",
           "category": "부속기관",
-          "kind": "board",
+          "kind": "static_page",
           "path": "/kor/view.do?no=36",
-          "document_type": "notice",
+          "document_type": "guide",
           "bbs_id": null,
           "enabled": true
         },
@@ -5763,16 +5773,6 @@
           "enabled": true
         },
         {
-          "id": "menu_44",
-          "name": "공지사항",
-          "category": "커뮤니티",
-          "kind": "board",
-          "path": "/kor/view.do?no=44",
-          "document_type": "notice",
-          "bbs_id": null,
-          "enabled": true
-        },
-        {
           "id": "menu_45",
           "name": "자유게시판",
           "category": "커뮤니티",
@@ -5811,7 +5811,7 @@
         {
           "id": "menu_7361",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/food/7361",
           "document_type": "guide",
@@ -5820,7 +5820,7 @@
         {
           "id": "menu_7364",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/food/7364",
           "document_type": "guide",
@@ -5829,7 +5829,7 @@
         {
           "id": "menu_7400",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/food/7400",
           "document_type": "notice",
@@ -5839,7 +5839,7 @@
         {
           "id": "menu_7401",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/food/7401",
           "document_type": "notice",
@@ -5849,7 +5849,7 @@
         {
           "id": "menu_7356",
           "name": "커뮤니티",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/food/7356",
           "document_type": "notice",
@@ -5875,7 +5875,7 @@
         {
           "id": "menu_4385",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/nulife/4385",
           "document_type": "guide",
@@ -5884,7 +5884,7 @@
         {
           "id": "menu_4433",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/nulife/4433",
           "document_type": "guide",
@@ -5893,7 +5893,7 @@
         {
           "id": "menu_4403",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/nulife/4403",
           "document_type": "notice",
@@ -5903,7 +5903,7 @@
         {
           "id": "menu_4404",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/nulife/4404",
           "document_type": "notice",
@@ -5913,7 +5913,7 @@
         {
           "id": "menu_4405",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/nulife/4405",
           "document_type": "notice",
@@ -5923,7 +5923,7 @@
         {
           "id": "menu_4406",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/nulife/4406",
           "document_type": "notice",
@@ -5933,7 +5933,7 @@
         {
           "id": "menu_4407",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/nulife/4407",
           "document_type": "notice",
@@ -5957,7 +5957,7 @@
         {
           "id": "menu_4136",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/biotech/4136",
           "document_type": "guide",
@@ -5966,7 +5966,7 @@
         {
           "id": "menu_4139",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/biotech/4139",
           "document_type": "guide",
@@ -5975,7 +5975,7 @@
         {
           "id": "menu_4159",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/biotech/4159",
           "document_type": "notice",
@@ -5985,7 +5985,7 @@
         {
           "id": "menu_4160",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/biotech/4160",
           "document_type": "notice",
@@ -5995,7 +5995,7 @@
         {
           "id": "menu_4163",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/biotech/4163",
           "document_type": "notice",
@@ -6005,7 +6005,7 @@
         {
           "id": "menu_4164",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/biotech/4164",
           "document_type": "notice",
@@ -6015,7 +6015,7 @@
         {
           "id": "menu_4165",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/biotech/4165",
           "document_type": "notice",
@@ -6327,7 +6327,7 @@
         {
           "id": "menu_4180",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/aqua-culture/4180",
           "document_type": "guide",
@@ -6336,7 +6336,7 @@
         {
           "id": "menu_4182",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/aqua-culture/4182",
           "document_type": "guide",
@@ -6345,7 +6345,7 @@
         {
           "id": "menu_4174",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/aqua-culture/4174",
           "document_type": "notice",
@@ -6355,7 +6355,7 @@
         {
           "id": "menu_4175",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/aqua-culture/4175",
           "document_type": "notice",
@@ -6365,7 +6365,7 @@
         {
           "id": "menu_4197",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/aqua-culture/4197",
           "document_type": "notice",
@@ -6375,7 +6375,7 @@
         {
           "id": "menu_4198",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/aqua-culture/4198",
           "document_type": "notice",
@@ -6385,7 +6385,7 @@
         {
           "id": "menu_4199",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/aqua-culture/4199",
           "document_type": "notice",
@@ -6395,7 +6395,7 @@
         {
           "id": "menu_8023",
           "name": "공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/aqua-culture/8023",
           "document_type": "notice",
@@ -6405,7 +6405,7 @@
         {
           "id": "menu_8744",
           "name": "홍보",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/aqua-culture/8744",
           "document_type": "notice",
@@ -6431,7 +6431,7 @@
         {
           "id": "menu_4105",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/marinebio/4105",
           "document_type": "guide",
@@ -6440,7 +6440,7 @@
         {
           "id": "menu_4108",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/marinebio/4108",
           "document_type": "guide",
@@ -6449,7 +6449,7 @@
         {
           "id": "menu_4123",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/marinebio/4123",
           "document_type": "notice",
@@ -6459,7 +6459,7 @@
         {
           "id": "menu_4124",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/marinebio/4124",
           "document_type": "notice",
@@ -6469,7 +6469,7 @@
         {
           "id": "menu_4125",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/marinebio/4125",
           "document_type": "notice",
@@ -6479,7 +6479,7 @@
         {
           "id": "menu_4126",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/marinebio/4126",
           "document_type": "notice",
@@ -6489,7 +6489,7 @@
         {
           "id": "menu_4127",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/marinebio/4127",
           "document_type": "notice",
@@ -6513,7 +6513,7 @@
         {
           "id": "menu_4213",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/aquamed/4213",
           "document_type": "guide",
@@ -6522,7 +6522,7 @@
         {
           "id": "menu_4216",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/aquamed/4216",
           "document_type": "guide",
@@ -6531,7 +6531,7 @@
         {
           "id": "menu_4229",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/aquamed/4229",
           "document_type": "notice",
@@ -6541,7 +6541,7 @@
         {
           "id": "menu_4230",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/aquamed/4230",
           "document_type": "notice",
@@ -6551,7 +6551,7 @@
         {
           "id": "menu_4231",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/aquamed/4231",
           "document_type": "notice",
@@ -6561,7 +6561,7 @@
         {
           "id": "menu_4232",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/aquamed/4232",
           "document_type": "notice",
@@ -6571,7 +6571,7 @@
         {
           "id": "menu_4233",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/aquamed/4233",
           "document_type": "notice",
@@ -6595,7 +6595,7 @@
         {
           "id": "menu_4461",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/fedu/4461",
           "document_type": "guide",
@@ -6604,7 +6604,7 @@
         {
           "id": "menu_4548",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/fedu/4548",
           "document_type": "guide",
@@ -6613,7 +6613,7 @@
         {
           "id": "menu_4470",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/fedu/4470",
           "document_type": "notice",
@@ -6623,7 +6623,7 @@
         {
           "id": "menu_4471",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/fedu/4471",
           "document_type": "notice",
@@ -6633,7 +6633,7 @@
         {
           "id": "menu_4472",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/fedu/4472",
           "document_type": "notice",
@@ -6643,7 +6643,7 @@
         {
           "id": "menu_4474",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/fedu/4474",
           "document_type": "notice",
@@ -6653,7 +6653,7 @@
         {
           "id": "menu_4473",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/fedu/4473",
           "document_type": "notice",
@@ -6663,7 +6663,7 @@
         {
           "id": "menu_6794",
           "name": "대학생활",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/fedu/6794",
           "document_type": "notice",
@@ -6673,7 +6673,7 @@
         {
           "id": "menu_8083",
           "name": "추억자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/fedu/8083",
           "document_type": "notice",
@@ -6683,7 +6683,7 @@
         {
           "id": "menu_4792",
           "name": "커뮤니티",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/fedu/4792",
           "document_type": "notice",
@@ -6693,7 +6693,7 @@
         {
           "id": "menu_4793",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/fedu/4793",
           "document_type": "notice",
@@ -6732,7 +6732,7 @@
         {
           "id": "menu_5467",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/mbe/5467",
           "document_type": "guide",
@@ -6741,7 +6741,7 @@
         {
           "id": "menu_5470",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/mbe/5470",
           "document_type": "guide",
@@ -6750,7 +6750,7 @@
         {
           "id": "menu_5478",
           "name": "학과",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/mbe/5478",
           "document_type": "notice",
@@ -6760,7 +6760,7 @@
         {
           "id": "menu_5479",
           "name": "일반대학원",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/mbe/5479",
           "document_type": "notice",
@@ -6770,7 +6770,7 @@
         {
           "id": "menu_8658",
           "name": "글로벌수산대학원",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/mbe/8658",
           "document_type": "notice",
@@ -6780,7 +6780,7 @@
         {
           "id": "menu_5480",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/mbe/5480",
           "document_type": "notice",
@@ -6790,7 +6790,7 @@
         {
           "id": "menu_5481",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/mbe/5481",
           "document_type": "notice",
@@ -6800,7 +6800,7 @@
         {
           "id": "menu_5482",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/mbe/5482",
           "document_type": "notice",
@@ -6826,7 +6826,7 @@
         {
           "id": "menu_2813",
           "name": "오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ree/2813",
           "document_type": "guide",
@@ -6835,7 +6835,7 @@
         {
           "id": "menu_2824",
           "name": "학부",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ree/2824",
           "document_type": "notice",
@@ -6845,7 +6845,7 @@
         {
           "id": "menu_2825",
           "name": "취업/모집",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/ree/2825",
           "document_type": "notice",
@@ -6855,7 +6855,7 @@
         {
           "id": "menu_8642",
           "name": "학과앨범",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ree/8642",
           "document_type": "notice",
@@ -6879,7 +6879,7 @@
         {
           "id": "menu_7207",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/fisheries/7207",
           "document_type": "guide",
@@ -6888,7 +6888,7 @@
         {
           "id": "menu_7204",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/fisheries/7204",
           "document_type": "notice",
@@ -6898,7 +6898,7 @@
         {
           "id": "menu_7208",
           "name": "자주묻는질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/fisheries/7208",
           "document_type": "notice",
@@ -6908,7 +6908,7 @@
         {
           "id": "menu_7205",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/fisheries/7205",
           "document_type": "notice",
@@ -6918,7 +6918,7 @@
         {
           "id": "menu_7197",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/fisheries/7197",
           "document_type": "notice",
@@ -6996,7 +6996,7 @@
         {
           "id": "menu_1989",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/env-eng/1989",
           "document_type": "guide",
@@ -7005,7 +7005,7 @@
         {
           "id": "menu_1990",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/env-eng/1990",
           "document_type": "guide",
@@ -7014,7 +7014,7 @@
         {
           "id": "menu_1995",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/env-eng/1995",
           "document_type": "notice",
@@ -7024,7 +7024,7 @@
         {
           "id": "menu_1996",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/env-eng/1996",
           "document_type": "notice",
@@ -7034,7 +7034,7 @@
         {
           "id": "menu_1998",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/env-eng/1998",
           "document_type": "notice",
@@ -7044,7 +7044,7 @@
         {
           "id": "menu_1999",
           "name": "행사 및 프로그램 안내",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/env-eng/1999",
           "document_type": "notice",
@@ -7070,7 +7070,7 @@
         {
           "id": "menu_1470",
           "name": "전공 연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/pkuocean/1470",
           "document_type": "guide",
@@ -7079,7 +7079,7 @@
         {
           "id": "menu_1483",
           "name": "구인구직정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/pkuocean/1483",
           "document_type": "notice",
@@ -7089,7 +7089,7 @@
         {
           "id": "menu_4773",
           "name": "세미나",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/pkuocean/4773",
           "document_type": "notice",
@@ -7099,7 +7099,7 @@
         {
           "id": "menu_1485",
           "name": "학부 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pkuocean/1485",
           "document_type": "notice",
@@ -7109,7 +7109,7 @@
         {
           "id": "menu_1486",
           "name": "대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pkuocean/1486",
           "document_type": "notice",
@@ -7119,7 +7119,7 @@
         {
           "id": "menu_3026",
           "name": "전공 활동",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/pkuocean/3026",
           "document_type": "notice",
@@ -7129,7 +7129,7 @@
         {
           "id": "menu_1491",
           "name": "질문과답변",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/pkuocean/1491",
           "document_type": "notice",
@@ -7155,7 +7155,7 @@
         {
           "id": "menu_1632",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/earth/1632",
           "document_type": "guide",
@@ -7164,7 +7164,7 @@
         {
           "id": "menu_1633",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/earth/1633",
           "document_type": "guide",
@@ -7173,7 +7173,7 @@
         {
           "id": "menu_1645",
           "name": "취업공고게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/earth/1645",
           "document_type": "notice",
@@ -7183,7 +7183,7 @@
         {
           "id": "menu_1646",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/earth/1646",
           "document_type": "notice",
@@ -7193,7 +7193,7 @@
         {
           "id": "menu_1647",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/earth/1647",
           "document_type": "notice",
@@ -7203,7 +7203,7 @@
         {
           "id": "menu_1649",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/earth/1649",
           "document_type": "notice",
@@ -7213,7 +7213,7 @@
         {
           "id": "menu_1651",
           "name": "비교과 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/earth/1651",
           "document_type": "notice",
@@ -7239,7 +7239,7 @@
         {
           "id": "menu_2259",
           "name": "학과연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/envatm/2259",
           "document_type": "guide",
@@ -7248,7 +7248,7 @@
         {
           "id": "menu_2268",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/envatm/2268",
           "document_type": "notice",
@@ -7258,7 +7258,7 @@
         {
           "id": "menu_2270",
           "name": "공지사항(대학원)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/envatm/2270",
           "document_type": "notice",
@@ -7268,7 +7268,7 @@
         {
           "id": "menu_6248",
           "name": "홍보게시판",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/envatm/6248",
           "document_type": "notice",
@@ -7278,7 +7278,7 @@
         {
           "id": "menu_2269",
           "name": "채용정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/envatm/2269",
           "document_type": "notice",
@@ -7288,7 +7288,7 @@
         {
           "id": "menu_2266",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/envatm/2266",
           "document_type": "guide",
@@ -7297,7 +7297,7 @@
         {
           "id": "menu_6307",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/envatm/6307",
           "document_type": "notice",
@@ -7307,7 +7307,7 @@
         {
           "id": "menu_2273",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/envatm/2273",
           "document_type": "notice",
@@ -7501,7 +7501,7 @@
         {
           "id": "menu_931",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/oceaneng/931",
           "document_type": "guide",
@@ -7510,7 +7510,7 @@
         {
           "id": "menu_933",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/oceaneng/933",
           "document_type": "guide",
@@ -7519,7 +7519,7 @@
         {
           "id": "menu_937",
           "name": "입학관련FAQ",
-          "category": "????",
+          "category": "입학안내",
           "kind": "board",
           "path": "/oceaneng/937",
           "document_type": "notice",
@@ -7529,7 +7529,7 @@
         {
           "id": "menu_938",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/oceaneng/938",
           "document_type": "notice",
@@ -7539,7 +7539,7 @@
         {
           "id": "menu_942",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/oceaneng/942",
           "document_type": "notice",
@@ -7549,7 +7549,7 @@
         {
           "id": "menu_953",
           "name": "교내프로그램안내",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/oceaneng/953",
           "document_type": "notice",
@@ -7559,7 +7559,7 @@
         {
           "id": "menu_954",
           "name": "교외프로그램안내",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/oceaneng/954",
           "document_type": "notice",
@@ -7569,7 +7569,7 @@
         {
           "id": "menu_955",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/oceaneng/955",
           "document_type": "notice",
@@ -7579,7 +7579,7 @@
         {
           "id": "menu_960",
           "name": "연구성과",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/oceaneng/960",
           "document_type": "notice",
@@ -7603,7 +7603,7 @@
         {
           "id": "menu_1439",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ere/1439",
           "document_type": "guide",
@@ -7612,7 +7612,7 @@
         {
           "id": "menu_8448",
           "name": "오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ere/8448",
           "document_type": "guide",
@@ -7621,7 +7621,7 @@
         {
           "id": "menu_1455",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ere/1455",
           "document_type": "notice",
@@ -7631,7 +7631,7 @@
         {
           "id": "menu_1456",
           "name": "ERE뉴스",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ere/1456",
           "document_type": "notice",
@@ -7641,7 +7641,7 @@
         {
           "id": "menu_1457",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ere/1457",
           "document_type": "notice",
@@ -7651,7 +7651,7 @@
         {
           "id": "menu_1458",
           "name": "정보나눔",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ere/1458",
           "document_type": "notice",
@@ -7661,7 +7661,7 @@
         {
           "id": "menu_1459",
           "name": "이슈이슈!",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ere/1459",
           "document_type": "notice",
@@ -7785,7 +7785,7 @@
         {
           "id": "menu_589",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/bigdata/589",
           "document_type": "guide",
@@ -7794,7 +7794,7 @@
         {
           "id": "menu_590",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/bigdata/590",
           "document_type": "guide",
@@ -7803,7 +7803,7 @@
         {
           "id": "menu_629",
           "name": "프로그램설치",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/bigdata/629",
           "document_type": "notice",
@@ -7813,7 +7813,7 @@
         {
           "id": "menu_597",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/bigdata/597",
           "document_type": "notice",
@@ -7823,7 +7823,7 @@
         {
           "id": "menu_923",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/bigdata/923",
           "document_type": "notice",
@@ -7833,7 +7833,7 @@
         {
           "id": "menu_599",
           "name": "공지사항(학부)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/bigdata/599",
           "document_type": "notice",
@@ -7843,7 +7843,7 @@
         {
           "id": "menu_631",
           "name": "공지사항(대학원)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/bigdata/631",
           "document_type": "notice",
@@ -7853,7 +7853,7 @@
         {
           "id": "menu_603",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/bigdata/603",
           "document_type": "notice",
@@ -7863,7 +7863,7 @@
         {
           "id": "menu_601",
           "name": "전공소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/bigdata/601",
           "document_type": "notice",
@@ -7889,7 +7889,7 @@
         {
           "id": "menu_5984",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/stat/5984",
           "document_type": "guide",
@@ -7898,7 +7898,7 @@
         {
           "id": "menu_279",
           "name": "학사서식",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/stat/279",
           "document_type": "notice",
@@ -7908,7 +7908,7 @@
         {
           "id": "menu_6461",
           "name": "취업정보게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/stat/6461",
           "document_type": "notice",
@@ -7918,7 +7918,7 @@
         {
           "id": "menu_6479",
           "name": "취업길라잡이",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/stat/6479",
           "document_type": "notice",
@@ -7928,7 +7928,7 @@
         {
           "id": "menu_6464",
           "name": "공지사항(학부)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/stat/6464",
           "document_type": "notice",
@@ -7938,7 +7938,7 @@
         {
           "id": "menu_6463",
           "name": "공지사항(대학원)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/stat/6463",
           "document_type": "notice",
@@ -7948,7 +7948,7 @@
         {
           "id": "menu_407",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/stat/407",
           "document_type": "notice",
@@ -7958,7 +7958,7 @@
         {
           "id": "menu_406",
           "name": "학생회",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/stat/406",
           "document_type": "notice",
@@ -7968,7 +7968,7 @@
         {
           "id": "menu_408",
           "name": "질문과 답변",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/stat/408",
           "document_type": "notice",
@@ -8146,7 +8146,7 @@
         {
           "id": "menu_7221",
           "name": "학과연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/bme/7221",
           "document_type": "guide",
@@ -8155,7 +8155,7 @@
         {
           "id": "menu_7227",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/bme/7227",
           "document_type": "guide",
@@ -8164,7 +8164,7 @@
         {
           "id": "menu_7236",
           "name": "취업게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/bme/7236",
           "document_type": "notice",
@@ -8174,7 +8174,7 @@
         {
           "id": "menu_7237",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/bme/7237",
           "document_type": "notice",
@@ -8184,7 +8184,7 @@
         {
           "id": "menu_7471",
           "name": "일반",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/bme/7471",
           "document_type": "notice",
@@ -8194,7 +8194,7 @@
         {
           "id": "menu_7473",
           "name": "교수동정",
-          "category": "????",
+          "category": "교수진",
           "kind": "board",
           "path": "/bme/7473",
           "document_type": "notice",
@@ -8204,7 +8204,7 @@
         {
           "id": "menu_7474",
           "name": "학생실적",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/bme/7474",
           "document_type": "notice",
@@ -8230,7 +8230,7 @@
         {
           "id": "menu_2021",
           "name": "조교 소개",
-          "category": "????",
+          "category": "교수진",
           "kind": "static_page",
           "path": "/marinesports/2021",
           "document_type": "guide",
@@ -8239,7 +8239,7 @@
         {
           "id": "menu_2041",
           "name": "대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/marinesports/2041",
           "document_type": "notice",
@@ -8249,7 +8249,7 @@
         {
           "id": "menu_8004",
           "name": "학부 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/marinesports/8004",
           "document_type": "notice",
@@ -8259,7 +8259,7 @@
         {
           "id": "menu_2042",
           "name": "실기고사 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/marinesports/2042",
           "document_type": "notice",
@@ -8269,7 +8269,7 @@
         {
           "id": "menu_2044",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/marinesports/2044",
           "document_type": "notice",
@@ -8279,7 +8279,7 @@
         {
           "id": "menu_2045",
           "name": "학과동정",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/marinesports/2045",
           "document_type": "notice",
@@ -8289,7 +8289,7 @@
         {
           "id": "menu_7832",
           "name": "현장실습 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/marinesports/7832",
           "document_type": "notice",
@@ -8315,7 +8315,7 @@
         {
           "id": "menu_8313",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/humanbio/8313",
           "document_type": "guide",
@@ -8324,7 +8324,7 @@
         {
           "id": "menu_2886",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/humanbio/2886",
           "document_type": "notice",
@@ -8334,7 +8334,7 @@
         {
           "id": "menu_5898",
           "name": "대학원 공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/humanbio/5898",
           "document_type": "notice",
@@ -8344,7 +8344,7 @@
         {
           "id": "menu_2887",
           "name": "취업정보",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/humanbio/2887",
           "document_type": "notice",
@@ -8354,7 +8354,7 @@
         {
           "id": "menu_8320",
           "name": "학과소식",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/humanbio/8320",
           "document_type": "notice",
@@ -8364,7 +8364,7 @@
         {
           "id": "menu_8356",
           "name": "#휴바융 SNS",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/humanbio/8356",
           "document_type": "notice",
@@ -8390,7 +8390,7 @@
         {
           "id": "menu_1663",
           "name": "연구실 및 동아리 소개",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/ee/1663",
           "document_type": "notice",
@@ -8400,7 +8400,7 @@
         {
           "id": "menu_1664",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/ee/1664",
           "document_type": "guide",
@@ -8409,7 +8409,7 @@
         {
           "id": "menu_1665",
           "name": "교육과정",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/ee/1665",
           "document_type": "notice",
@@ -8419,7 +8419,7 @@
         {
           "id": "menu_1667",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/ee/1667",
           "document_type": "notice",
@@ -8429,7 +8429,7 @@
         {
           "id": "menu_1669",
           "name": "전자공학전공",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/ee/1669",
           "document_type": "notice",
@@ -8439,7 +8439,7 @@
         {
           "id": "menu_1670",
           "name": "대학원",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/ee/1670",
           "document_type": "notice",
@@ -8449,7 +8449,7 @@
         {
           "id": "menu_5908",
           "name": "갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ee/5908",
           "document_type": "notice",
@@ -8459,7 +8459,7 @@
         {
           "id": "menu_8203",
           "name": "학생회",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/ee/8203",
           "document_type": "notice",
@@ -8469,7 +8469,7 @@
         {
           "id": "menu_5909",
           "name": "QnA",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/ee/5909",
           "document_type": "notice",
@@ -8479,7 +8479,7 @@
         {
           "id": "menu_1677",
           "name": "취업길라잡이",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/ee/1677",
           "document_type": "notice",
@@ -8489,7 +8489,7 @@
         {
           "id": "menu_4060",
           "name": "취업정보게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/ee/4060",
           "document_type": "notice",
@@ -8512,6 +8512,16 @@
       "compatibility": null,
       "enabled": true,
       "sections": [
+        {
+          "id": "menu_895",
+          "name": "학부 공지사항",
+          "category": "공지사항",
+          "kind": "board",
+          "path": "/pknuice/895",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2400334"
+        },
         {
           "id": "menu_824",
           "name": "전공안내",
@@ -8599,16 +8609,6 @@
           "document_type": "notice",
           "enabled": true,
           "bbs_id": "2404529"
-        },
-        {
-          "id": "menu_895",
-          "name": "학부 공지사항",
-          "category": "공지사항",
-          "kind": "board",
-          "path": "/pknuice/895",
-          "document_type": "notice",
-          "enabled": true,
-          "bbs_id": "2400334"
         },
         {
           "id": "menu_1617",
@@ -8699,7 +8699,7 @@
         {
           "id": "menu_964",
           "name": "학과발전계획",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/pknuarchi/964",
           "document_type": "notice",
@@ -8709,7 +8709,7 @@
         {
           "id": "menu_965",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/pknuarchi/965",
           "document_type": "guide",
@@ -8718,7 +8718,7 @@
         {
           "id": "menu_967",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/pknuarchi/967",
           "document_type": "guide",
@@ -8727,7 +8727,7 @@
         {
           "id": "menu_968",
           "name": "졸업작품",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/pknuarchi/968",
           "document_type": "notice",
@@ -8737,7 +8737,7 @@
         {
           "id": "menu_969",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/pknuarchi/969",
           "document_type": "notice",
@@ -8747,7 +8747,7 @@
         {
           "id": "menu_970",
           "name": "자유게시판",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/pknuarchi/970",
           "document_type": "notice",
@@ -8757,7 +8757,7 @@
         {
           "id": "menu_972",
           "name": "취업공고게시판",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/pknuarchi/972",
           "document_type": "notice",
@@ -8783,7 +8783,7 @@
         {
           "id": "menu_3715",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/industrial/3715",
           "document_type": "notice",
@@ -8793,7 +8793,7 @@
         {
           "id": "menu_3716",
           "name": "갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/industrial/3716",
           "document_type": "notice",
@@ -8803,7 +8803,7 @@
         {
           "id": "menu_3719",
           "name": "졸업작품전",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/industrial/3719",
           "document_type": "notice",
@@ -8813,7 +8813,7 @@
         {
           "id": "menu_3720",
           "name": "교원게시판",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/industrial/3720",
           "document_type": "notice",
@@ -8823,7 +8823,7 @@
         {
           "id": "menu_3855",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/industrial/3855",
           "document_type": "notice",
@@ -8833,7 +8833,7 @@
         {
           "id": "menu_3856",
           "name": "교육대학원 게시판",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/industrial/3856",
           "document_type": "notice",
@@ -8843,7 +8843,7 @@
         {
           "id": "menu_3857",
           "name": "산업대학원 게시판",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/industrial/3857",
           "document_type": "notice",
@@ -8869,7 +8869,7 @@
         {
           "id": "menu_3610",
           "name": "연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/visual/3610",
           "document_type": "guide",
@@ -8878,7 +8878,7 @@
         {
           "id": "menu_3670",
           "name": "찾아오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/visual/3670",
           "document_type": "guide",
@@ -8887,7 +8887,7 @@
         {
           "id": "menu_3688",
           "name": "공지사항(학과)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/visual/3688",
           "document_type": "notice",
@@ -8897,7 +8897,7 @@
         {
           "id": "menu_3689",
           "name": "공지사항(대학원)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/visual/3689",
           "document_type": "notice",
@@ -8907,7 +8907,7 @@
         {
           "id": "menu_3690",
           "name": "공지사항(교원)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/visual/3690",
           "document_type": "notice",
@@ -8917,7 +8917,7 @@
         {
           "id": "menu_3691",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/visual/3691",
           "document_type": "notice",
@@ -8927,7 +8927,7 @@
         {
           "id": "menu_3692",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/visual/3692",
           "document_type": "notice",
@@ -8937,7 +8937,7 @@
         {
           "id": "menu_7032",
           "name": "갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/visual/7032",
           "document_type": "notice",
@@ -8947,7 +8947,7 @@
         {
           "id": "menu_3676",
           "name": "공모전",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/visual/3676",
           "document_type": "notice",
@@ -8957,7 +8957,7 @@
         {
           "id": "menu_3677",
           "name": "채용 및 교육",
-          "category": "????",
+          "category": "취업정보",
           "kind": "board",
           "path": "/visual/3677",
           "document_type": "notice",
@@ -8967,7 +8967,7 @@
         {
           "id": "menu_3694",
           "name": "졸업요건",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/visual/3694",
           "document_type": "notice",
@@ -8977,7 +8977,7 @@
         {
           "id": "menu_4041",
           "name": "교육대학원(야)",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/visual/4041",
           "document_type": "notice",
@@ -8987,7 +8987,7 @@
         {
           "id": "menu_4042",
           "name": "산업대학원(야)",
-          "category": "????",
+          "category": "대학원",
           "kind": "board",
           "path": "/visual/4042",
           "document_type": "notice",
@@ -8997,7 +8997,7 @@
         {
           "id": "menu_3681",
           "name": "디자인학과내규",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/visual/3681",
           "document_type": "notice",
@@ -9195,7 +9195,7 @@
         {
           "id": "menu_5521",
           "name": "학과연혁",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/digitalfinance/5521",
           "document_type": "guide",
@@ -9204,7 +9204,7 @@
         {
           "id": "menu_5502",
           "name": "오시는길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/digitalfinance/5502",
           "document_type": "guide",
@@ -9213,7 +9213,7 @@
         {
           "id": "menu_5498",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/digitalfinance/5498",
           "document_type": "notice",
@@ -9223,7 +9223,7 @@
         {
           "id": "menu_5499",
           "name": "학과뉴스",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/digitalfinance/5499",
           "document_type": "notice",
@@ -9233,7 +9233,7 @@
         {
           "id": "menu_5748",
           "name": "학과 FAQ",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/digitalfinance/5748",
           "document_type": "notice",
@@ -9243,7 +9243,7 @@
         {
           "id": "menu_5747",
           "name": "학과 Q&A",
-          "category": "????",
+          "category": "학과안내",
           "kind": "board",
           "path": "/digitalfinance/5747",
           "document_type": "notice",
@@ -9253,7 +9253,7 @@
         {
           "id": "menu_5519",
           "name": "수시모집요강",
-          "category": "????",
+          "category": "입학안내",
           "kind": "static_page",
           "path": "/digitalfinance/5519",
           "document_type": "guide",
@@ -9276,7 +9276,7 @@
         {
           "id": "menu_5713",
           "name": "조교",
-          "category": "????",
+          "category": "교수진",
           "kind": "static_page",
           "path": "/smartmobility/5713",
           "document_type": "guide",
@@ -9285,7 +9285,7 @@
         {
           "id": "menu_5446",
           "name": "찾아오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/smartmobility/5446",
           "document_type": "guide",
@@ -9294,7 +9294,7 @@
         {
           "id": "menu_5454",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/smartmobility/5454",
           "document_type": "notice",
@@ -9304,7 +9304,7 @@
         {
           "id": "menu_5455",
           "name": "소식지",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/smartmobility/5455",
           "document_type": "notice",
@@ -9314,7 +9314,7 @@
         {
           "id": "menu_5456",
           "name": "행사/교육/세미나",
-          "category": "????",
+          "category": "연구·산학",
           "kind": "board",
           "path": "/smartmobility/5456",
           "document_type": "notice",
@@ -9324,7 +9324,7 @@
         {
           "id": "menu_8273",
           "name": "학과갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/smartmobility/8273",
           "document_type": "notice",
@@ -9334,7 +9334,7 @@
         {
           "id": "menu_6037",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/smartmobility/6037",
           "document_type": "notice",
@@ -9358,7 +9358,7 @@
         {
           "id": "menu_7160",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/liberalitc/7160",
           "document_type": "notice",
@@ -9368,7 +9368,7 @@
         {
           "id": "menu_7161",
           "name": "자주묻는 질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/liberalitc/7161",
           "document_type": "notice",
@@ -9378,7 +9378,7 @@
         {
           "id": "menu_7162",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/liberalitc/7162",
           "document_type": "notice",
@@ -9388,7 +9388,7 @@
         {
           "id": "menu_7163",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/liberalitc/7163",
           "document_type": "notice",
@@ -9711,7 +9711,7 @@
         {
           "id": "menu_8549",
           "name": "현장실습",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/Welfare/8549",
           "document_type": "notice",
@@ -9721,7 +9721,7 @@
         {
           "id": "menu_8915",
           "name": "현장실습 자료실(양식)",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/Welfare/8915",
           "document_type": "notice",
@@ -9731,7 +9731,7 @@
         {
           "id": "menu_7410",
           "name": "커뮤니티",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/Welfare/7410",
           "document_type": "notice",
@@ -9741,7 +9741,7 @@
         {
           "id": "menu_7424",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/Welfare/7424",
           "document_type": "notice",
@@ -9955,7 +9955,7 @@
         {
           "id": "menu_4857",
           "name": "학부홍보영상",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/duem/4857",
           "document_type": "notice",
@@ -9965,7 +9965,7 @@
         {
           "id": "menu_4976",
           "name": "졸업생 사회진출 현황",
-          "category": "????",
+          "category": "교육과정",
           "kind": "board",
           "path": "/duem/4976",
           "document_type": "notice",
@@ -9975,7 +9975,7 @@
         {
           "id": "menu_1587",
           "name": "국제화프로그램",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/duem/1587",
           "document_type": "notice",
@@ -9985,7 +9985,7 @@
         {
           "id": "menu_1591",
           "name": "공지사항(대학원)",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/duem/1591",
           "document_type": "notice",
@@ -9995,7 +9995,7 @@
         {
           "id": "menu_1592",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/duem/1592",
           "document_type": "notice",
@@ -10005,7 +10005,7 @@
         {
           "id": "menu_1595",
           "name": "포토갤러리",
-          "category": "????",
+          "category": "학생활동",
           "kind": "board",
           "path": "/duem/1595",
           "document_type": "notice",
@@ -10015,7 +10015,7 @@
         {
           "id": "menu_1597",
           "name": "Contact",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/duem/1597",
           "document_type": "guide",
@@ -10038,7 +10038,7 @@
         {
           "id": "menu_805",
           "name": "오시는 길",
-          "category": "????",
+          "category": "학과안내",
           "kind": "static_page",
           "path": "/college/805",
           "document_type": "guide",
@@ -10047,7 +10047,7 @@
         {
           "id": "menu_801",
           "name": "공지사항",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/college/801",
           "document_type": "notice",
@@ -10057,7 +10057,7 @@
         {
           "id": "menu_7918",
           "name": "학사공지",
-          "category": "????",
+          "category": "공지사항",
           "kind": "board",
           "path": "/college/7918",
           "document_type": "notice",
@@ -10067,7 +10067,7 @@
         {
           "id": "menu_7010",
           "name": "자주묻는질문",
-          "category": "????",
+          "category": "커뮤니티",
           "kind": "board",
           "path": "/college/7010",
           "document_type": "notice",
@@ -10077,7 +10077,7 @@
         {
           "id": "menu_804",
           "name": "자료실",
-          "category": "????",
+          "category": "자료실",
           "kind": "board",
           "path": "/college/804",
           "document_type": "notice",

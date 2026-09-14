@@ -57,7 +57,7 @@ class DepartmentRegistryOpsTests(unittest.TestCase):
         }]}
         discovery = {
             "status": "success", "site_prefix": "econ", "sections": [{
-                "id": "menu_1", "name": "학과소개", "category": "미분류",
+                "id": "menu_1", "name": "학과소개", "category": "학과안내",
                 "kind": "static_page", "path": "/econ/1",
                 "document_type": "guide", "bbs_id": None,
                 "status": "candidate", "confidence": 0.8,

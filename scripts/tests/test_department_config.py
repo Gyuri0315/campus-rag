@@ -8,11 +8,12 @@ from pathlib import Path
 from unittest.mock import patch
 
 from scripts.crawlers.departments.config import (
-    DEFAULT_REGISTRY_PATH, DepartmentConfig, SectionConfig, get_department, load_registry,
+    DEFAULT_REGISTRY_PATH, DepartmentConfig, SectionConfig, audit_registry, get_department, load_registry,
     load_site_catalog, validate_catalog, validate_registry_catalog_links,
 )
 from scripts.crawlers.departments import engine
 from scripts.crawlers.departments.engine import configure_department, crawl_ready_configs
+from scripts.migrations.department_registry_categories import infer_category, plan_registry
 
 
 WORKSPACE_ROOT = Path(__file__).resolve().parents[2]
@@ -68,6 +69,95 @@ class DepartmentConfigTests(unittest.TestCase):
                 self.assertEqual(len(config.sections), len({section.path for section in config.sections}))
                 board_ids = [s.bbs_id for s in config.sections if s.kind == "board" and s.bbs_id]
                 self.assertEqual(len(board_ids), len(set(board_ids)))
+
+    def test_damaged_or_path_unsafe_category_is_rejected(self) -> None:
+        for category in ("????", "미분류", "공지/자료"):
+            with self.subTest(category=category), self.assertRaisesRegex(ValueError, "category"):
+                SectionConfig.from_dict({
+                    "id": "notice", "name": "공지", "category": category,
+                    "kind": "board", "path": "/sample/100", "bbs_id": "123",
+                    "document_type": "notice",
+                })
+
+    def test_dataset_section_id_and_path_are_execution_safe(self) -> None:
+        base = {
+            "dataset": "sample", "name": "Sample", "base_url": "https://sample.test",
+            "site_prefix": "sample", "enabled": True,
+            "sections": [{
+                "id": "notice", "name": "공지", "category": "공지사항",
+                "kind": "board", "path": "/sample/100", "bbs_id": "123",
+                "document_type": "notice",
+            }],
+        }
+        cases = (
+            ("reserved dataset", {"dataset": "con"}),
+            ("unsafe section id", {"section_id": "notice/one"}),
+            ("protocol-relative path", {"path": "//evil.example/path"}),
+            ("path fragment", {"path": "/sample/100#fragment"}),
+            ("control character", {"path": "/sample/\n100"}),
+            ("unknown adapter", {"adapter": "unknown"}),
+            ("unknown document type", {"document_type": "article"}),
+        )
+        for label, change in cases:
+            payload = json.loads(json.dumps(base))
+            if "dataset" in change:
+                payload["dataset"] = change["dataset"]
+            if "adapter" in change:
+                payload["adapter"] = change["adapter"]
+            if "section_id" in change:
+                payload["sections"][0]["id"] = change["section_id"]
+            if "path" in change:
+                payload["sections"][0]["path"] = change["path"]
+            if "document_type" in change:
+                payload["sections"][0]["document_type"] = change["document_type"]
+            with self.subTest(case=label), self.assertRaises(ValueError):
+                DepartmentConfig.from_dict(payload)
+
+    def test_registry_audit_reports_every_invalid_dataset(self) -> None:
+        invalid = (
+            WORKSPACE_ROOT / "scripts" / "tests" / "fixtures" / "departments"
+            / "invalid_registry_datasets.json"
+        )
+        audit = audit_registry(invalid)
+        self.assertEqual(2, audit.registered)
+        self.assertEqual({}, audit.configs)
+        self.assertEqual({"bad-category", "con"}, {error["dataset"] for error in audit.errors})
+
+    def test_category_repair_rules_cover_representative_sections(self) -> None:
+        cases = (
+            ({"name": "학과 공지사항", "kind": "board"}, "공지사항"),
+            ({"name": "서식자료실", "kind": "board"}, "자료실"),
+            ({"name": "취업정보", "kind": "board"}, "취업정보"),
+            ({"name": "수시모집요강", "kind": "static_page"}, "입학안내"),
+            ({"name": "교육과정", "kind": "static_page"}, "교육과정"),
+            ({"name": "교수진소개", "kind": "static_page"}, "교수진"),
+            ({"name": "학과앨범", "kind": "board"}, "학생활동"),
+            ({"name": "학과", "kind": "board"}, "공지사항"),
+        )
+        for section, expected in cases:
+            with self.subTest(section=section):
+                self.assertEqual(expected, infer_category(section)[0])
+
+    def test_category_repair_changes_no_non_category_fields(self) -> None:
+        payload = {
+            "departments": [{
+                "dataset": "sample", "enabled": True,
+                "sections": [{
+                    "id": "notice", "name": "공지사항", "category": "????",
+                    "kind": "board", "path": "/sample/1", "bbs_id": "123",
+                    "document_type": "notice", "enabled": True,
+                }],
+            }],
+        }
+        before = dict(payload["departments"][0]["sections"][0])
+        plan = plan_registry(payload)
+        after = payload["departments"][0]["sections"][0]
+        self.assertEqual([], plan["unresolved"])
+        self.assertEqual("공지사항", after["category"])
+        self.assertEqual(
+            {key: value for key, value in before.items() if key != "category"},
+            {key: value for key, value in after.items() if key != "category"},
+        )
 
     def test_curated_partial_discoveries_are_crawl_ready(self) -> None:
         registry = load_registry()

@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.crawlers.departments import cli
+from scripts.crawlers.departments import cli, engine
 from scripts.crawlers.departments.config import DepartmentConfig, load_registry
 from scripts.crawlers.departments.engine import crawl_ready_configs
 from scripts.crawlers.departments.preflight import build_preflight, classify_preflight
@@ -73,6 +73,32 @@ class DepartmentPreflightTests(unittest.TestCase):
         argv = ["cli.py", "--registry", str(invalid), "list-ready"]
         with patch.object(sys, "argv", argv), patch("sys.stderr", new_callable=io.StringIO):
             self.assertEqual(1, cli.main())
+
+    def test_invalid_datasets_are_reported_and_never_reach_network_or_crawl(self) -> None:
+        invalid = (
+            ROOT / "scripts" / "tests" / "fixtures" / "departments"
+            / "invalid_registry_datasets.json"
+        )
+        argv = ["cli.py", "--registry", str(invalid), "list-ready", "--json"]
+        with patch.object(sys, "argv", argv), patch(
+            "scripts.crawlers.departments.cli.probe_site",
+            side_effect=AssertionError("network probe must not run"),
+        ), patch("sys.stdout", new_callable=io.StringIO) as output:
+            self.assertEqual(1, cli.main())
+            report = json.loads(output.getvalue())
+        invalid_items = {item["dataset"]: item for item in report["items"]}
+        self.assertEqual("invalid", invalid_items["bad-category"]["status"])
+        self.assertIn("invalid category", invalid_items["bad-category"]["validation_errors"][0]["message"])
+        self.assertEqual("invalid", invalid_items["con"]["status"])
+        self.assertEqual(0, report["summary"]["ready"])
+        self.assertEqual(2, report["summary"]["invalid"])
+
+        argv = ["engine.py", "--registry", str(invalid), "--all", "--once"]
+        with patch.object(sys, "argv", argv), patch.object(
+            engine, "_run_config", side_effect=AssertionError("crawl must not run"),
+        ), patch("sys.stderr", new_callable=io.StringIO) as errors:
+            self.assertEqual(1, engine.main())
+        self.assertIn("INVALID_DATASET_CONFIG", errors.getvalue())
 
     def test_invalid_cli_usage_returns_two(self) -> None:
         with patch.object(sys, "argv", ["cli.py", "list-ready", "--unknown"]):

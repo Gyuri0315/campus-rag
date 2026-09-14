@@ -19,7 +19,7 @@ class CrawlerLoggingTests(unittest.TestCase):
         self.root = Path(self.temp.name)
         self.console = io.StringIO()
         self.logger, self.context = configure_crawler_logging(
-            "test_dataset", self.root, console_stream=self.console
+            "test_dataset", self.root, console_stream=self.console, file_logging=True,
         )
         set_run_id(self.context, "test_dataset-20260902T153012")
 
@@ -87,10 +87,44 @@ class CrawlerLoggingTests(unittest.TestCase):
 
     def test_reconfiguration_does_not_duplicate_handlers(self) -> None:
         second_console = io.StringIO()
-        logger, _ = configure_crawler_logging("test_dataset", self.root, console_stream=second_console)
+        logger, _ = configure_crawler_logging(
+            "test_dataset", self.root, console_stream=second_console, file_logging=True,
+        )
         self.assertEqual(3, len(logger.handlers))
         log_event(logger, logging.INFO, "run_started", mode="incremental")
         self.assertEqual(1, len(second_console.getvalue().splitlines()))
+
+    def test_file_handlers_can_be_disabled_without_creating_log_directory(self) -> None:
+        isolated_root = self.root / "no-file-logging"
+        console = io.StringIO()
+        logger, _ = configure_crawler_logging(
+            "no_file_dataset", isolated_root,
+            console_stream=console, file_logging=False,
+        )
+        try:
+            log_event(logger, logging.INFO, "run_started", mode="smoke")
+            self.assertEqual(1, len(logger.handlers))
+            self.assertIn("run_started", console.getvalue())
+            self.assertFalse((isolated_root / "logs").exists())
+        finally:
+            for handler in list(logger.handlers):
+                handler.close()
+                logger.removeHandler(handler)
+
+    def test_unittest_defaults_to_console_only(self) -> None:
+        isolated_root = self.root / "automatic-test-isolation"
+        logger, _ = configure_crawler_logging(
+            "automatic_test_dataset", isolated_root,
+            console_stream=io.StringIO(),
+        )
+        try:
+            self.assertEqual(1, len(logger.handlers))
+            log_event(logger, logging.INFO, "run_started", mode="smoke")
+            self.assertFalse((isolated_root / "logs").exists())
+        finally:
+            for handler in list(logger.handlers):
+                handler.close()
+                logger.removeHandler(handler)
 
 
 if __name__ == "__main__":

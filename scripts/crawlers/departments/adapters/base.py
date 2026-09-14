@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import re
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -11,6 +12,9 @@ from bs4 import BeautifulSoup
 class DepartmentCMSAdapter(ABC):
     name: str
     version: str = "1.0"
+    # Only adapters that guarantee monotonically increasing numeric post
+    # numbers may use last_no for incremental filtering.
+    uses_numeric_post_order: bool = False
 
     @abstractmethod
     def discover_menus(self, html: str, base_url: str) -> list[dict[str, str]]: ...
@@ -22,6 +26,29 @@ class DepartmentCMSAdapter(ABC):
 
     @abstractmethod
     def parse_list(self, soup: BeautifulSoup, board_url: str) -> list[dict[str, Any]]: ...
+
+    def count_list_candidates(self, soup: BeautifulSoup, board_url: str) -> int:
+        """Count apparent detail links independently from the strict parser.
+
+        This deliberately uses broad URL/onclick evidence. A non-zero count
+        paired with an empty parse result is a parser mismatch, not an empty
+        board.
+        """
+        candidates: set[str] = set()
+        for anchor in soup.select("a[href], a[onclick]"):
+            href = str(anchor.get("href") or "").strip().lower()
+            onclick = str(anchor.get("onclick") or "").strip().lower()
+            if (
+                "action=view" in href
+                or "pgmode=view" in href
+                or "mode=read" in href
+                or ("mode=2" in href and re.search(r"(?:[?&]|^)no=", href) is not None)
+                or "kind=view" in href
+                or re.search(r"(?:[?&]|^)idx=", href) is not None
+                or "moveview(" in onclick
+            ):
+                candidates.add(f"{href}|{onclick}")
+        return len(candidates)
 
     def list_request(
         self, board_url: str, page: int, bbs_id: str | None = None,

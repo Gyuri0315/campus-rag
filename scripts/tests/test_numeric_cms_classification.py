@@ -3,6 +3,9 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from bs4 import BeautifulSoup
+
+from scripts.crawlers.departments.adapters import get_adapter
 from scripts.crawlers.departments.discovery import analyze_section_html
 
 
@@ -41,6 +44,29 @@ class NumericCMSClassificationTests(unittest.TestCase):
         self.assertEqual("requires_adapter", section.status)
         self.assertIsNone(section.bbs_id)
         self.assertIn("adapter required", section.warnings[0])
+
+    def test_list_variants_use_action_view_document_ids(self) -> None:
+        adapter = get_adapter("numeric_cms")
+        cases = (
+            ("numeric_cms/list_table_variant.html", ["pinned-A", "9994213"], [None, 270]),
+            ("numeric_cms/list_card_variant.html", ["28554", "28343"], [None, None]),
+            ("numeric_cms/list_gallery_variant.html", ["9983255", "9983254"], [None, None]),
+        )
+        for fixture, source_ids, post_numbers in cases:
+            with self.subTest(fixture=fixture):
+                soup = BeautifulSoup((FIXTURES / fixture).read_text(encoding="utf-8"), "lxml")
+                items = adapter.parse_list(soup, "https://department.example.test/dept/100")
+                self.assertEqual(source_ids, [item["source_id"] for item in items])
+                self.assertEqual(post_numbers, [item["post_no"] for item in items])
+
+    def test_navigation_detail_link_is_not_a_list_item(self) -> None:
+        adapter = get_adapter("numeric_cms")
+        soup = BeautifulSoup(
+            (FIXTURES / "numeric_cms/list_table_variant.html").read_text(encoding="utf-8"),
+            "lxml",
+        )
+        items = adapter.parse_list(soup, "https://department.example.test/dept/100")
+        self.assertNotIn("9990000", {item["source_id"] for item in items})
 
 
 if __name__ == "__main__":

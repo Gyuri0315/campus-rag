@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from scripts.crawlers.departments.config import DepartmentConfig
+from scripts.crawlers.departments.config import DepartmentConfig, RegistryAudit
 from scripts.crawlers.departments.registry_ops import safe_site_key
 from scripts.crawlers.departments.freshness import (
     assess_result_freshness, probe_discovery_warnings,
@@ -15,7 +15,7 @@ from scripts.crawlers.departments.freshness import (
 
 
 PREFLIGHT_STATUSES = (
-    "ready", "disabled", "pending_review", "blocked", "requires_adapter", "hub_only",
+    "ready", "invalid", "disabled", "pending_review", "blocked", "requires_adapter", "hub_only",
 )
 
 
@@ -87,14 +87,32 @@ def classify_preflight(
 
 def build_preflight(
     registry: dict[str, DepartmentConfig], *, discovery_root: Path,
+    registry_audit: RegistryAudit | None = None,
 ) -> dict[str, Any]:
     items = [classify_preflight(config, discovery_root=discovery_root) for config in registry.values()]
+    if registry_audit is not None:
+        grouped_errors: dict[str, list[dict[str, Any]]] = {}
+        for error in registry_audit.errors:
+            grouped_errors.setdefault(str(error.get("dataset") or "registry"), []).append(dict(error))
+        for dataset, errors in grouped_errors.items():
+            items.append({
+                "dataset": dataset,
+                "status": "invalid",
+                "adapter": "-",
+                "active_sections": 0,
+                "reason": "registry_validation_failed",
+                "probe_freshness": "not_checked",
+                "discovery_freshness": "not_checked",
+                "warnings": [],
+                "validation_errors": errors,
+            })
     counts = Counter(item["status"] for item in items)
     summary = {status: counts.get(status, 0) for status in PREFLIGHT_STATUSES}
+    registered = registry_audit.registered if registry_audit is not None else len(items)
     summary.update({
-        "registered": len(items),
+        "registered": registered,
         "operational": counts.get("ready", 0),
-        "excluded": len(items) - counts.get("ready", 0),
+        "excluded": registered - counts.get("ready", 0),
     })
     return {
         "schema_version": "1.0",
@@ -108,7 +126,9 @@ def render_preflight_table(report: dict[str, Any]) -> str:
     rows = [
         (
             item["status"], item["dataset"], item["adapter"], str(item["active_sections"]),
-            f"P:{item['probe_freshness']}/D:{item['discovery_freshness']}", item["reason"],
+            f"P:{item['probe_freshness']}/D:{item['discovery_freshness']}",
+            "; ".join(error["message"] for error in item.get("validation_errors") or [])
+            or item["reason"],
         )
         for item in report["items"]
     ]

@@ -50,8 +50,8 @@ from scripts.crawlers.common.storage import (  # noqa: E402
 )
 from scripts.crawlers.common.reader import remove_redundant_legacy_fields  # noqa: E402
 from scripts.crawlers.departments.config import (  # noqa: E402
-    DepartmentConfig, DEFAULT_REGISTRY_PATH, DEFAULT_SITE_CATALOG_PATH, get_department,
-    load_registry, load_site_catalog, validate_registry_catalog_links,
+    DepartmentConfig, DEFAULT_REGISTRY_PATH, DEFAULT_SITE_CATALOG_PATH, audit_registry,
+    load_site_catalog, validate_registry_catalog_links,
 )
 from scripts.crawlers.departments.probe import select_content_container  # noqa: E402
 from scripts.crawlers.departments.adapters import get_adapter  # noqa: E402
@@ -102,6 +102,7 @@ class CrawlDiagnostics:
 
     sections_selected: int = 0
     sections_initialized: int = 0
+    empty_sections: int = 0
     errors: list[dict[str, Any]] = field(default_factory=list)
 
     def add_failure(self, failure: RequestFailure, *, source_id: object = None) -> None:
@@ -774,6 +775,7 @@ def crawl_board(
     doc_type = section["type"]
 
     state_key = board_url
+    numeric_incremental = ACTIVE_ADAPTER.uses_numeric_post_order
     stored_last_no: int = state.setdefault("items", {}).get(state_key, {}).get("last_no", 0)
     if recent_only is not None:
         last_known_no = stored_last_no
@@ -811,43 +813,113 @@ def crawl_board(
         stats.discovered += len(items)
         log_event(log, logging.INFO, "list_fetched", section=name, page=page, discovered=len(items), url=board_url)
         if not items:
-            log.info("  p%d: 게시글 없음 → 종료", page)
+            candidate_count = ACTIVE_ADAPTER.count_list_candidates(soup, board_url)
+            if candidate_count:
+                stats.failed += 1
+                message = (
+                    f"adapter {ACTIVE_ADAPTER.name} found {candidate_count} detail candidate(s), "
+                    "but parsed no documents"
+                )
+                if diagnostics is not None:
+                    diagnostics.errors.append({
+                        "code": "PARSER_MISMATCH",
+                        "source_id": str(section.get("id") or name),
+                        "url": board_url,
+                        "message": message,
+                        "retryable": False,
+                    })
+                log_event(
+                    log, logging.ERROR, "document_failed",
+                    source_id=section.get("id") or name, url=board_url,
+                    stage="list_parse", reason="parser_mismatch",
+                    candidates=candidate_count,
+                )
+            else:
+                if diagnostics is not None:
+                    diagnostics.empty_sections += 1
+                log_event(
+                    log, logging.INFO, "list_fetched", section=name, page=page,
+                    discovered=0, candidates=0, status="empty", url=board_url,
+                )
+                log.info("  p%d: 정상 빈 목록 → 종료", page)
             break
 
         # Some legacy boards expose a page made entirely of pinned notices.
         # Those are still valid documents and must be processed.
-        numbered = [it for it in items if it["post_no"] is not None]
-        if not numbered:
-            log.info("  p%d: 번호가 있는 게시글 없음 → 종료", page)
+        processable = [
+            item for item in items
+            if str(item.get("post_url") or "").strip()
+            and (numeric_incremental or str(item.get("source_id") or "").strip())
+        ]
+        if not processable:
+            stats.skipped += len(items)
+            stats.failed += 1
+            message = (
+                f"adapter {ACTIVE_ADAPTER.name} discovered {len(items)} item(s), "
+                "but none had a usable post_url/source_id"
+            )
+            if diagnostics is not None:
+                diagnostics.errors.append({
+                    "code": "PARSER_MISMATCH",
+                    "source_id": str(section.get("id") or name),
+                    "url": board_url,
+                    "message": message,
+                    "retryable": False,
+                })
+            log_event(
+                log, logging.ERROR, "document_failed",
+                source_id=section.get("id") or name, url=board_url,
+                stage="list_parse", reason="parser_mismatch",
+                discovered=len(items),
+            )
             break
 
-        regular = [it for it in numbered if not it["is_notice"]]
-        range_items = regular or numbered
-        page_max_no = max(it["post_no"] for it in range_items)
-        page_min_no = min(it["post_no"] for it in range_items)
-        log.info("  p%d: %d개 (no %d~%d)", page, len(numbered), page_min_no, page_max_no)
+        if page > 1 and all(item["post_url"] in seen_post_urls for item in processable):
+            log.info("  p%d: 이전 페이지와 동일한 게시글 → 종료", page)
+            break
+
+        numbered = [it for it in processable if it.get("post_no") is not None]
+        page_min_no: int | None = None
+        page_max_no: int | None = None
+        if numeric_incremental and numbered:
+            regular = [it for it in numbered if not it["is_notice"]]
+            range_items = regular or numbered
+            page_max_no = max(int(it["post_no"]) for it in range_items)
+            page_min_no = min(int(it["post_no"]) for it in range_items)
+            log.info("  p%d: %d개 (no %d~%d)", page, len(processable), page_min_no, page_max_no)
+        else:
+            log.info("  p%d: %d개 (source_id 기반)", page, len(processable))
 
         # 이미 수집한 게시글만 있으면 중단
-        if page_max_no <= last_known_no:
+        if page_max_no is not None and page_max_no <= last_known_no:
             log.info("  p%d: 모두 기수집 → 종료 (last_no=%d)", page, last_known_no)
             break
 
-        new_max_no = max(new_max_no, page_max_no)
+        if page_max_no is not None:
+            new_max_no = max(new_max_no, page_max_no)
 
         # 신규 게시글만 상세 크롤링
-        for item in items:
+        for item in processable:
             if max_items is not None and stats.requested >= max_items:
                 return stats, stored_last_no
-            log_event(log, logging.DEBUG, "document_discovered", source_id=item.get("post_no"), url=item.get("post_url"))
+            native_source_id = str(item.get("source_id") or "").strip()
+            post_no = item.get("post_no")
+            item_token = native_source_id or (
+                str(post_no) if post_no is not None else url_source_id(item["post_url"])
+            )
+            source_id = (
+                f"{bbs_id or url_source_id(board_url)}:{item_token}"
+                if numeric_incremental else native_source_id
+            )
+            log_event(log, logging.DEBUG, "document_discovered", source_id=source_id, url=item.get("post_url"))
             if item["post_url"] in seen_post_urls:
                 stats.skipped += 1
-                log_event(log, logging.INFO, "document_skipped", source_id=item.get("post_no"), url=item["post_url"], reason="duplicate")
+                log_event(log, logging.INFO, "document_skipped", source_id=source_id, url=item["post_url"], reason="duplicate")
                 continue
             seen_post_urls.add(item["post_url"])
 
             # 고정글(NOTICE) 포함 수집
-            post_no = item["post_no"]
-            if post_no is not None and post_no <= last_known_no:
+            if numeric_incremental and post_no is not None and int(post_no) <= last_known_no:
                 stats.skipped += 1
                 log_event(log, logging.INFO, "document_skipped", source_id=post_no, url=item["post_url"], reason="state")
                 continue  # 이미 수집함
@@ -857,9 +929,9 @@ def crawl_board(
             if post_resp is None:
                 stats.failed += 1
                 _record_request_failure(
-                    diagnostics, _LAST_FETCH_FAILURE, url=item["post_url"], source_id=post_no,
+                    diagnostics, _LAST_FETCH_FAILURE, url=item["post_url"], source_id=source_id,
                 )
-                log_event(log, logging.ERROR, "document_failed", source_id=post_no, url=item["post_url"], stage="request")
+                log_event(log, logging.ERROR, "document_failed", source_id=source_id, url=item["post_url"], stage="request")
                 continue
 
             post_soup = BeautifulSoup(post_resp.text, "lxml")
@@ -869,17 +941,14 @@ def crawl_board(
                 if diagnostics is not None:
                     diagnostics.errors.append({
                         "code": "DOCUMENT_PARSE_FAILED",
-                        "source_id": str(post_no) if post_no is not None else None,
+                        "source_id": source_id,
                         "url": item["post_url"],
                         "message": "document parser returned no result",
                         "retryable": False,
                     })
-                log_event(log, logging.ERROR, "document_failed", source_id=post_no, url=item["post_url"], stage="parse")
+                log_event(log, logging.ERROR, "document_failed", source_id=source_id, url=item["post_url"], stage="parse")
                 continue
 
-            adapter_source_id = str(item.get("source_id") or "")
-            item_id = item["post_no"] if item["post_no"] is not None else url_source_id(item["post_url"])
-            source_id = adapter_source_id or f"{bbs_id or url_source_id(board_url)}:{item_id}"
             view["slug"] = document_slug(ACTIVE_CONFIG.dataset, source_id)
 
             existing_attachments = (
@@ -921,7 +990,7 @@ def crawl_board(
                 published_at=doc.get("date"),
                 metadata={
                     "bbs_id": bbs_id or None,
-                    "post_no": item["post_no"],
+                    "post_no": item.get("post_no"),
                     "is_notice": item.get("is_notice", False),
                     "legacy_type": doc_type,
                     **({"source_type": section["source_type"]} if section.get("source_type") else {}),
@@ -945,8 +1014,17 @@ def crawl_board(
             log_event(log, logging.INFO, event, source_id=source_id, url=doc.get("url"), status=outcome)
 
         # 이번 페이지에 last_known_no 이하의 번호가 포함됐으면 다음 페이지는 불필요
-        if page_min_no <= last_known_no:
+        if numeric_incremental and page_min_no is not None and page_min_no <= last_known_no:
             log.info("  p%d: 일부 기수집 → 다음 페이지 불필요", page)
+            break
+        if (
+            numeric_incremental
+            and not numbered
+            and not any(str(item.get("source_id") or "").strip() for item in processable)
+        ):
+            # Pinned-only pages are processable, but have no safe numeric
+            # pagination boundary. Newer variants provide stable source_id
+            # values and are protected by the repeated-page check above.
             break
 
         page += 1
@@ -1083,7 +1161,11 @@ def run_crawl(
                 # 상태 갱신 (max_no 증가 시에만)
                 key = section["url"]
                 prev_no = state.setdefault("items", {}).get(key, {}).get("last_no", 0)
-                if max_items is None and new_max_no > prev_no:
+                if (
+                    ACTIVE_ADAPTER.uses_numeric_post_order
+                    and max_items is None
+                    and new_max_no > prev_no
+                ):
                     new_state.setdefault("items", {})[key] = {
                         "source_id": key,
                         "slug": "",
@@ -1102,13 +1184,14 @@ def run_crawl(
                 remaining -= section_stats.requested
         except Exception as exc:
             total_stats.failed += 1
+            error_code = "OUTPUT_PATH_ERROR" if isinstance(exc, OSError) else "SECTION_PROCESSING_FAILED"
             if diagnostics is not None:
                 diagnostics.errors.append({
-                    "code": "SECTION_FAILED",
+                    "code": error_code,
                     "source_id": str(section.get("id") or section["name"]),
                     "url": section["url"],
                     "message": str(exc),
-                    "retryable": True,
+                    "retryable": False,
                 })
             log.error("섹션 오류 [%s]: %s", section["name"], exc, exc_info=True)
             log_event(log, logging.ERROR, "document_failed", source_id=section["name"], url=section["url"], exc_info=True)
@@ -1133,19 +1216,41 @@ def finish_run_result(result: RunResult, diagnostics: CrawlDiagnostics) -> RunRe
     """Apply department run semantics after every selected section was attempted."""
     if diagnostics.sections_selected > 0 and diagnostics.sections_initialized == 0:
         return result.finish("failed")
+    if (
+        not result.errors
+        and diagnostics.empty_sections
+        and result.stats.requested == 0
+    ):
+        result.add_error(
+            "NO_DOCUMENTS_VERIFIED",
+            f"{diagnostics.empty_sections} section(s) returned a normal empty list; no document was verified",
+            retryable=False,
+        )
     if result.stats.failed or result.stats.attachments_failed or result.errors:
         return result.finish("partial_success")
     return result.finish()
 
 
 def _run_config(config: DepartmentConfig, args: argparse.Namespace) -> int:
-    configure_department(config)
     smoke = bool(
         args.section or args.max_board_sections is not None
         or args.max_items is not None or args.no_download_files
     )
     mode = "smoke" if smoke else ("recent" if args.recent_only is not None else "incremental")
     result = RunResult(dataset=config.dataset, mode=mode)
+    try:
+        configure_department(config)
+    except Exception as exc:
+        result.add_error("CONFIGURATION_ERROR", exc, retryable=False)
+        result.finish("failed")
+        try:
+            result.save(PROJECT_ROOT)
+        except OSError:
+            pass
+        logging.getLogger("crawler.department").critical(
+            "department crawler configuration failed: %s", exc, exc_info=True,
+        )
+        return result.exit_code
     set_run_id(log_context, result.run_id)
     log_event(log, logging.INFO, "run_started", mode=mode)
     diagnostics = CrawlDiagnostics()
@@ -1164,17 +1269,25 @@ def _run_config(config: DepartmentConfig, args: argparse.Namespace) -> int:
         for error in diagnostics.errors:
             result.add_error(**error)
         if result.stats.failed and not diagnostics.errors:
-            result.add_error("DOCUMENT_FAILURES", f"{result.stats.failed} document(s) failed", retryable=True)
+            result.add_error("DOCUMENT_FAILURES", f"{result.stats.failed} document(s) failed", retryable=False)
         if result.stats.attachments_failed:
-            result.add_error("ATTACHMENT_FAILURES", f"{result.stats.attachments_failed} attachment(s) failed", retryable=True)
+            result.add_error("ATTACHMENT_FAILURES", f"{result.stats.attachments_failed} attachment(s) failed", retryable=False)
         finish_run_result(result, diagnostics)
     except KeyboardInterrupt:
         result.finish("cancelled")
     except Exception as exc:
-        result.add_error("RUN_INITIALIZATION_FAILED", exc, retryable=True)
+        code = "OUTPUT_PATH_ERROR" if isinstance(exc, OSError) else "RUN_INITIALIZATION_FAILED"
+        result.add_error(code, exc, retryable=False)
         result.finish("failed")
         log_event(log, logging.CRITICAL, "run_finished", status="failed", exc_info=True)
-    result_path = result.save(PROJECT_ROOT)
+    try:
+        result_path = result.save(PROJECT_ROOT)
+    except OSError as exc:
+        result.add_error("OUTPUT_PATH_ERROR", exc, retryable=False)
+        result.finish("failed")
+        log_event(log, logging.CRITICAL, "run_finished", status="failed", error_code="OUTPUT_PATH_ERROR")
+        log_run_result(log, result)
+        return result.exit_code
     if result.status != "failed":
         log_event(log, logging.INFO, "run_finished", status=result.status, stats=result.stats.to_dict(), result_path=result_path)
     log_run_result(log, result, result_path)
@@ -1265,9 +1378,30 @@ def main(default_dataset: str | None = None) -> int:
         parser.error("--all cannot be combined with --dataset")
     if args.all and args.section:
         parser.error("--section cannot be combined with --all")
-    if args.all:
-        registry = load_registry(args.registry)
+    try:
+        registry_audit = audit_registry(args.registry)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(json.dumps({
+            "status": "invalid_registry", "code": "REGISTRY_ERROR",
+            "message": str(exc), "retryable": False,
+        }, ensure_ascii=False), file=sys.stderr)
+        return 1
+    if registry_audit.errors:
+        print(json.dumps({
+            "status": "invalid_registry", "code": "REGISTRY_VALIDATION_ERROR",
+            "retryable": False, "errors": registry_audit.errors,
+        }, ensure_ascii=False, indent=2), file=sys.stderr)
+        return 1
+    registry = registry_audit.configs
+    try:
         validate_registry_catalog_links(registry, load_site_catalog(args.sites))
+    except (OSError, ValueError) as exc:
+        print(json.dumps({
+            "status": "invalid_registry", "code": "REGISTRY_CATALOG_ERROR",
+            "message": str(exc), "retryable": False,
+        }, ensure_ascii=False), file=sys.stderr)
+        return 1
+    if args.all:
         configs = crawl_ready_configs(registry)
         skipped = len(registry) - len(configs)
         print(f"department batch: ready={len(configs)} skipped_not_ready={skipped}")
@@ -1278,7 +1412,9 @@ def main(default_dataset: str | None = None) -> int:
         return 1 if any(code != 0 for code in exit_codes) else 0
     if not args.dataset:
         parser.error("one of --dataset or --all is required")
-    config = get_department(args.dataset, args.registry, args.sites)
+    config = registry.get(args.dataset)
+    if config is None:
+        parser.error(f"unknown department dataset: {args.dataset}")
     if args.section and args.section not in {section.id for section in config.active_sections}:
         parser.error(f"unknown or disabled section for {config.dataset}: {args.section}")
     return _run_config(config, args)

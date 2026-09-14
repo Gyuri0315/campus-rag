@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import sys
 from datetime import datetime
@@ -31,6 +32,14 @@ SENSITIVE_KEYS = {
 }
 MASK = "***REDACTED***"
 _HANDLER_MARKER = "_crawler_structured_handler"
+
+
+def _file_logging_enabled_by_default() -> bool:
+    """Keep operational files out of unit-test runs unless explicitly enabled."""
+    configured = os.environ.get("CRAWLER_FILE_LOGGING")
+    if configured is not None:
+        return configured.strip().lower() not in {"0", "false", "no", "off"}
+    return "unittest" not in sys.modules and "pytest" not in sys.modules
 
 
 def _is_sensitive_key(key: object) -> bool:
@@ -150,6 +159,7 @@ def configure_crawler_logging(
     level: int = logging.INFO,
     debug: bool = False,
     console_stream: TextIO | None = None,
+    file_logging: bool | None = None,
 ) -> tuple[logging.Logger, LogContext]:
     logger = logging.getLogger(f"crawler.{dataset}")
     logger.setLevel(logging.DEBUG if debug else level)
@@ -161,17 +171,23 @@ def configure_crawler_logging(
 
     context = LogContext(dataset)
     context_filter = CrawlerContextFilter(context)
-    log_dir = project_root / "logs" / "crawlers"
-    log_dir.mkdir(parents=True, exist_ok=True)
 
     handlers: list[logging.Handler] = [logging.StreamHandler(console_stream or sys.stdout)]
-    handlers.append(logging.FileHandler(log_dir / f"{dataset}.log", encoding="utf-8"))
-    handlers.append(logging.FileHandler(log_dir / f"{dataset}.jsonl", encoding="utf-8"))
+    if file_logging if file_logging is not None else _file_logging_enabled_by_default():
+        log_dir = project_root / "logs" / "crawlers"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        text_handler = logging.FileHandler(log_dir / f"{dataset}.log", encoding="utf-8")
+        text_handler.setFormatter(ConsoleFormatter())
+        handlers.append(text_handler)
+        jsonl_handler = logging.FileHandler(log_dir / f"{dataset}.jsonl", encoding="utf-8")
+        jsonl_handler.setFormatter(JsonlFormatter())
+        handlers.append(jsonl_handler)
     for index, handler in enumerate(handlers):
         setattr(handler, _HANDLER_MARKER, True)
         handler.setLevel(logging.DEBUG if debug else level)
         handler.addFilter(context_filter)
-        handler.setFormatter(JsonlFormatter() if index == 2 else ConsoleFormatter())
+        if handler.formatter is None:
+            handler.setFormatter(ConsoleFormatter())
         logger.addHandler(handler)
     return logger, context
 
