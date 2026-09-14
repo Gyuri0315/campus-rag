@@ -198,6 +198,26 @@ def _source_kind_priority(row: Dict[str, Any]) -> float:
     return SOURCE_KIND_PRIORITIES.get(source_kind, 0.70)
 
 
+def _query_mismatch_penalty(row: Dict[str, Any]) -> float:
+    """Soft penalty for query-term mismatch flags (see _query_mismatch_flags).
+
+    Previously these flags caused a hard drop, which could wipe out 90%+ of
+    candidates for common terms (e.g. "복수전공") whenever no chunk repeated
+    the exact keyword, even when the chunk was otherwise the best match
+    available. A penalty lets better-matching rows win naturally while still
+    surfacing something instead of "관련 정보를 찾을 수 없습니다" when nothing
+    better exists.
+    """
+    flags = row.get("_query_mismatch_flags") or []
+    penalty = 0.0
+    for flag in flags:
+        if flag.startswith("missing_strict_query_terms") or flag == "no_query_term_overlap":
+            penalty = max(penalty, 0.35)
+        elif flag == "missing_graduation_credit_terms":
+            penalty = max(penalty, 0.25)
+    return penalty
+
+
 def _final_score(
     row: Dict[str, Any],
     priority_weight: float,
@@ -211,12 +231,13 @@ def _final_score(
         0.0,
         1.0 - bounded_weight - bounded_dataset_weight - bounded_source_kind_weight,
     )
-    return (
+    score = (
         _similarity(row) * semantic_weight
         + _priority_score(row) * bounded_weight
         + _dataset_priority(row) * bounded_dataset_weight
         + _source_kind_priority(row) * bounded_source_kind_weight
     )
+    return max(0.0, score - _query_mismatch_penalty(row))
 
 
 def _normalize_text(text: str) -> str:
@@ -542,7 +563,7 @@ def search(
 
         rows: List[Dict[str, Any]] = []
         filtered_noise = 0
-        filtered_query_mismatch = 0
+        penalized_query_mismatch = 0
         filtered_dataset_mismatch = 0
         for row in response.data or []:
             copied = dict(row)
@@ -563,16 +584,16 @@ def search(
                 continue
             query_flags = _query_mismatch_flags(copied, query_terms)
             if query_flags:
-                filtered_query_mismatch += 1
+                penalized_query_mismatch += 1
+                copied["_query_mismatch_flags"] = query_flags
                 if logger.isEnabledFor(logging.DEBUG):
                     logger.debug(
-                        "retrieval: filtered_query_mismatch rpc=%s flags=%s title=%r sim=%.4f",
+                        "retrieval: penalized_query_mismatch rpc=%s flags=%s title=%r sim=%.4f",
                         rpc_name,
                         query_flags,
                         _title_for_row(copied)[:120],
                         _similarity(copied),
                     )
-                continue
             dataset_flags = _dataset_mismatch_flags(copied, query_terms)
             if dataset_flags:
                 filtered_dataset_mismatch += 1
@@ -610,11 +631,11 @@ def search(
             reverse=True,
         )
         logger.info(
-            "retrieval: rpc=%s rows=%d filtered_noise=%d filtered_query_mismatch=%d filtered_dataset_mismatch=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
+            "retrieval: rpc=%s rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
             rpc_name,
             len(rows),
             filtered_noise,
-            filtered_query_mismatch,
+            penalized_query_mismatch,
             filtered_dataset_mismatch,
             elapsed_ms,
             _similarity(rows[0]) if rows else 0.0,
