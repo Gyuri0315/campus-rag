@@ -63,23 +63,37 @@ _STANDALONE_JAMO_RE = re.compile(r"[ㄱ-ㅎㅏ-ㅣ]{6,}")
 QUERY_TERM_GROUPS = {
     "복수전공": ("복수전공", "복수 전공", "다전공", "전공제도"),
     "부전공": ("부전공", "부 전공", "다전공", "전공제도"),
+    "마이크로전공": ("마이크로전공", "마이크로 전공", "소단위전공", "소단위 전공"),
     "전과": ("전과", "전부", "전공변경"),
     "전공": ("전공", "전공제도"),
-    "졸업": ("졸업", "졸업요건", "학위수여"),
+    "졸업": ("졸업", "졸업요건", "학위수여", "졸업작품", "졸업논문", "졸업사정"),
     "학점": ("학점", "소요학점", "이수학점"),
     "수강신청": ("수강신청", "수강 신청"),
     "휴학": ("휴학",),
     "복학": ("복학",),
     "장학": ("장학", "장학금"),
-    "등록금": ("등록금", "등록"),
+    # "등록" (bare) used to be a variant here too, but it matches ~2.8k-9.7k
+    # rows in the large chunk tables on its own (measured directly against
+    # content_tsv) -- ranking + sorting that many rows blew the lexical RPC's
+    # statement timeout whenever a query also triggered another group (e.g.
+    # "계절수업" -> schedule_005). Keep only the compound term.
+    "등록금": ("등록금",),
     "성적": ("성적", "평점", "평균평점"),
     "교직": ("교직", "교직과정"),
     "현장실습": ("현장실습", "현장실습학기제"),
+    # Bare "생활관"/"기숙사" measured at 300-800+ rows each in the large chunk
+    # tables; combined with the compound term in one OR-query that pushed
+    # lexical search over its statement timeout. The compound term alone
+    # already matches the eval's expected documents, so keep only that.
+    "생활관": ("학생생활관",),
+    "계절수업": ("계절수업",),
+    "외국인유학생": ("외국인유학생", "외국인 유학생", "외국인 신입생", "외국인 학위과정"),
 }
 
 STRICT_QUERY_TERMS = {
     "복수전공",
     "부전공",
+    "마이크로전공",
     "전과",
     "학점",
     "수강신청",
@@ -162,6 +176,19 @@ def _lexical_synthetic_similarity(rank_index: int, min_similarity: float) -> flo
     return min_similarity + norm * (ceiling - min_similarity)
 
 
+# Bare words that are members of a QUERY_TERM_GROUPS entry but, measured
+# directly against content_tsv, match thousands of rows in the largest chunk
+# tables (rag_chunks/pknu_notice_chunks) on their own -- e.g. bare "졸업"
+# alone needed 4.7-5.4s just to rank, right at (and sometimes past) the
+# lexical RPC's statement timeout. They still need to stay in
+# QUERY_TERM_GROUPS itself: other logic (_query_mismatch_flags /
+# _dataset_mismatch_flags, e.g. the 졸업+학점 combo check) relies on the bare
+# form to detect that a question is "about" that concept at all. Only the
+# lexical OR-query builder below excludes them, since it's the one place a
+# single overly-common token turns into a near-full-table scan.
+LEXICAL_EXCLUDED_VARIANTS = {"졸업", "전공"}
+
+
 def _lexical_query_text(
     query_text: Optional[str],
     query_terms: list[tuple[str, tuple[str, ...]]],
@@ -193,7 +220,7 @@ def _lexical_query_text(
     for _, variants in specific_terms:
         for variant in variants:
             variant = variant.strip()
-            if not variant:
+            if not variant or variant in LEXICAL_EXCLUDED_VARIANTS:
                 continue
             parts.append(f'"{variant}"' if " " in variant else variant)
     if not parts:
