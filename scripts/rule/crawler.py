@@ -787,6 +787,105 @@ def crawl_law_node(
     return doc
 
 
+# ── Extra law/rule docs discovered outside loadTree.do ──────────────────────
+# loadTree.do (see load_law_nodes) only exposes ~85 top-level 학칙/규정 nodes.
+# PKNU's own site search surfaces additional article-level deep links (e.g.
+# a specific 학칙 조항 for 출석/결석 인정 기준) under a completely different
+# URL scheme, /rule/searchSchRegAndRuleView.do?no=<id>, that never appears in
+# that tree at all. Each such wrapper page embeds the same law.go.kr LSW
+# iframe crawl_law_node() already knows how to fetch; only the discovery
+# step (wrapper -> iframe src) differs, since the wrapper here lives on
+# pknu.ac.kr rather than resolving directly against law.go.kr like tree
+# node paths do. Multiple `no=` values can point at the same schlPubRulSeq
+# (different article anchors within one document).
+EXTRA_LAW_SEARCH_NOS: dict[str, str] = {
+    "2094848": "국립부경대학교 학칙 (출석·결석 인정 및 성적 정정·이의신청 조항)",
+    "2096708": "국립부경대학교 학칙 (학생생활관 입사신청 절차 조항)",
+}
+
+
+def find_lsw_url_from_pknu_wrapper(session: requests.Session, wrapper_url: str) -> str | None:
+    """searchSchRegAndRuleView.do?no=<id> wrapper page -> its embedded law.go.kr LSW iframe URL."""
+    resp = fetch(session, wrapper_url, headers={"Referer": f"{RULE_URL}/schRegAndRuleList.do"})
+    soup = BeautifulSoup(resp.text, "html.parser")
+    iframe = soup.find("iframe", src=True)
+    if iframe:
+        return html.unescape(str(iframe["src"]))
+    return None
+
+
+def crawl_extra_law_search_no(
+    session: requests.Session,
+    no: str,
+    fallback_title: str,
+    download_files: bool,
+) -> dict[str, Any] | None:
+    wrapper_url = f"{RULE_URL}/searchSchRegAndRuleView.do?no={no}"
+    try:
+        lsw_url = find_lsw_url_from_pknu_wrapper(session, wrapper_url)
+        if not lsw_url:
+            raise RuntimeError("no iframe found in searchSchRegAndRuleView wrapper")
+
+        lsw_resp = fetch(session, lsw_url, headers={"Referer": wrapper_url})
+        params = extract_ajax_params(lsw_resp.text)
+        ajax_url = f"{LAW_URL}/LSW/schlPubRulInfoR.do?{urlencode(params)}"
+        ajax_resp = fetch(session, ajax_url, headers={"Referer": lsw_url})
+        content, attachments, preview_resources = parse_law_ajax_html(ajax_resp.text)
+        preview_texts = extract_preview_texts(session, preview_resources, ajax_url)
+    except Exception as exc:
+        log.warning("Extra law-search crawl failed for no=%s: %s", no, exc)
+        return None
+
+    slug = slug_for("law_extra_search", no)
+    attachment_texts: list[dict[str, Any]] = []
+    file_preview_texts: list[dict[str, Any]] = []
+    if download_files:
+        attachments = save_attachments(session, attachments, "pknu_rule_law", slug)
+        attachment_texts = extract_attachment_texts(attachments)
+        file_preview_texts = build_file_preview_texts(attachment_texts)
+    combined_content = dedupe_join_texts(
+        content,
+        *(preview.get("text", "") for preview in preview_texts),
+        *(preview.get("text", "") for preview in file_preview_texts),
+    )
+
+    doc = {
+        "slug": slug,
+        "title": fallback_title,
+        "url": wrapper_url,
+        "category": "pknu_rule_law",
+        "subcategory": "school_rule",
+        "type": "hak",
+        "date": "",
+        "source_site": "pknu_rule/law.go.kr",
+        "source_id": f"search_no_{no}",
+        "parent_lid": "",
+        "parent_title": "",
+        "issued_at": "",
+        "effective_at": "",
+        "content": combined_content,
+        "html_text": content,
+        "html_text_source": "law_ajax_html",
+        "page_content": content,
+        "preview_texts": preview_texts,
+        "attachments": attachments,
+        "attachment_texts": attachment_texts,
+        "file_preview_texts": file_preview_texts,
+        "crawled_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    save_document(doc, ajax_resp.text, "pknu_rule_law")
+    return doc
+
+
+def crawl_extra_law_searches(session: requests.Session, download_files: bool) -> int:
+    saved = 0
+    for no, fallback_title in EXTRA_LAW_SEARCH_NOS.items():
+        log.info("Crawling extra law search no=%s", no)
+        if crawl_extra_law_search_no(session, no, fallback_title, download_files):
+            saved += 1
+    return saved
+
+
 def parse_last_page(soup: BeautifulSoup) -> int:
     last = 1
     for anchor in soup.select("ul.paging a[href]"):
@@ -1117,6 +1216,7 @@ def main() -> int:
     total = 0
     if args.laws:
         total += crawl_laws(session, args.max_law_items, args.download_files, args.save_tree)
+        total += crawl_extra_law_searches(session, args.download_files)
     if args.bylaws:
         total += crawl_bylaws(session, args.max_bylaw_pages, args.download_files)
 

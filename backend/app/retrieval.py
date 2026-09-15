@@ -481,6 +481,10 @@ def _dedupe_key(row: Dict[str, Any]) -> str:
     return f"{uri}|{title}"
 
 
+def _is_lexical_only(row: Dict[str, Any]) -> bool:
+    return bool(row.get("_lexical_only"))
+
+
 def _add_row(
     selected: List[Dict[str, Any]],
     seen: set[str],
@@ -488,6 +492,8 @@ def _add_row(
     row: Dict[str, Any],
     *,
     max_chunks_per_url: int,
+    lexical_url_counts: Optional[Dict[str, int]] = None,
+    max_lexical_chunks_per_url: Optional[int] = None,
 ) -> bool:
     key = _dedupe_key(row)
     if key in seen:
@@ -495,23 +501,53 @@ def _add_row(
     url_key = _url_key(row)
     if url_counts.get(url_key, 0) >= max_chunks_per_url:
         return False
+    if (
+        lexical_url_counts is not None
+        and max_lexical_chunks_per_url is not None
+        and _is_lexical_only(row)
+        and lexical_url_counts.get(url_key, 0) >= max_lexical_chunks_per_url
+    ):
+        return False
     seen.add(key)
     url_counts[url_key] = url_counts.get(url_key, 0) + 1
+    if lexical_url_counts is not None and _is_lexical_only(row):
+        lexical_url_counts[url_key] = lexical_url_counts.get(url_key, 0) + 1
     selected.append(row)
     return True
 
 
 def _cap_per_url(
-    rows: List[Dict[str, Any]], *, max_chunks_per_url: int
+    rows: List[Dict[str, Any]],
+    *,
+    max_chunks_per_url: int,
+    max_lexical_chunks_per_url: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Preserve input order, keep at most `max_chunks_per_url` rows per URL."""
+    """Preserve input order, keep at most `max_chunks_per_url` rows per URL.
+
+    Lexical-only hits (no genuine vector match; similarity is a BM25-rank
+    approximation, see _lexical_synthetic_similarity) get an extra, tighter
+    per-URL allowance on top of the general cap. Without this, one broad
+    document that happens to contain several query keywords (e.g. an
+    all-topics "student life guide" ebook chunked into 2000+ pieces) can
+    claim most of its URL's chunk slots via lexical coincidence alone,
+    crowding out chunks from other, more specifically relevant documents.
+    """
     counts: Dict[str, int] = {}
+    lexical_counts: Dict[str, int] = {}
     kept: List[Dict[str, Any]] = []
     for row in rows:
         url_key = _url_key(row)
         if counts.get(url_key, 0) >= max_chunks_per_url:
             continue
+        if (
+            max_lexical_chunks_per_url is not None
+            and _is_lexical_only(row)
+            and lexical_counts.get(url_key, 0) >= max_lexical_chunks_per_url
+        ):
+            continue
         counts[url_key] = counts.get(url_key, 0) + 1
+        if _is_lexical_only(row):
+            lexical_counts[url_key] = lexical_counts.get(url_key, 0) + 1
         kept.append(row)
     return kept
 
@@ -527,6 +563,7 @@ def _rerank_candidates(
     priority_weight: float,
     dataset_priority_weight: float,
     source_kind_weight: float,
+    max_lexical_chunks_per_url: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     if not candidates:
         return []
@@ -542,7 +579,11 @@ def _rerank_candidates(
             ),
             reverse=True,
         )
-        return _cap_per_url(ordered, max_chunks_per_url=max_chunks_per_url)[:top_k]
+        return _cap_per_url(
+            ordered,
+            max_chunks_per_url=max_chunks_per_url,
+            max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+        )[:top_k]
 
     try:
         raw_scores = reranker.score(question, candidates)
@@ -558,7 +599,11 @@ def _rerank_candidates(
             ),
             reverse=True,
         )
-        return _cap_per_url(ordered, max_chunks_per_url=max_chunks_per_url)[:top_k]
+        return _cap_per_url(
+            ordered,
+            max_chunks_per_url=max_chunks_per_url,
+            max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+        )[:top_k]
 
     normalized_scores = normalize_scores(raw_scores)
     bounded_reranker_weight = max(0.0, min(1.0, reranker_weight))
@@ -581,7 +626,11 @@ def _rerank_candidates(
         rescored.append(copied)
 
     rescored.sort(key=lambda row: float(row.get("rerank_final_score") or 0.0), reverse=True)
-    return _cap_per_url(rescored, max_chunks_per_url=max_chunks_per_url)[:top_k]
+    return _cap_per_url(
+        rescored,
+        max_chunks_per_url=max_chunks_per_url,
+        max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+    )[:top_k]
 
 
 def _process_candidate_row(
@@ -639,6 +688,7 @@ def search(
     reranker: Optional[Reranker] = None,
     reranker_weight: float = 0.80,
     max_chunks_per_url: int = 2,
+    max_lexical_chunks_per_url: Optional[int] = None,
     query_text: Optional[str] = None,
     metadata_filter: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
@@ -801,6 +851,7 @@ def search(
     candidates: List[Dict[str, Any]] = []
     seen: set[str] = set()
     url_counts: Dict[str, int] = {}
+    lexical_url_counts: Dict[str, int] = {}
 
     # Keep one high-scoring row from each successful RPC before global ranking.
     # This prevents one noisy collection from crowding out regulations/notices.
@@ -814,6 +865,8 @@ def search(
                 url_counts,
                 row,
                 max_chunks_per_url=max_chunks_per_url,
+                lexical_url_counts=lexical_url_counts,
+                max_lexical_chunks_per_url=max_lexical_chunks_per_url,
             ):
                 break
 
@@ -835,6 +888,8 @@ def search(
             url_counts,
             row,
             max_chunks_per_url=max_chunks_per_url,
+            lexical_url_counts=lexical_url_counts,
+            max_lexical_chunks_per_url=max_lexical_chunks_per_url,
         )
 
     selected = _rerank_candidates(
@@ -847,6 +902,7 @@ def search(
         priority_weight=priority_weight,
         dataset_priority_weight=dataset_priority_weight,
         source_kind_weight=source_kind_weight,
+        max_lexical_chunks_per_url=max_lexical_chunks_per_url,
     )
 
     logger.info(
