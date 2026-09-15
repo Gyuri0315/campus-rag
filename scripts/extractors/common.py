@@ -105,7 +105,7 @@ def extract_json_blocks(path: Path) -> list[dict]:
             blocks.append({"type": block_type, "style": style, "text": value})
 
     append("title", "PostTitle", doc.get("title", ""))
-    append("metadata", "PostDate", doc.get("date", ""))
+    append("metadata", "PostDate", doc.get("published_at") or doc.get("date", ""))
     append("metadata", "PostCategory", doc.get("category", ""))
     append("metadata", "PostSubcategory", doc.get("subcategory", ""))
     append("body", "PostBody", doc.get("content") or doc.get("body") or "")
@@ -117,7 +117,7 @@ def extract_json_blocks(path: Path) -> list[dict]:
             if not isinstance(attachment, dict):
                 continue
             name = normalize_text(str(attachment.get("name", "")))
-            url = normalize_text(str(attachment.get("url", "")))
+            url = normalize_text(str(attachment.get("final_url") or attachment.get("url", "")))
             saved_path = normalize_text(str(attachment.get("saved_path", "")))
             parts = [part for part in (name, url, saved_path) if part]
             if parts:

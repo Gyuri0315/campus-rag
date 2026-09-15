@@ -2,9 +2,29 @@
 
 RAG-based Q&A system for university documents
 
+## Crawler schema
+
+Crawler entry points and shared modules are organized under `scripts/crawlers/`. See [`scripts/README.md`](scripts/README.md) for the canonical path map.
+
+Crawler JSON uses schema version `1.0`. Preprocessing, vectorization, and loading
+prefer the canonical fields (`published_at`, `crawl`, `source_dataset`,
+`source_id`, `content_hash`, and canonical `attachments`) while the shared
+reader continues to accept legacy JSON. The machine-readable definition is
+[`schemas/crawler-document-1.0.schema.json`](schemas/crawler-document-1.0.schema.json).
+
+Legacy conversion is dry-run by default:
+
+```bash
+python scripts/migrations/crawler_documents.py --dataset ce
+python scripts/migrations/crawler_documents.py --dataset ce --apply
+```
+
+See `docs/DATA_STRUCTURE.md` for field definitions, loss checks, backups, and
+fallback policy.
+
 ## 프로젝트 구조
 
-- `scripts/ce/crawler.py`: 대학 사이트의 게시글과 첨부파일을 수집합니다.
+- `scripts/crawlers/departments/engine.py`: registry 기반 학과 사이트의 게시글과 첨부파일을 수집합니다.
 - `scripts/ce/preprocessing.py`: 수집된 문서를 RAG에 사용할 수 있는 텍스트 형태로 전처리합니다.
 - `scripts/rag/vectorization.py`: 전처리된 텍스트를 임베딩 벡터로 변환합니다.
 - `scripts/rag/load_to_supabase.py`: 벡터화된 데이터를 Supabase PostgreSQL에 적재합니다.
@@ -87,7 +107,7 @@ Supabase Dashboard에서 SQL을 실행하는 방법은 다음과 같습니다.
 
 전체 RAG 파이프라인은 다음 순서로 실행됩니다.
 
-1. `scripts/ce/crawler.py`: 게시글과 첨부파일 수집
+1. `scripts/crawlers/departments/engine.py --dataset ce`: CE 게시글과 첨부파일 수집
 2. `scripts/ce/preprocessing.py`: 수집 문서 전처리
 3. `scripts/rag/vectorization.py`: 텍스트 임베딩 생성
 4. `scripts/rag/load_to_supabase.py`: Supabase에 데이터 적재
@@ -95,7 +115,7 @@ Supabase Dashboard에서 SQL을 실행하는 방법은 다음과 같습니다.
 각 단계를 개별로 실행할 수 있습니다.
 
 ```bash
-python scripts/ce/crawler.py --once
+python scripts/crawlers/departments/engine.py --dataset ce --once
 python scripts/ce/preprocessing.py --input-root files/ce/output/json --output-root files/ce/preprocessed/json --output-json-root files/ce/output/json --layout flat
 python scripts/ce/preprocessing.py --input-root files/ce/output/files --output-root files/ce/preprocessed/files --output-json-root files/ce/output/json
 python scripts/rag/vectorization.py --dataset ce --backend sentence-transformers

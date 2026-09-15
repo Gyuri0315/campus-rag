@@ -1,28 +1,53 @@
+# Runtime crawler data
 files/
 FILES/
 output/
+outputs/
 preprocessed/
 vectorized/
-
 logs/
-logs/*.log
 *.log
-!logs/.gitkeep
-
-outputs/
 ask_results.json
 eval/results/*
 !eval/results/.gitkeep
 
+# Crawler state, backups, and temporary artifacts
+state.json
+state_*.json
+*.bak
+*.tmp
+.crawl_start.txt
+backups/
+inspect_site.py
+nav_output.txt
+
+# Python environments, bytecode, tests, and coverage
 .venv/
 venv/
 __pycache__/
-inspect_site.py
-nav_output.txt
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Local secrets and environment overrides
 .env
+**/.env
+.env.*
+**/.env.*
+!.env.example
+!**/.env.example
 
-# 크롤러 임시 파일
-.crawl_start.txt
+# Editor and operating-system files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
 
+# Local assistant configuration
 CLAUDE.md
-backups/

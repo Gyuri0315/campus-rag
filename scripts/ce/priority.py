@@ -260,8 +260,10 @@ def calculate_ce_priority(
         }
 
     latest_date = extract_latest_date(
-        metadata.get("date"),
         metadata.get("published_at"),
+        metadata.get("updated_at"),
+        (metadata.get("crawl") or {}).get("crawled_at") if isinstance(metadata.get("crawl"), dict) else None,
+        metadata.get("date"),
         metadata.get("crawled_at"),
     )
     recency = recency_score(latest_date, today=today)

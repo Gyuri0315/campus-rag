@@ -152,7 +152,9 @@ def crawl_dataset(name: str, args: argparse.Namespace) -> None:
         run_command(
             [
                 python,
-                "scripts/ce/crawler.py",
+                "scripts/crawlers/departments/engine.py",
+                "--dataset",
+                "ce",
                 "--once",
                 "--recent-only",
                 str(args.recent_pages),
@@ -162,7 +164,7 @@ def crawl_dataset(name: str, args: argparse.Namespace) -> None:
         run_command(
             [
                 python,
-                "scripts/main/notice_crawler.py",
+                "scripts/crawlers/pknu_notice.py",
                 "--once",
                 "--recent-only",
                 str(args.recent_pages),
@@ -171,7 +173,7 @@ def crawl_dataset(name: str, args: argparse.Namespace) -> None:
     elif name == "pknu_student_life":
         command = [
             python,
-            "scripts/main/student_life_crawler.py",
+            "scripts/crawlers/pknu_student_life.py",
             "--mode",
             args.student_life_mode,
         ]
@@ -182,7 +184,7 @@ def crawl_dataset(name: str, args: argparse.Namespace) -> None:
         run_command(
             [
                 python,
-                "scripts/rule/crawler.py",
+                "scripts/crawlers/pknu_rule.py",
                 "--laws",
                 "--bylaws",
                 "--max-law-items",

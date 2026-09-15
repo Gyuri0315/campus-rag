@@ -1,0 +1,66 @@
+{
+  "section_count": 17,
+  "board_count": 5,
+  "static_page_count": 12,
+  "first_section": {
+    "name": "학부공지",
+    "category": "공지사항",
+    "url": "https://ce.pknu.ac.kr/ce/1814",
+    "bbs_id": "2400536",
+    "type": "notice",
+    "is_board": true
+  },
+  "list_item": {
+    "post_url": "https://ce.pknu.ac.kr/ce/1814?action=view&no=123",
+    "num": "123",
+    "post_no": 123,
+    "is_notice": false,
+    "date": "2026-09-02"
+  },
+  "detail": {
+    "title": "테스트 공지",
+    "date": "2026-09-02",
+    "url": "https://ce.pknu.ac.kr/ce/1814?action=view&no=123",
+    "is_notice": false,
+    "body": "본문 내용",
+    "attachments": [
+      {
+        "name": "첨부.pdf",
+        "url": "https://ce.pknu.ac.kr/download/test.pdf"
+      }
+    ]
+  },
+  "document": {
+    "schema_version": "1.0",
+    "id": "ce:2400536:123",
+    "slug": "8f1b6bd1fbf4709b",
+    "source_site": "https://ce.pknu.ac.kr",
+    "source_dataset": "ce",
+    "source_id": "2400536:123",
+    "url": "https://ce.pknu.ac.kr/ce/1814?action=view&no=123",
+    "title": "테스트 공지",
+    "category": "공지사항",
+    "subcategory": "학부공지",
+    "type": "notice",
+    "published_at": "2026-09-02T00:00:00+09:00",
+    "content": "본문 내용",
+    "content_hash": "355c109e15e4cf98819d7ad486dbf9bede9ad57079237641b83d98d8b5fd2482",
+    "content_source": "pknu_cms_html"
+  },
+  "static_document": {
+    "schema_version": "1.0",
+    "id": "ce:static:7d00d210cd08ded326ce",
+    "slug": "a50b5cfc7670fb39",
+    "source_site": "https://ce.pknu.ac.kr",
+    "source_dataset": "ce",
+    "source_id": "static:7d00d210cd08ded326ce",
+    "url": "https://ce.pknu.ac.kr/ce/1803",
+    "title": "학부소개",
+    "category": "학부안내",
+    "subcategory": "학부소개",
+    "type": "static_page",
+    "content": "학부 소개 본문",
+    "content_hash": "1a555e9b32b9ae09bfc58dab204e346d6eebed2f577bbaf3217e1a4d891c45e0",
+    "content_source": "pknu_cms_html"
+  }
+}

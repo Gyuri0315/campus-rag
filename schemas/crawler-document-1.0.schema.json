@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://campus-rag.local/schemas/crawler-document-1.0.schema.json",
+  "title": "Campus RAG crawler document 1.0",
+  "type": "object",
+  "required": [
+    "schema_version", "id", "slug", "source_site", "source_dataset", "source_id",
+    "url", "title", "author", "category", "subcategory", "type", "tags",
+    "published_at", "updated_at", "effective_at", "content", "content_hash",
+    "content_source", "attachments", "crawl", "metadata"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "id": {"type": "string", "minLength": 1},
+    "slug": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+    "source_site": {"type": "string", "format": "uri", "pattern": "^https?://"},
+    "source_dataset": {"type": "string", "minLength": 1},
+    "source_id": {"type": "string", "minLength": 1},
+    "url": {"type": "string"},
+    "title": {"type": "string"},
+    "author": {"type": ["string", "null"]},
+    "category": {"type": "string"},
+    "subcategory": {"type": ["string", "null"]},
+    "type": {"enum": ["notice", "static_page", "guide", "law", "regulation", "bylaw", "guideline"]},
+    "tags": {"type": "array", "items": {"type": "string"}},
+    "published_at": {"$ref": "#/$defs/nullableKstTimestamp"},
+    "updated_at": {"$ref": "#/$defs/nullableKstTimestamp"},
+    "effective_at": {"$ref": "#/$defs/nullableKstTimestamp"},
+    "content": {"type": "string"},
+    "content_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "content_source": {"type": "string"},
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "url", "final_url", "saved_path", "downloaded", "content_type", "size_bytes", "sha256", "text", "error"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^attachment-[0-9]{3}$"},
+          "name": {"type": "string"},
+          "url": {"type": "string"},
+          "final_url": {"type": ["string", "null"]},
+          "saved_path": {"type": ["string", "null"], "pattern": "^(?![A-Za-z]:[\\\\/])(?![\\\\/]).+"},
+          "downloaded": {"type": "boolean"},
+          "content_type": {"type": ["string", "null"]},
+          "size_bytes": {"type": ["integer", "null"], "minimum": 0},
+          "sha256": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+          "text": {"$ref": "#/$defs/attachmentText"},
+          "error": {"$ref": "#/$defs/nullableError"}
+        }
+      }
+    },
+    "crawl": {
+      "type": "object",
+      "required": ["crawled_at", "http_status", "parser", "parser_version", "warnings"],
+      "properties": {
+        "crawled_at": {"$ref": "#/$defs/kstTimestamp"},
+        "http_status": {"type": ["integer", "null"]},
+        "parser": {"type": "string"},
+        "parser_version": {"type": "string"},
+        "warnings": {"type": "array"}
+      }
+    },
+    "metadata": {"type": "object"}
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "kstTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "\\+09:00$"
+    },
+    "nullableKstTimestamp": {
+      "anyOf": [
+        {"$ref": "#/$defs/kstTimestamp"},
+        {"type": "null"}
+      ]
+    },
+    "attachmentText": {
+      "type": "object",
+      "required": ["status", "content", "characters", "extractor", "error"],
+      "properties": {
+        "status": {"enum": ["success", "skipped", "failed", "not_attempted"]},
+        "content": {"type": ["string", "null"]},
+        "characters": {"type": "integer", "minimum": 0},
+        "extractor": {"type": ["string", "null"]},
+        "error": {"type": ["string", "null"]}
+      }
+    },
+    "nullableError": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "required": ["code", "message", "retryable"],
+          "properties": {
+            "code": {"type": "string"},
+            "message": {"type": "string"},
+            "retryable": {"type": "boolean"}
+          }
+        }
+      ]
+    }
+  }
+}

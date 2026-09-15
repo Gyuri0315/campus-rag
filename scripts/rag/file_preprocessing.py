@@ -17,6 +17,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.text_cleaning import clean_extracted_text
+from scripts.crawlers.common.reader import infer_dataset_from_path, read_document
 from scripts.extractors.common import (
     DEFAULT_OCR_DPI,
     DEFAULT_OCR_LANGUAGE,
@@ -138,11 +139,18 @@ def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[st
 
     for jf in output_json_root.rglob("*.json"):
         try:
-            doc = json.loads(jf.read_text(encoding="utf-8"))
+            payload = json.loads(jf.read_text(encoding="utf-8"))
+            doc = read_document(
+                payload, dataset=infer_dataset_from_path(jf), project_root=project_root
+            )
         except Exception:
             continue
 
         base_doc_info = {
+            "schema_version": doc.get("schema_version", ""),
+            "document_id": doc.get("id", ""),
+            "source_dataset": doc.get("source_dataset", ""),
+            "source_id": doc.get("source_id", ""),
             "doc_title": doc.get("title", ""),
             "doc_url": doc.get("url", ""),
             "category": doc.get("category", ""),
@@ -156,10 +164,12 @@ def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[st
             index[saved_rel] = {
                 **base_doc_info,
                 "attachment_name": a.get("name", ""),
-                "attachment_url": a.get("url", ""),
+                "attachment_url": a.get("final_url") or a.get("url", ""),
                 "source_page_url": a.get("source_page_url", ""),
                 "source_site": a.get("source_site", ""),
-                "downloaded_from_url": a.get("downloaded_from_url", ""),
+                "downloaded_from_url": a.get("final_url") or a.get("downloaded_from_url", ""),
+                "attachment_id": a.get("id", ""),
+                "attachment_sha256": a.get("sha256", ""),
                 "content_type": a.get("content_type", ""),
                 "_source_json_mtime": jf.stat().st_mtime,
             }
@@ -168,30 +178,45 @@ def load_attachment_index(output_json_root: Path, project_root: Path) -> dict[st
 
 def extract_crawled_json_provenance(path: Path) -> dict:
     try:
-        doc = json.loads(path.read_text(encoding="utf-8-sig"))
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        doc = read_document(
+            payload, dataset=infer_dataset_from_path(path), project_root=PROJECT_ROOT
+        )
     except Exception:
         return {}
     if not isinstance(doc, dict):
         return {}
 
     attachments = [
-        {"name": str(item.get("name") or ""), "url": str(item.get("url") or "")}
+        {
+            "id": str(item.get("id") or ""),
+            "name": str(item.get("name") or ""),
+            "url": str(item.get("final_url") or item.get("url") or ""),
+            "sha256": item.get("sha256"),
+        }
         for item in (doc.get("attachments") or [])
         if isinstance(item, dict) and item.get("url")
     ]
 
     return {
+        "schema_version": doc.get("schema_version", ""),
+        "document_id": doc.get("id", ""),
+        "source_dataset": doc.get("source_dataset", ""),
+        "source_id": doc.get("source_id", ""),
+        "content_hash": doc.get("content_hash", ""),
         "doc_title": doc.get("title", ""),
         "doc_url": doc.get("url", ""),
         "category": doc.get("category", ""),
         "subcategory": doc.get("subcategory", ""),
         "doc_type": doc.get("type", "") or "post",
         "source_kind": "post",
-        "date": doc.get("date", ""),
+        "published_at": doc.get("published_at"),
+        "updated_at": doc.get("updated_at"),
+        "effective_at": doc.get("effective_at"),
         "is_notice": doc.get("is_notice", False),
         "source_page_url": doc.get("url", ""),
         "source_site": doc.get("source_site", ""),
-        "crawled_at": doc.get("crawled_at", ""),
+        "crawl": doc.get("crawl", {}),
         "attachments": attachments,
     }
 

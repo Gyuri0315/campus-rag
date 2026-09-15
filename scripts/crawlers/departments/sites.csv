@@ -1,0 +1,101 @@
+단과대학,학부/학과,전공,홈페이지,기존 크롤링 적용 가능 여부,약칭
+인문사회과학대학,-,-,http://chss.pknu.ac.kr/,○,chss
+인문사회과학대학,국어국문학과,-,http://kukmun.pknu.ac.kr/,,kukmun
+인문사회과학대학,영어영문학부,-,http://english.pknu.ac.kr/,,english
+인문사회과학대학,일어일문학부,-,http://japanese.pknu.ac.kr/,,japanese
+인문사회과학대학,사학과,-,http://history.pknu.ac.kr/,,history
+인문사회과학대학,경제학과,-,https://econ.pknu.ac.kr/,,econ
+인문사회과학대학,법학과,-,http://pknulaw.pknu.ac.kr/,,pknulaw
+인문사회과학대학,행정복지학부,-,http://pknupa.pknu.ac.kr/,,pknupa
+인문사회과학대학,행정복지학부,사회복지학전공,https://icms.pknu.ac.kr/ps1,,ps1
+인문사회과학대학,국제지역학부,-,http://dias.pknu.ac.kr/,,dias
+인문사회과학대학,중국학과,-,http://chinese.pknu.ac.kr/,,chinese
+인문사회과학대학,정치외교학과,-,http://politics.pknu.ac.kr/,,politics
+인문사회과학대학,유아교육과,-,http://education.pknu.ac.kr/,,education
+인문사회과학대학,패션디자인학과,-,http://fashion.pknu.ac.kr/,,fashion
+인문사회과학대학,사회계열,-,-,,
+인문사회과학대학,인문사회과학대학 자유전공학부,-,https://hssliberal.pknu.ac.kr/,,hssliberal
+자연과학대학,-,-,http://cns.pknu.ac.kr/,,cns
+자연과학대학,응용수학과,-,https://math.pknu.ac.kr/,,math
+자연과학대학,물리학과,-,https://physics.pknu.ac.kr/,,physics
+자연과학대학,화학과,-,https://chem.pknu.ac.kr/,,chem
+자연과학대학,미생물학과,-,http://microbiology.pknu.ac.kr/,,microbiology
+자연과학대학,간호학과,-,http://nursing.pknu.ac.kr/,,nursing
+자연과학대학,과학컴퓨팅학과,-,https://scicomp.pknu.ac.kr/,,scicomp
+자연과학대학,자연과학대학 자유전공학부,-,https://nsum.pknu.ac.kr/,,nsum
+경영대학,-,-,http://cba.pknu.ac.kr/,,cba
+경영대학,경영학부,-,http://dba.pknu.ac.kr/,,dba
+경영대학,국제통상학부,-,http://pknudic.pknu.ac.kr/,,pknudic
+경영대학,경영대학 자유전공학부,-,https://cbaliberal.pknu.ac.kr/,,cbaliberal
+공과대학,-,-,https://coe.pknu.ac.kr/,,coe
+공과대학,전기공학부,전기공학전공,http://electric-eng.pknu.ac.kr/,,electric-eng
+공과대학,전기공학부,제어계측공학전공,http://control.pknu.ac.kr/,,control
+공과대학,전기공학부,디스플레이반도체공학전공,https://semicon.pknu.ac.kr/,,semicon
+공과대학,기계공학부,기계학전공,http://me.pknu.ac.kr/,,me
+공과대학,기계공학부,기계설계공학전공,http://mae.pknu.ac.kr/,,mae
+공과대학,에너지수송시스템공학부,냉동공조공학전공,http://ref.pknu.ac.kr/,,ref
+공과대학,에너지수송시스템공학부,기계시스템공학전공,http://mse.pknu.ac.kr/,,mse
+공과대학,에너지수송시스템공학부,조선해양시스템공학전공,https://name.pknu.ac.kr/,,name
+공과대학,화학공학과,-,http://chemeng.pknu.ac.kr/,,chemeng
+공과대학,고분자화학소재공학부,에너지화학소재공학전공,http://induseng.pknu.ac.kr/,,induseng
+공과대학,고분자화학소재공학부,고분자공학전공,http://polymer.pknu.ac.kr/,,polymer
+공과대학,나노융합반도체공학부,나노융합공학전공,http://nano.pknu.ac.kr/,,nano
+공과대학,나노융합반도체공학부,차세대반도체공학전공,https://semiconductor.pknu.ac.kr/,,semiconductor
+공과대학,시스템경영안전공학부,산업경영공학전공,https://sme.pknu.ac.kr/,,sme
+공과대학,시스템경영안전공학부,기술·데이터공학전공,https://sme.pknu.ac.kr/,,sme
+공과대학,시스템경영안전공학부,안전공학전공,http://safety.pknu.ac.kr/,,safety
+공과대학,소방공학과,-,http://fire.pknu.ac.kr/,,fire
+공과대학,융합소재공학부,금속공학전공,http://metal.pknu.ac.kr/,,metal
+공과대학,융합소재공학부,재료공학전공,https://materials-engineering.pknu.ac.kr/,,materials-engineering
+공과대학,융합소재공학부,신소재시스템공학전공,http://materials.pknu.ac.kr/,,materials
+공과대학,건축공학과,-,http://archieng.pknu.ac.kr/,,archieng
+공과대학,지속가능공학부,토목공학전공,http://civil.pknu.ac.kr/,,civil
+공과대학,지속가능공학부,생태공학전공,http://ecoeng.pknu.ac.kr/,,ecoeng
+공과대학,공과대학 자유전공학부,-,https://engopen.pknu.ac.kr/engopen,,engopen
+수산과학대학,-,-,https://fishsci.pknu.ac.kr/,,fishsci
+수산과학대학,식품과학부,식품공학전공,https://food.pknu.ac.kr/,,food
+수산과학대학,식품과학부,식품영양학전공,https://nulife.pknu.ac.kr/,,nulife
+수산과학대학,생물공학과,-,http://biotech.pknu.ac.kr/,,biotech
+수산과학대학,해양생산시스템관리학부,-,http://mpsm.pknu.ac.kr/,,mpsm
+수산과학대학,수산생명과학부,양식응용생명과학전공,http://aqua-culture.pknu.ac.kr/,,aqua-culture
+수산과학대학,수산생명과학부,자원생물학전공,http://marinebio.pknu.ac.kr/,,marinebio
+수산과학대학,수산생명의학과,-,http://aquamed.pknu.ac.kr/,,aquamed
+수산과학대학,수해양산업교육과,-,http://fedu.pknu.ac.kr/,,fedu
+수산과학대학,해양수산경영경제학부,-,https://dmfbe.pknu.ac.kr/,,dmfbe
+수산과학대학,해양수산경영경제학부,해양수산경영학전공,http://mbe.pknu.ac.kr/,,mbe
+수산과학대학,해양수산경영경제학부,자원환경경제학전공,https://ree.pknu.ac.kr/,,ree
+수산과학대학,수산과학대학 자유전공학부,-,http://fisheries.pknu.ac.kr/,,fisheries
+환경·해양대학,-,-,http://enma.pknu.ac.kr/,,enma
+환경·해양대학,지구환경시스템과학부,환경공학전공,https://env-eng.pknu.ac.kr/,,env-eng
+환경·해양대학,지구환경시스템과학부,해양학전공,https://pkuocean.pknu.ac.kr/,,pkuocean
+환경·해양대학,지구환경시스템과학부,환경지질과학전공,https://earth.pknu.ac.kr/,,earth
+환경·해양대학,지구환경시스템과학부,환경대기과학전공,https://envatm.pknu.ac.kr/,,envatm
+환경·해양대학,지구환경시스템과학부,공간정보시스템공학전공,http://geoinfo.pknu.ac.kr/,,geoinfo
+환경·해양대학,해양공학과,-,https://oceaneng.pknu.ac.kr/,,oceaneng
+환경·해양대학,에너지자원공학과,-,https://ere.pknu.ac.kr/,,ere
+환경·해양대학,환경·해양대학 자유전공학부,-,https://lem.pknu.ac.kr/,,lem
+정보융합대학,-,-,http://itc.pknu.ac.kr/,,itc
+정보융합대학,데이터정보과학부,빅데이터융합전공,https://icms.pknu.ac.kr/bigdata,,bigdata
+정보융합대학,데이터정보과학부,통계·데이터사이언스전공,http://stat.pknu.ac.kr/,,stat
+정보융합대학,미디어커뮤니케이션학부,언론정보전공,https://masscom.pknu.ac.kr/,,masscom
+정보융합대학,미디어커뮤니케이션학부,미디어ICT공학전공,https://humanict.pknu.ac.kr/,,humanict
+정보융합대학,스마트헬스케어학부,의공학전공,http://bme.pknu.ac.kr/,,bme
+정보융합대학,스마트헬스케어학부,해양스포츠전공,http://marinesports.pknu.ac.kr/,,marinesports
+정보융합대학,스마트헬스케어학부,휴먼바이오융합전공,https://humanbio.pknu.ac.kr/,,humanbio
+정보융합대학,전자정보통신공학부,전자공학전공,https://ee.pknu.ac.kr/,,ee
+정보융합대학,전자정보통신공학부,정보통신공학전공,http://ice.pknu.ac.kr/,,ice
+정보융합대학,조형학부,건축학전공,https://pknuarchi.pknu.ac.kr/,,pknuarchi
+정보융합대학,조형학부,공업디자인전공,https://industrial.pknu.ac.kr/,,industrial
+정보융합대학,조형학부,시각디자인전공,https://visual.pknu.ac.kr/,,visual
+정보융합대학,컴퓨터·인공지능공학부,"컴퓨터공학전공, 인공지능전공",https://ce.pknu.ac.kr/,,ce
+정보융합대학,디지털금융학과,-,https://digitalfinance.pknu.ac.kr/,,digitalfinance
+정보융합대학,스마트모빌리티공학과,-,https://smartmobility.pknu.ac.kr/,,smartmobility
+정보융합대학,정보융합대학 자유전공학부,-,https://liberalitc.pknu.ac.kr/,,liberalitc
+미래융합학부,-,-,https://future.pknu.ac.kr/future/1,,future
+미래융합학부,-,평생교육·상담학전공,http://lifelong.pknu.ac.kr/,,lifelong
+미래융합학부,-,경찰범죄심리학전공,http://safe.pknu.ac.kr/,,safe
+미래융합학부,-,사회복지서비스학전공,https://icms.pknu.ac.kr/Welfare,,welfare
+미래융합학부,-,기계조선에너지시스템공학전공,http://msce.pknu.ac.kr/,,msce
+미래융합학부,-,전기전자SW공학전공,http://eese.pknu.ac.kr/,,eese
+글로벌자율전공학부,글로벌자율전공학부,-,https://duem.pknu.ac.kr/,,duem
+학부대학,학부대학,-,https://college.pknu.ac.kr/,,college

@@ -9,8 +9,8 @@
 files/
   ce/
     output/
-      json/        # CE crawler page JSON
-      html/        # CE crawler raw HTML
+      json/        # department crawler page JSON
+      html/        # department crawler raw HTML
       files/       # CE downloaded attachments
     preprocessed/  # CE RAG chunks
     vectorized/    # CE embeddings, index.jsonl, manifest.json
@@ -36,13 +36,155 @@ files/
       deleted/     # Reserved for deleted/orphaned items
 ```
 
+All crawler datasets now use the same generated storage contract:
+
+```text
+files/<dataset>/
+  state.json
+  state.json.bak
+  output/
+    json/<category>/<slug>.json
+    html/<category>/<slug>.html
+    files/<category>/<slug>/<attachment>
+    deleted/<category>/<slug>.json
+    deleted/<category>/<slug>/page.html
+    deleted/<category>/<slug>/files/<attachment>
+    runs/<run_id>.json
+```
+
+`state.json` has `schema_version`, `dataset`, `updated_at`, and `items`. Each
+item contains at least `source_id`, `slug`, `content_hash`, `last_seen_at`,
+`miss_count`, and `status`, while retaining dataset-specific keys. State is
+written to a temporary file in the same directory, flushed, and atomically
+replaced. Before replacement, a valid previous state is copied to
+`state.json.bak`. If the current state is corrupt, the backup is loaded; if both
+are invalid the crawler fails instead of silently resetting state.
+
+Legacy root state files are detected automatically and copied into the new
+location without deleting the source or overwriting an existing target:
+
+- `state.json` → `files/ce/state.json`
+- `state_pknu_notice.json` → `files/pknu_notice/state.json`
+- `state_pknu_student_life.json` → `files/pknu_student_life/state.json`
+
+Review the migration without changing files (the default), or apply it:
+
+```powershell
+python scripts/migrations/crawler_storage.py --dataset all
+python scripts/migrations/crawler_storage.py --dataset all --apply
+```
+
+Existing output trees are not bulk-moved. Crawlers write the common paths and
+the shared lookup helper can search explicitly supplied legacy JSON roots. This
+keeps path migration opt-in and prevents user files from being overwritten.
+
+Deleted documents are archived, not removed. JSON moves to
+`deleted/<category>/<slug>.json`; related HTML and attachment directories move
+under `deleted/<category>/<slug>/`. Archival performs a collision preflight and
+stops if any destination already exists.
+
+To roll back a state migration, stop the crawler, retain the generated
+`files/<dataset>/state.json` for inspection, and restore either the untouched
+legacy root state or `state.json.bak`. Output rollback consists only of pointing
+readers at the prior output root because automatic output migration is not
+performed.
+
+## Crawler Document Schema 1.0
+
+The authoritative JSON Schema is
+`schemas/crawler-document-1.0.schema.json`. Required document fields are:
+
+```text
+schema_version, id, slug, source_site, source_dataset, source_id, url, title,
+author, category, subcategory, type, tags, published_at, updated_at,
+effective_at, content, content_hash, content_source, attachments, crawl,
+metadata
+```
+
+Readers dispatch on `schema_version`. Version `1.0` is validated directly;
+documents without a version are converted in memory. Unknown versions fail
+explicitly. Legacy conversion uses the canonical field first and then these
+fallbacks:
+
+| Canonical field | Legacy fallback | New crawler output |
+| --- | --- | --- |
+| `published_at` | `date` | legacy field removed |
+| `crawl.crawled_at` | `crawled_at` | legacy field removed |
+| `content` | `page_content`, then `html_text` | duplicate rule fields removed when represented |
+| `attachments[].text` | `file_preview_texts`, `attachment_texts` | legacy arrays removed when represented |
+| absolute `source_site` | origin of document `url` | always absolute |
+| standard `type` | rule `hak`, `gyu`, `bylaw_guideline` | raw value kept in `metadata.source_type` |
+| project-relative `saved_path` | absolute path under project root | external absolute path retained only in attachment metadata |
+
+Numeric source fields are converted from digit-only strings when their meaning
+is numeric. Information-bearing legacy text is not removed unless it is present
+in canonical `content` or attachment text.
+
+Document migration is dry-run by default:
+
+```powershell
+python scripts/migrations/crawler_documents.py --dataset pknu_notice
+python scripts/migrations/crawler_documents.py --dataset pknu_notice --apply
+```
+
+The report compares document counts, normalized content, old/new content hashes,
+and attachment counts. Apply mode first writes `<name>.json.legacy.bak`, refuses
+backup collisions, and atomically replaces the JSON only after all loss checks
+pass.
+
+## Crawler Run Results
+
+Every crawler writes one run result to:
+
+```text
+files/<source_dataset>/output/runs/<run_id>.json
+```
+
+The shared `CrawlStats` counters are `discovered`, `requested`, `new`, `updated`,
+`unchanged`, `deleted`, `skipped`, `failed`, `attachments_discovered`,
+`attachments_downloaded`, and `attachments_failed`. `unchanged` means that a
+document was requested and its content hash did not change. `skipped` means the
+request or processing was omitted because of state, a limit, or a CLI option.
+
+Run status is `success` when no document or attachment failed,
+`partial_success` when processing continued after one or more item failures,
+`failed` when the run could not be initialized, and `cancelled` on interruption.
+CLI exit codes are 0 for `success`, `partial_success`, and `cancelled`, 1 for
+`failed`, and argparse retains exit code 2 for invalid CLI usage. The final
+console log emits the same JSON object with the `RUN_RESULT` prefix.
+
+### Crawler Logs
+
+Crawler logs are written as UTF-8 to both human-readable and machine-readable files:
+
+```text
+logs/crawlers/<dataset>.log
+logs/crawlers/<dataset>.jsonl
+```
+
+Console and `.log` records use
+`<timestamp> <level> <dataset> <event> key=value ...`. Each JSONL line is an
+independent JSON object containing at least `timestamp`, `level`, `dataset`,
+`run_id`, and `event`. Stable events include `run_started`, `run_finished`,
+`section_started`, `section_finished`, `list_fetched`, `document_discovered`,
+`document_saved`, `document_unchanged`, `document_skipped`, `document_deleted`,
+`document_failed`, `attachment_downloaded`, `attachment_failed`, `state_loaded`,
+`state_saved`, `retry_scheduled`, and `request_failed`.
+
+Passwords, tokens, cookies, authorization values, API keys, and sensitive URL
+query values are replaced with `***REDACTED***`. Stack traces are emitted for
+ERROR/CRITICAL records and in DEBUG mode. Existing progress messages remain
+visible and are assigned the fallback `log_message` event.
+
 ## CE Dataset
 
 Source crawler:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\ce\crawler.py --once
+.\.venv\Scripts\python.exe scripts\crawlers\departments\engine.py --dataset ce --once
 ```
+
+학과 홈페이지와 section 정보는 `scripts/crawlers/departments/registry.json`에 있습니다. CMS별 메뉴·목록·상세·정적 페이지·첨부 링크 파싱은 `scripts/crawlers/departments/adapters/`가 담당하고, `engine.py`는 공통 저장·상태·통계·로그 실행 흐름을 담당합니다. registry의 `adapter`를 생략하면 `numeric_cms`가 사용됩니다.
 
 Raw output:
 
@@ -85,7 +227,7 @@ Supabase target tables:
 Source crawler:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\rule\crawler.py --laws --bylaws
+.\.venv\Scripts\python.exe scripts\crawlers\pknu_rule.py --laws --bylaws
 ```
 
 Rule attachments are downloaded by default. Use `--no-download-files` for a metadata-only crawl.
@@ -100,13 +242,12 @@ files/rule/output/html/pknu_rule_bylaw/*.html
 files/rule/output/files/...
 ```
 
-Rule JSON documents may include these source-specific fields:
-
-- `content`: combined text used by downstream preprocessing.
-- `html_text`: text extracted from crawled HTML.
-- `page_content`: text visible in the detail page body.
-- `preview_content`: preview HTML text when the site exposes it separately.
-- `attachment_texts`: text extracted from downloaded attachments, including per-file extraction errors.
+Rule schema 1.0 JSON uses `content` as the single combined text field and
+`attachments[].text` for extracted attachment text. New output no longer emits
+the duplicate `html_text`, `page_content`, `attachment_texts`, or
+`file_preview_texts` fields. The version-aware reader still consumes them from
+legacy files, and preserves a field whenever its text is not represented by
+`content` or canonical attachments.
 
 Preprocessed output:
 
@@ -137,7 +278,7 @@ Supabase target tables:
 Source crawler:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\main\notice_crawler.py
+.\.venv\Scripts\python.exe scripts\crawlers\pknu_notice.py
 ```
 
 Raw output:
@@ -149,30 +290,16 @@ files/pknu_notice/output/files/<category>/<slug>/<attachment>
 files/pknu_notice/output/deleted/<category>/<slug>.json
 ```
 
-Notice JSON includes:
-
-- `slug`
-- `no`
-- `notice_no`
-- `title`
-- `date`
-- `url`
-- `is_notice`
-- `categories`
-- `pknu_cd`
-- `category`
-- `subcategory`
-- `type`
-- `author`
-- `content`
-- `content_hash`
-- `attachments`
-- `source_site`
-- `crawled_at`
+Notice JSON uses the shared schema fields documented below. Notice-specific
+values such as `no`, `notice_no`, `is_notice`, `categories`, and `pknu_cd` are
+retained as source metadata. `published_at` replaces `date`, and
+`crawl.crawled_at` replaces the crawler-specific `crawled_at` field.
 
 Attachment metadata:
 
-- `attachments` contains `{name, url, saved_path, downloaded, source_page_url, source_site, downloaded_from_url, content_type}` when a file download succeeds.
+- `attachments` uses the common attachment schema with `id`, `name`, `url`,
+  `final_url`, project-relative `saved_path`, `downloaded`, `content_type`,
+  integer `size_bytes`, `sha256`, `text`, and structured `error`.
 - Existing downloaded attachments are reused on incremental crawls when their `saved_path` still exists.
 
 ## Student Life Dataset
@@ -180,7 +307,7 @@ Attachment metadata:
 Source crawler:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\main\student_life_crawler.py --mode all
+.\.venv\Scripts\python.exe scripts\crawlers\pknu_student_life.py --mode all
 ```
 
 Raw output:
