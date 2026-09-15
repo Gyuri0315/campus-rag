@@ -8,6 +8,8 @@ vectorized/
 logs/
 *.log
 ask_results.json
+eval/results/*
+!eval/results/.gitkeep
 
 # Crawler state, backups, and temporary artifacts
 state.json

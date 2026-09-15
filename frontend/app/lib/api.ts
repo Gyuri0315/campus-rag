@@ -6,6 +6,8 @@
  * into the richer Source shape the chat UI renders.
  */
 
+import { supabase } from "@/app/lib/supabase/client";
+
 export type Attachment = { name: string; url: string };
 
 export type ChatSource = {
@@ -70,9 +72,19 @@ export async function askBackend(
   question: string,
   signal?: AbortSignal,
 ): Promise<AskResult> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) {
+    throw new Error("로그인이 필요합니다.");
+  }
+
   const res = await fetch("/api/ask", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${session.access_token}`,
+    },
     body: JSON.stringify({ question }),
     signal,
   });

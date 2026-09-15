@@ -691,6 +691,132 @@ def crawl_ebook(session: requests.Session, state: dict[str, Any], full_resync: b
     return stats
 
 
+# ── Plain-HTML "안내 페이지" siblings of /main/434 ──────────────────────────
+# /main/434 (GUIDE_URL) is a PDF-attachment gallery, but the site has many
+# sibling pages under the same /main/<id> pattern that are plain HTML
+# articles instead (no PDF at all) — e.g. campus contact info, 조기졸업,
+# 학점포기(성적자율삭제). These never matched crawl_guide()'s PDF-anchor
+# parsing, so they were never collected at all. Real content lives inside
+# div#subCont (confirmed by inspecting the rendered page); everything
+# outside it is shared site nav/header/footer.
+STATIC_PAGE_IDS: tuple[int, ...] = (
+    17,   # 캠퍼스안내 (대연/용당 캠퍼스별 연락처)
+    92,   # 학적변동 (휴학/복학)
+    93,   # 전공제도 (복수전공/부전공/전과)
+    94,   # 졸업 (조기졸업/학사학위취득유예/졸업사정)
+    95,   # 학점인정안내
+    96,   # 성적관리
+    97,   # 강의평가 및 성적확인
+    98,   # 학·석사연계과정
+    99,   # 학적부기재사항정정
+    100,  # 교직 및 평생교육사과정
+    101,  # 현장실습
+    102,  # 등록금안내
+    103,  # 장학제도
+    104,  # 학자금융자
+    110,  # 수강신청 안내
+    112,  # 강의계획서 조회
+    114,  # 학생증발급
+    115,  # 국제학생증발급
+    117,  # 국외여행 및 어학연수
+    118,  # 복지시설
+    119,  # 학생자치기구
+    237,  # 졸업안내
+    238,  # [공통] 졸업요건 안내자료
+    244,  # 성적자율삭제(학점포기)
+    262,  # 학생생활관
+    449,  # 제증명발급 안내
+    481,  # 주차요금
+    528,  # 예비군
+)
+
+SUBCATEGORY_STATIC_PAGE = "학사안내_페이지"
+
+
+def fetch_static_page(session: requests.Session, page_id: int) -> tuple[str, str] | None:
+    """Fetch a plain-HTML /main/<id> info page and return (title, content) or None."""
+    url = f"{BASE_URL}/main/{page_id}"
+    resp = fetch(session, url)
+    resp.raise_for_status()
+    soup = BeautifulSoup(resp.text, "lxml")
+    container = soup.select_one("#subCont")
+    if container is None:
+        return None
+    for tag in container(["script", "style"]):
+        tag.decompose()
+    content = re.sub(r"\n{2,}", "\n", container.get_text("\n", strip=True)).strip()
+    title = normalize_title(soup.title.get_text(strip=True)) if soup.title else f"main-{page_id}"
+    return title, content
+
+
+def crawl_static_pages(session: requests.Session, state: dict[str, Any], full_resync: bool) -> CrawlStats:
+    stats = CrawlStats(discovered=len(STATIC_PAGE_IDS))
+    items_state: dict[str, Any] = state.setdefault("items", {})
+
+    for page_id in STATIC_PAGE_IDS:
+        url = f"{BASE_URL}/main/{page_id}"
+        log_event(log, logging.DEBUG, "document_discovered", source_id=f"page:{page_id}", url=url)
+        stats.requested += 1
+        try:
+            fetched = fetch_static_page(session, page_id)
+        except Exception as exc:
+            stats.failed += 1
+            log.error("[PAGE] %s 실패: %s", url, exc)
+            log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, error=exc)
+            continue
+
+        if fetched is None:
+            stats.failed += 1
+            log.warning("[PAGE] %s: #subCont 없음, 스킵", url)
+            log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, reason="no_subcont")
+            continue
+
+        title, content = fetched
+        if len(content) < MIN_PDF_TEXT_CHARS:
+            stats.failed += 1
+            log.warning("[PAGE] %s: 본문 %d자 (너무 짧음), 스킵", url, len(content))
+            log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, reason="content_too_short")
+            continue
+
+        slug = make_slug(url, title)
+        c_hash = content_hash(content)
+        prev = items_state.get(slug, {})
+        if prev and not full_resync and prev.get("content_hash") == c_hash:
+            log.info("[PAGE] %s (unchanged)", title)
+            stats.unchanged += 1
+            continue
+
+        doc: dict[str, Any] = {
+            "slug": slug,
+            "title": title,
+            "date": datetime.now().strftime("%Y-%m-%d"),
+            "url": url,
+            "pdf_url": None,
+            "category": CATEGORY,
+            "subcategory": SUBCATEGORY_STATIC_PAGE,
+            "type": "page",
+            "year": None,
+            "content": content,
+            "content_hash": c_hash,
+            "attachments": [],
+            "source_site": BASE_URL,
+            "crawled_at": datetime.now().isoformat(),
+        }
+        save_json(doc, SUBCATEGORY_STATIC_PAGE, slug)
+        items_state[slug] = {
+            "slug": slug,
+            "content_hash": c_hash,
+            "url": url,
+            "last_seen_at": datetime.now().isoformat(),
+        }
+        outcome = "new" if not prev else "updated"
+        setattr(stats, outcome, getattr(stats, outcome) + 1)
+        log_event(log, logging.INFO, "document_saved", source_id=f"page:{page_id}", url=url, status=outcome)
+        log.info("[PAGE] %s: %s", outcome, title)
+
+    return stats
+
+
 def crawl_guide(
     session: requests.Session,
     state: dict[str, Any],
@@ -740,6 +866,13 @@ def run(mode: str, full_resync: bool, limit: int | None) -> CrawlStats:
         log.info("[GUIDE] 완료: %s", stats)
         log_event(log, logging.INFO, "section_finished", section="guide", stats=stats.to_dict())
 
+    if mode in ("pages", "all"):
+        log_event(log, logging.INFO, "section_started", section="pages")
+        stats = crawl_static_pages(session, state, full_resync)
+        total_stats.add(stats)
+        log.info("[PAGE] 완료: %s", stats)
+        log_event(log, logging.INFO, "section_finished", section="pages", stats=stats.to_dict())
+
     if mode in ("ebook", "all"):
         log_event(log, logging.INFO, "section_started", section="ebook")
         if mode == "all":
@@ -758,9 +891,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="부경대 대학생활 가이드 + E-하나로 크롤러")
     parser.add_argument(
         "--mode",
-        choices=["guide", "ebook", "all"],
+        choices=["guide", "pages", "ebook", "all"],
         default="all",
-        help="guide=/main/434, ebook=col_life, all=둘 다",
+        help="guide=/main/434, pages=형제 안내페이지, ebook=col_life, all=전부",
     )
     parser.add_argument("--full-resync", action="store_true", help="content_hash 무시하고 재수집")
     parser.add_argument("--reset-state", action="store_true", help="files/pknu_student_life/state.json 초기화")

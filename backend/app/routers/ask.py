@@ -12,6 +12,7 @@ from ..deps import AppState, get_state
 from ..excerpts import extract_relevant_excerpt
 from ..generation import generate_answer
 from ..query_transform import transform_query
+from ..rate_limit import enforce_ask_rate_limit
 from ..retrieval import search
 from ..schemas import AskRequest, AskResponse, Attachment, Source
 
@@ -106,13 +107,17 @@ def _row_to_source(row: Dict[str, Any]) -> Source:
 
 
 @router.post("/ask", response_model=AskResponse)
-def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskResponse:
+def ask(
+    payload: AskRequest,
+    state: AppState = Depends(get_state),
+    user_id: str = Depends(enforce_ask_rate_limit),
+) -> AskResponse:
     question = payload.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
 
     search_query = transform_query(question) or question
-    logger.info("ask: question=%r search=%r", question, search_query)
+    logger.info("ask: user=%s question=%r search=%r", user_id, question, search_query)
 
     try:
         embedding = state.embedder.encode_query(search_query)
@@ -134,6 +139,7 @@ def ask(payload: AskRequest, state: AppState = Depends(get_state)) -> AskRespons
             reranker=state.reranker,
             reranker_weight=state.settings.reranker_weight,
             max_chunks_per_url=state.settings.rag_max_chunks_per_url,
+            max_lexical_chunks_per_url=state.settings.rag_max_lexical_chunks_per_url,
             query_text=search_query,
         )
     except Exception:

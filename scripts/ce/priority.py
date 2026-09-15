@@ -9,9 +9,31 @@ from typing import Any, Iterable
 
 TOKEN_PATTERN = re.compile(r"[0-9a-zA-Z\uac00-\ud7a3]+")
 DATE_PATTERN = re.compile(
-    r"(20\d{2})(?:[.\-/\ub144]|\s*\ud559\ub144\ub3c4)?\s*(\d{1,2})?[.\-/\uc6d4]?\s*(\d{1,2})?"
+    r"(20\d{2})(?:[.\-/\ub144]|\s*\ud559\ub144\ub3c4)?"
+    r"\s*(\d{1,2}(?!\s*\ud559\uae30))?[.\-/\uc6d4]?"
+    r"\s*(\d{1,2}(?!\s*\ud559\uae30))?"
 )
 COMPACT_DATE_PATTERN = re.compile(r"^(20\d{2})(\d{2})(\d{2})$")
+
+# A trailing "-2 hakgi" (2nd semester) marker used to get misread by DATE_PATTERN
+# as month "2" (e.g. "2026-2 hakgi" -> 2026-02-01). The lookahead above now blocks
+# that; map semester numbers to an approximate month here instead so recency
+# scoring still gets a usable date rather than falling back to year-only.
+SEMESTER_PATTERN = re.compile(r"(20\d{2})\s*(?:\ub144|\ud559\ub144\ub3c4)?\s*[-.]?\s*([12])\s*\ud559\uae30")
+_SEMESTER_MONTH = {1: 3, 2: 9}
+
+
+def _semester_dates(text: str) -> list[date]:
+    dates: list[date] = []
+    for year_text, semester_text in SEMESTER_PATTERN.findall(text):
+        month = _SEMESTER_MONTH.get(int(semester_text))
+        if month is None:
+            continue
+        try:
+            dates.append(date(int(year_text), month, 1))
+        except ValueError:
+            continue
+    return dates
 FORM_ATTACHMENT_PATTERN = re.compile(
     "(\ubcc4\uc9c0\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?\\s*\ud638?\\s*(?:\uc11c\uc2dd)?|"
     "\uc11c\uc2dd\\s*(?:\uc81c)?\\s*\\d+(?:\\s*\uc758\\s*\\d+)?|"
@@ -73,6 +95,9 @@ def parse_ce_date(value: object) -> date | None:
     if not value:
         return None
     text = str(value).strip()
+    semester_dates = _semester_dates(text)
+    if semester_dates:
+        return max(semester_dates)
     compact = COMPACT_DATE_PATTERN.match(text)
     if compact:
         year, month, day = (int(part) for part in compact.groups())
@@ -102,6 +127,7 @@ def extract_latest_date(*values: object) -> date | None:
         parsed = parse_ce_date(text)
         if parsed:
             dates.append(parsed)
+        dates.extend(_semester_dates(text))
         for year_text, month_text, day_text in DATE_PATTERN.findall(text):
             try:
                 dates.append(date(int(year_text), int(month_text or 1), int(day_text or 1)))

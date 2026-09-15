@@ -125,12 +125,6 @@ const IconTrash = () => (
     <line x1="8.5" y1="6.5" x2="8.5" y2="10" />
   </svg>
 );
-const IconAttach = () => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8">
-    <line x1="8" y1="3" x2="8" y2="13" />
-    <line x1="3" y1="8" x2="13" y2="8" />
-  </svg>
-);
 const IconDownload = () => (
   <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8">
     <line x1="6" y1="1" x2="6" y2="8" />
@@ -609,6 +603,13 @@ export default function ChatContent() {
   const { pendingQuery, setPendingQuery } = useQueryContext();
   const { user, loading: authLoading, signOut } = useAuth();
 
+  // 로그인 필수: 세션 없으면 로그인 화면으로 (비회원 채팅 더 이상 허용 안 함)
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace("/auth?next=/chat");
+    }
+  }, [authLoading, user, router]);
+
   const [history, setHistory] = useState<HistoryItem[]>(sidebarHistory);
   const [activeId, setActiveId] = useState<string>(() => sidebarHistory[0]?.id ?? "");
   const persistChatIdRef = useRef<string | null>(null);
@@ -669,7 +670,7 @@ export default function ChatContent() {
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── 로그인 시 사이드바 목록을 DB에서, 비로그인 시 JSON sidebar ─────
   useEffect(() => {

@@ -38,8 +38,26 @@ class Settings(BaseSettings):
     # Retrieval
     rag_top_k: int = 10
     rag_first_stage_k: int = 30
-    rag_min_similarity: float = 0.35
+    rag_min_similarity: float = 0.30
     rag_max_chunks_per_url: int = 2
+    # NOTE: tried a tighter per-URL cap (1) specifically for lexical-only
+    # hits, on the theory that one broad keyword-rich document (e.g. a
+    # 2000+ chunk "student life guide" ebook) was crowding out other
+    # candidates on lexical coincidence alone. Measured on the 100-case
+    # eval: made things worse (33 -> 38 answerable failures, 0 improved /
+    # 5 regressed vs. no cap) — that "guide" document turned out to
+    # genuinely cover many different administrative topics, so multiple
+    # chunks of it are often legitimately relevant, not noise. Left at
+    # None (disabled); the two-tier cap machinery in retrieval.py still
+    # accepts a value if a future, better-targeted case for it turns up.
+    rag_max_lexical_chunks_per_url: int | None = None
+    # NOTE: also tried lowering these to 0.20/0.10 when hybrid (BM25 +
+    # vector) search shipped, on the theory that lexical hits now carry
+    # their own relevance signal via `similarity`. Measured regression on
+    # the 100-case eval (33 -> 40 answerable failures): priority_score is
+    # doing real work filtering out plausible-sounding noise (e.g. an
+    # unrelated "한국어연수과정" PDF outranking the actual grade-appeal
+    # regulation once its weight was cut), so keep the original weights.
     rag_priority_weight: float = 0.30
     rag_dataset_priority_weight: float = 0.15
     rag_source_kind_weight: float = 0.10

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://campus-rag.local/schemas/eval-case.schema.json",
+  "title": "Campus RAG evaluation case",
+  "type": "object",
+  "required": [
+    "id",
+    "question",
+    "category",
+    "answerable",
+    "expected_source",
+    "required_facts",
+    "forbidden_claims",
+    "expected_no_info",
+    "tags",
+    "difficulty"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9_]+$" },
+    "question": { "type": "string", "minLength": 1 },
+    "category": { "type": "string", "minLength": 1 },
+    "answerable": { "type": "boolean" },
+    "expected_source": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "required": ["dataset", "title_keywords", "allowed_urls", "source_ids"],
+          "properties": {
+            "dataset": { "$ref": "#/$defs/stringList" },
+            "title_keywords": { "$ref": "#/$defs/stringList" },
+            "allowed_urls": { "$ref": "#/$defs/stringList" },
+            "source_ids": { "$ref": "#/$defs/stringList" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "required_facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "description", "keywords"],
+        "properties": {
+          "id": { "type": "string", "minLength": 1, "pattern": "^[a-z0-9_]+$" },
+          "description": { "type": "string", "minLength": 1 },
+          "keywords": { "$ref": "#/$defs/stringList" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "forbidden_claims": { "$ref": "#/$defs/stringList" },
+    "expected_no_info": { "type": "boolean" },
+    "tags": { "$ref": "#/$defs/stringList" },
+    "difficulty": { "enum": ["easy", "medium", "hard"] },
+    "case_type": { "type": "string", "minLength": 1 },
+    "scenario_tags": { "$ref": "#/$defs/stringList" },
+    "label_status": { "enum": ["source_verified", "label_verified", "ready"] },
+    "origin": { "enum": ["existing", "new"] },
+    "expected_behavior": { "type": "string" },
+    "review_notes": { "type": "string" },
+    "demo_required": { "type": "boolean" }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    }
+  },
+  "additionalProperties": false
+}
