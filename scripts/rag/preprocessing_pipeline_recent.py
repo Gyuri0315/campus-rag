@@ -67,7 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--recent-pages", type=int, default=3)
     parser.add_argument(
         "--student-life-mode",
-        choices=["guide", "ebook", "all"],
+        choices=["guide", "pages", "ebook", "all"],
         default="guide",
     )
     parser.add_argument("--student-life-limit", type=int, default=5)

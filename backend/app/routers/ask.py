@@ -139,6 +139,7 @@ def ask(
             reranker=state.reranker,
             reranker_weight=state.settings.reranker_weight,
             max_chunks_per_url=state.settings.rag_max_chunks_per_url,
+            max_lexical_chunks_per_url=state.settings.rag_max_lexical_chunks_per_url,
             query_text=search_query,
         )
     except Exception:

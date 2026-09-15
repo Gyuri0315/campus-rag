@@ -133,6 +133,73 @@ SOURCE_KIND_PRIORITIES = {
     "archive_member": 0.55,
 }
 
+# Reciprocal Rank Fusion for hybrid (vector + lexical/BM25-style) retrieval.
+# The embedding model discriminates formal Korean administrative text poorly:
+# the one chunk that actually answers "복수전공 신청 조건" ranks ~160th by
+# cosine similarity, well outside any vector top-K we could afford to fetch.
+# A Postgres full-text ("simple" config) search on the same chunks catches
+# exact-term matches the embedding misses. Lexical-only hits have no cosine
+# similarity, so we approximate one from their BM25-ish rank via RRF and feed
+# them into the existing candidate pool/scoring pipeline unchanged.
+_RRF_K = 60
+_LEXICAL_SIMILARITY_CEILING = 0.75
+
+
+def _lexical_rrf_norm(rank_index: int) -> float:
+    """0-based rank -> RRF weight, normalized against the best-possible (rank 0) value."""
+    return (_RRF_K + 1) / (_RRF_K + rank_index + 1)
+
+
+def _lexical_synthetic_similarity(rank_index: int, min_similarity: float) -> float:
+    """Approximate a cosine-similarity-like score for a lexical-only hit.
+
+    Deliberately capped below a genuine strong vector match (~0.85+) so a
+    lexical hit can outrank weakly-matched vector noise without silently
+    overriding rows the embedding model was actually confident about.
+    """
+    norm = _lexical_rrf_norm(rank_index)
+    ceiling = max(min_similarity, _LEXICAL_SIMILARITY_CEILING)
+    return min_similarity + norm * (ceiling - min_similarity)
+
+
+def _lexical_query_text(
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+) -> str:
+    """Build a websearch_to_tsquery-friendly OR-query from known term synonyms.
+
+    Plain full-text search only matches literal tokens, but the same concept
+    often shows up under a different word across datasets (question says
+    "복수전공", the actual regulation says "다전공"). QUERY_TERM_GROUPS already
+    encodes these synonym sets for the mismatch-penalty logic above, so reuse
+    it here to OR all known variants together instead of AND-ing the raw
+    question text, which would frequently match nothing at all.
+
+    _query_term_groups() matches by substring, so a query like "복수전공" also
+    matches the generic "전공" group ("전공" is a substring of "복수전공"). That
+    is harmless for the penalty logic but disastrous here: OR-ing in a very
+    common bare word like "전공" turns this into a near-full-table scan on the
+    largest chunk tables and blows the statement timeout. Drop any matched
+    term that is itself a substring of another, more specific matched term.
+    """
+    specific_terms = [
+        (term, variants)
+        for term, variants in query_terms
+        if not any(term != other and term in other for other, _ in query_terms)
+    ]
+    if not specific_terms:
+        return _normalize_text(query_text or "")
+    parts: list[str] = []
+    for _, variants in specific_terms:
+        for variant in variants:
+            variant = variant.strip()
+            if not variant:
+                continue
+            parts.append(f'"{variant}"' if " " in variant else variant)
+    if not parts:
+        return _normalize_text(query_text or "")
+    return " OR ".join(dict.fromkeys(parts))
+
 
 class Reranker(Protocol):
     def score(self, question: str, rows: List[Dict[str, Any]]) -> List[float]:
@@ -414,6 +481,10 @@ def _dedupe_key(row: Dict[str, Any]) -> str:
     return f"{uri}|{title}"
 
 
+def _is_lexical_only(row: Dict[str, Any]) -> bool:
+    return bool(row.get("_lexical_only"))
+
+
 def _add_row(
     selected: List[Dict[str, Any]],
     seen: set[str],
@@ -421,6 +492,8 @@ def _add_row(
     row: Dict[str, Any],
     *,
     max_chunks_per_url: int,
+    lexical_url_counts: Optional[Dict[str, int]] = None,
+    max_lexical_chunks_per_url: Optional[int] = None,
 ) -> bool:
     key = _dedupe_key(row)
     if key in seen:
@@ -428,23 +501,53 @@ def _add_row(
     url_key = _url_key(row)
     if url_counts.get(url_key, 0) >= max_chunks_per_url:
         return False
+    if (
+        lexical_url_counts is not None
+        and max_lexical_chunks_per_url is not None
+        and _is_lexical_only(row)
+        and lexical_url_counts.get(url_key, 0) >= max_lexical_chunks_per_url
+    ):
+        return False
     seen.add(key)
     url_counts[url_key] = url_counts.get(url_key, 0) + 1
+    if lexical_url_counts is not None and _is_lexical_only(row):
+        lexical_url_counts[url_key] = lexical_url_counts.get(url_key, 0) + 1
     selected.append(row)
     return True
 
 
 def _cap_per_url(
-    rows: List[Dict[str, Any]], *, max_chunks_per_url: int
+    rows: List[Dict[str, Any]],
+    *,
+    max_chunks_per_url: int,
+    max_lexical_chunks_per_url: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Preserve input order, keep at most `max_chunks_per_url` rows per URL."""
+    """Preserve input order, keep at most `max_chunks_per_url` rows per URL.
+
+    Lexical-only hits (no genuine vector match; similarity is a BM25-rank
+    approximation, see _lexical_synthetic_similarity) get an extra, tighter
+    per-URL allowance on top of the general cap. Without this, one broad
+    document that happens to contain several query keywords (e.g. an
+    all-topics "student life guide" ebook chunked into 2000+ pieces) can
+    claim most of its URL's chunk slots via lexical coincidence alone,
+    crowding out chunks from other, more specifically relevant documents.
+    """
     counts: Dict[str, int] = {}
+    lexical_counts: Dict[str, int] = {}
     kept: List[Dict[str, Any]] = []
     for row in rows:
         url_key = _url_key(row)
         if counts.get(url_key, 0) >= max_chunks_per_url:
             continue
+        if (
+            max_lexical_chunks_per_url is not None
+            and _is_lexical_only(row)
+            and lexical_counts.get(url_key, 0) >= max_lexical_chunks_per_url
+        ):
+            continue
         counts[url_key] = counts.get(url_key, 0) + 1
+        if _is_lexical_only(row):
+            lexical_counts[url_key] = lexical_counts.get(url_key, 0) + 1
         kept.append(row)
     return kept
 
@@ -460,6 +563,7 @@ def _rerank_candidates(
     priority_weight: float,
     dataset_priority_weight: float,
     source_kind_weight: float,
+    max_lexical_chunks_per_url: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     if not candidates:
         return []
@@ -475,7 +579,11 @@ def _rerank_candidates(
             ),
             reverse=True,
         )
-        return _cap_per_url(ordered, max_chunks_per_url=max_chunks_per_url)[:top_k]
+        return _cap_per_url(
+            ordered,
+            max_chunks_per_url=max_chunks_per_url,
+            max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+        )[:top_k]
 
     try:
         raw_scores = reranker.score(question, candidates)
@@ -491,7 +599,11 @@ def _rerank_candidates(
             ),
             reverse=True,
         )
-        return _cap_per_url(ordered, max_chunks_per_url=max_chunks_per_url)[:top_k]
+        return _cap_per_url(
+            ordered,
+            max_chunks_per_url=max_chunks_per_url,
+            max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+        )[:top_k]
 
     normalized_scores = normalize_scores(raw_scores)
     bounded_reranker_weight = max(0.0, min(1.0, reranker_weight))
@@ -514,7 +626,52 @@ def _rerank_candidates(
         rescored.append(copied)
 
     rescored.sort(key=lambda row: float(row.get("rerank_final_score") or 0.0), reverse=True)
-    return _cap_per_url(rescored, max_chunks_per_url=max_chunks_per_url)[:top_k]
+    return _cap_per_url(
+        rescored,
+        max_chunks_per_url=max_chunks_per_url,
+        max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+    )[:top_k]
+
+
+def _process_candidate_row(
+    row: Dict[str, Any],
+    rpc_name: str,
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> tuple[Optional[Dict[str, Any]], str]:
+    """Shared per-row pipeline, used for both vector and lexical RPC rows.
+
+    Returns (row, outcome). outcome is "noise" or "dataset_mismatch" when the
+    row is dropped (row is None in that case), "query_mismatch" when it is
+    kept but penalized, or "ok" otherwise.
+    """
+    copied = dict(row)
+    metadata = dict(copied.get("metadata") or {})
+    metadata.setdefault("rpc_name", rpc_name)
+    copied["metadata"] = metadata
+
+    if _noise_flags(copied):
+        return None, "noise"
+
+    query_flags = _query_mismatch_flags(copied, query_terms)
+    if query_flags:
+        copied["_query_mismatch_flags"] = query_flags
+
+    if _dataset_mismatch_flags(copied, query_terms):
+        return None, "dataset_mismatch"
+
+    base_dataset_priority = DATASET_PRIORITIES.get(rpc_name, 0.50)
+    boost = _dataset_priority_boost(rpc_name, query_text)
+    copied["_boosted_dataset_priority"] = min(1.0, base_dataset_priority + boost)
+    copied["priority_score"] = _priority_score(copied)
+    copied["dataset_priority"] = _dataset_priority(copied)
+    copied["final_score"] = _final_score(
+        copied, priority_weight, dataset_priority_weight, source_kind_weight
+    )
+    return copied, ("query_mismatch" if query_flags else "ok")
 
 
 def search(
@@ -531,6 +688,7 @@ def search(
     reranker: Optional[Reranker] = None,
     reranker_weight: float = 0.80,
     max_chunks_per_url: int = 2,
+    max_lexical_chunks_per_url: Optional[int] = None,
     query_text: Optional[str] = None,
     metadata_filter: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
@@ -542,6 +700,7 @@ def search(
     in one RPC is logged at WARN and skipped; partial results still flow.
     """
     query_terms = _query_term_groups(query_text)
+    lexical_query = _lexical_query_text(query_text, query_terms)
     candidate_count = max(first_stage_k, top_k)
     payload = {
         "query_embedding": _vector_literal(embedding),
@@ -566,60 +725,91 @@ def search(
         penalized_query_mismatch = 0
         filtered_dataset_mismatch = 0
         for row in response.data or []:
-            copied = dict(row)
-            metadata = dict(copied.get("metadata") or {})
-            metadata.setdefault("rpc_name", rpc_name)
-            copied["metadata"] = metadata
-            noise_flags = _noise_flags(copied)
-            if noise_flags:
-                filtered_noise += 1
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(
-                        "retrieval: filtered_noise rpc=%s flags=%s title=%r sim=%.4f",
-                        rpc_name,
-                        noise_flags,
-                        _title_for_row(copied)[:120],
-                        _similarity(copied),
-                    )
-                continue
-            query_flags = _query_mismatch_flags(copied, query_terms)
-            if query_flags:
-                penalized_query_mismatch += 1
-                copied["_query_mismatch_flags"] = query_flags
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(
-                        "retrieval: penalized_query_mismatch rpc=%s flags=%s title=%r sim=%.4f",
-                        rpc_name,
-                        query_flags,
-                        _title_for_row(copied)[:120],
-                        _similarity(copied),
-                    )
-            dataset_flags = _dataset_mismatch_flags(copied, query_terms)
-            if dataset_flags:
-                filtered_dataset_mismatch += 1
-                if logger.isEnabledFor(logging.DEBUG):
-                    logger.debug(
-                        "retrieval: filtered_dataset_mismatch rpc=%s flags=%s title=%r sim=%.4f",
-                        rpc_name,
-                        dataset_flags,
-                        _title_for_row(copied)[:120],
-                        _similarity(copied),
-                    )
-                continue
-            base_dataset_priority = DATASET_PRIORITIES.get(rpc_name, 0.50)
-            boost = _dataset_priority_boost(rpc_name, query_text)
-            copied["_boosted_dataset_priority"] = min(
-                1.0, base_dataset_priority + boost
-            )
-            copied["priority_score"] = _priority_score(copied)
-            copied["dataset_priority"] = _dataset_priority(copied)
-            copied["final_score"] = _final_score(
-                copied,
+            processed, outcome = _process_candidate_row(
+                row,
+                rpc_name,
+                query_text,
+                query_terms,
                 priority_weight,
                 dataset_priority_weight,
                 source_kind_weight,
             )
-            rows.append(copied)
+            if outcome == "noise":
+                filtered_noise += 1
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "retrieval: filtered_noise rpc=%s title=%r sim=%.4f",
+                        rpc_name,
+                        _title_for_row(row)[:120],
+                        _similarity(row),
+                    )
+                continue
+            if outcome == "dataset_mismatch":
+                filtered_dataset_mismatch += 1
+                if logger.isEnabledFor(logging.DEBUG):
+                    logger.debug(
+                        "retrieval: filtered_dataset_mismatch rpc=%s title=%r sim=%.4f",
+                        rpc_name,
+                        _title_for_row(row)[:120],
+                        _similarity(row),
+                    )
+                continue
+            if outcome == "query_mismatch":
+                penalized_query_mismatch += 1
+            rows.append(processed)
+
+        # ── Lexical (BM25-style full-text) channel ───────────────────────
+        # Runs against the same table via `<rpc_name>_lexical` and is merged
+        # by rank (RRF) rather than raw score, since ts_rank_cd isn't
+        # comparable to cosine similarity. Only rows the vector search missed
+        # entirely are added here; rows both channels found already made the
+        # vector top-K on their own merit and keep their real similarity.
+        lexical_added = 0
+        if lexical_query:
+            vector_keys = {_dedupe_key(row) for row in rows}
+            lexical_rpc_name = f"{rpc_name}_lexical"
+            try:
+                lexical_response = client.rpc(
+                    lexical_rpc_name,
+                    {"query_text": lexical_query, "match_count": candidate_count},
+                ).execute()
+            except Exception:
+                logger.warning(
+                    "retrieval: lexical rpc=%s failed, skipping", lexical_rpc_name, exc_info=True
+                )
+                lexical_response = None
+
+            rank_index = 0
+            for row in (lexical_response.data if lexical_response else None) or []:
+                processed, outcome = _process_candidate_row(
+                    row,
+                    rpc_name,
+                    query_text,
+                    query_terms,
+                    priority_weight,
+                    dataset_priority_weight,
+                    source_kind_weight,
+                )
+                if outcome in ("noise", "dataset_mismatch") or processed is None:
+                    continue
+                dedupe_key = _dedupe_key(processed)
+                if dedupe_key in vector_keys:
+                    # Already surfaced by vector search on its own merit.
+                    rank_index += 1
+                    continue
+                processed["similarity"] = _lexical_synthetic_similarity(
+                    rank_index, min_similarity
+                )
+                processed["_lexical_only"] = True
+                processed["priority_score"] = _priority_score(processed)
+                processed["dataset_priority"] = _dataset_priority(processed)
+                processed["final_score"] = _final_score(
+                    processed, priority_weight, dataset_priority_weight, source_kind_weight
+                )
+                rows.append(processed)
+                vector_keys.add(dedupe_key)
+                lexical_added += 1
+                rank_index += 1
 
         rows.sort(
             key=lambda row: _final_score(
@@ -631,12 +821,13 @@ def search(
             reverse=True,
         )
         logger.info(
-            "retrieval: rpc=%s rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
+            "retrieval: rpc=%s rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d lexical_added=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
             rpc_name,
             len(rows),
             filtered_noise,
             penalized_query_mismatch,
             filtered_dataset_mismatch,
+            lexical_added,
             elapsed_ms,
             _similarity(rows[0]) if rows else 0.0,
             _priority_score(rows[0]) if rows else 0.0,
@@ -660,6 +851,7 @@ def search(
     candidates: List[Dict[str, Any]] = []
     seen: set[str] = set()
     url_counts: Dict[str, int] = {}
+    lexical_url_counts: Dict[str, int] = {}
 
     # Keep one high-scoring row from each successful RPC before global ranking.
     # This prevents one noisy collection from crowding out regulations/notices.
@@ -673,6 +865,8 @@ def search(
                 url_counts,
                 row,
                 max_chunks_per_url=max_chunks_per_url,
+                lexical_url_counts=lexical_url_counts,
+                max_lexical_chunks_per_url=max_lexical_chunks_per_url,
             ):
                 break
 
@@ -694,6 +888,8 @@ def search(
             url_counts,
             row,
             max_chunks_per_url=max_chunks_per_url,
+            lexical_url_counts=lexical_url_counts,
+            max_lexical_chunks_per_url=max_lexical_chunks_per_url,
         )
 
     selected = _rerank_candidates(
@@ -706,6 +902,7 @@ def search(
         priority_weight=priority_weight,
         dataset_priority_weight=dataset_priority_weight,
         source_kind_weight=source_kind_weight,
+        max_lexical_chunks_per_url=max_lexical_chunks_per_url,
     )
 
     logger.info(
