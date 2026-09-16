@@ -139,11 +139,17 @@ DATASET_BOOST_RULES: tuple[tuple[tuple[str, ...], Dict[str, float]], ...] = (
             "셔틀", "생활관", "기숙사", "도서관", "식당",
             "보건진료소", "연락처", "사무실", "전화",
         ),
-        {"match_pknu_student_life_documents": 0.15},
+        # "국립부경대학교 학칙" 같은 거대 허브 문서는 rule 데이터셋 전체에
+        # 균일하게 걸리는 DATASET_PRIORITIES=1.00 덕에, 연락처류 질문과는
+        # 무관한 조항이라도 다른 데이터셋의 훨씬 더 구체적인 문서를 상위
+        # 랭킹에서 밀어내는 사례가 실측으로 확인됨(예: "컴퓨터·인공지능공학부
+        # 사무실 연락처" 질문에서 학칙 조항이 1~2위, 실제 연락처 문서가 6위).
+        # 위쪽 boost와 대칭으로 규정 데이터셋에는 페널티를 줘서 상쇄한다.
+        {"match_pknu_student_life_documents": 0.15, "match_rule_documents": -0.35},
     ),
     (
         ("캡스톤", "학부 사무실", "학과 사무실"),
-        {"match_rag_documents": 0.10},
+        {"match_rag_documents": 0.10, "match_rule_documents": -0.35},
     ),
 )
 
@@ -755,7 +761,7 @@ def _process_candidate_row(
 
     base_dataset_priority = DATASET_PRIORITIES.get(rpc_name, 0.50)
     boost = _dataset_priority_boost(rpc_name, query_text)
-    copied["_boosted_dataset_priority"] = min(1.0, base_dataset_priority + boost)
+    copied["_boosted_dataset_priority"] = max(0.0, min(1.0, base_dataset_priority + boost))
     copied["priority_score"] = _priority_score(copied)
     copied["dataset_priority"] = _dataset_priority(copied)
     copied["final_score"] = _final_score(

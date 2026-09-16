@@ -416,6 +416,56 @@ def deduplicate_sources(
     return deactivated
 
 
+def refresh_priority_scores(dataset: str) -> None:
+    """Recompute priority_score for every active source in this dataset.
+
+    A freshly upserted source has no priority_score until someone separately
+    runs the dataset's update_priorities script -- until then it defaults to
+    0.0, which drags final_score down enough that even a strong lexical/exact
+    keyword match can miss the top-k cut entirely (this happened to a brand
+    new CE department contact page: it ranked #1 by lexical match but was
+    absent from the final results because every other candidate had a
+    precomputed priority_score and it did not). Each dataset's scoring
+    formula lives in its own update_priorities module -- they pull in
+    different reference corpora (rule text only, or rule+main text for ce) --
+    so dispatch to those instead of reimplementing the formula here. This
+    always does a full recompute (not just the newly loaded rows), matching
+    how those scripts are normally run by hand; on the datasets exercised so
+    far that has taken well under a minute.
+    """
+    from psycopg.rows import dict_row as _dict_row
+
+    if dataset == "ce":
+        from scripts.ce.update_priorities import update_ce_priorities
+
+        with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
+            count = update_ce_priorities(conn, False, 10)
+    elif dataset == "rule":
+        from scripts.rule.update_priorities import update_rule_priorities
+
+        with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
+            count = update_rule_priorities(conn, False, 10)
+    elif dataset in ("pknu_notice", "pknu_student_life"):
+        from scripts.main.update_priorities import fetch_rule_contents, update_dataset_priorities
+        from scripts.rag.priority import build_rule_feature_set
+
+        with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
+            rule_features = build_rule_feature_set(fetch_rule_contents(conn))
+            count = update_dataset_priorities(conn, dataset, rule_features, False, 10)
+    else:
+        log.warning(
+            "refresh_priority_scores: no priority model wired for dataset=%s, skipping",
+            dataset,
+        )
+        return
+
+    log.info(
+        "refresh_priority_scores: recomputed priority_score for %d %s source(s)",
+        count,
+        dataset,
+    )
+
+
 def load(
     index_path: Path,
     batch_size: int,
@@ -470,6 +520,8 @@ def load(
 
         deduplicate_sources(conn, resolved_sources_table, resolved_chunks_table)
         conn.commit()
+
+    refresh_priority_scores(dataset)
 
     return total
 
