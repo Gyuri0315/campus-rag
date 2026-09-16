@@ -21,6 +21,8 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
+  const stream = Boolean((body as { stream?: unknown } | null)?.stream);
+  const chatHistory = (body as { chat_history?: unknown } | null)?.chat_history;
 
   const authHeader = request.headers.get("authorization");
   if (!authHeader) {
@@ -41,13 +43,20 @@ export async function POST(request: NextRequest) {
         "Content-Type": "application/json",
         Authorization: authHeader,
       },
-      body: JSON.stringify({ question: question.trim() }),
+      body: JSON.stringify({
+        question: question.trim(),
+        stream,
+        ...(Array.isArray(chatHistory) ? { chat_history: chatHistory } : {}),
+      }),
       cache: "no-store",
       signal: controller.signal,
     });
 
-    const text = await upstream.text();
-    return new Response(text, {
+    // Pass the body straight through as a stream instead of buffering it
+    // with `.text()` first — required for stream:true's text/event-stream
+    // response to actually reach the browser token-by-token; harmless for
+    // the plain JSON response (same bytes, just not held in memory first).
+    return new Response(upstream.body, {
       status: upstream.status,
       headers: {
         "Content-Type":
