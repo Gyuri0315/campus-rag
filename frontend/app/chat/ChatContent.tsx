@@ -6,7 +6,7 @@ import Link from "next/link";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
 import { displayNameOf, useAuth } from "@/app/context/AuthContext";
-import { askBackendStream } from "@/app/lib/api";
+import { askBackendStream, type AskStage } from "@/app/lib/api";
 import {
   createChat,
   deleteChat,
@@ -653,6 +653,11 @@ export default function ChatContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [chatState, setChatState] = useState<ChatState>("idle");
+  // 첫 토큰이 오기 전까지 백엔드 파이프라인 단계(planning/retrieval/generating)를
+  // 그대로 보여주기 위한 상태 — 첫 토큰이 오면 다시 null로 돌아가 로딩 블록이 사라짐.
+  const [loadingStatus, setLoadingStatus] = useState<{ stage: AskStage; message: string } | null>(
+    null,
+  );
 
   // ── 사이드바 상태 (SSR-safe: false로 시작, mount 후 보정) ──
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -809,6 +814,7 @@ export default function ChatContent() {
     aiAbortRef.current = controller;
 
     setChatState("loading");
+    setLoadingStatus(null);
 
     let persistedChatId: string | null = user?.id ? persistChatIdRef.current : null;
 
@@ -848,6 +854,10 @@ export default function ChatContent() {
       await askBackendStream(
         question,
         {
+          onStatus: (stage, message) => {
+            if (controller.signal.aborted) return;
+            setLoadingStatus({ stage, message });
+          },
           onToken: (delta) => {
             if (controller.signal.aborted) return;
             finalContent += delta;
@@ -855,6 +865,7 @@ export default function ChatContent() {
               // 첫 토큰 도착 — 로딩 스피너를 말풍선으로 교체
               started = true;
               setChatState("streaming");
+              setLoadingStatus(null);
               setMessages((prev) => [
                 ...prev,
                 {
@@ -925,6 +936,7 @@ export default function ChatContent() {
       if (controller.signal.aborted) return;
       console.error("[chat] askBackendStream failed:", err);
       setChatState("error");
+      setLoadingStatus(null);
     } finally {
       if (aiAbortRef.current === controller) aiAbortRef.current = null;
     }
@@ -1551,7 +1563,7 @@ export default function ChatContent() {
             )
           )}
 
-          {/* 로딩 */}
+          {/* 로딩 — 백엔드가 실제로 어느 단계(질문 분석/검색/생성)인지 그대로 표시 */}
           {chatState === "loading" && (
             <div className="flex justify-start">
               <div className="glass-card rounded-2xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm">
@@ -1561,8 +1573,13 @@ export default function ChatContent() {
                     <span className="typing-dot" />
                     <span className="typing-dot" />
                   </div>
-                  <span className="text-[11px] sm:text-xs" style={{ color: "var(--clr-text-muted)" }}>
-                    답변을 생성하고 있어요...
+                  {/* key로 stage가 바뀔 때마다 리마운트시켜 페이드인 애니메이션을 재생 */}
+                  <span
+                    key={loadingStatus?.stage ?? "connecting"}
+                    className="status-fade-in text-[11px] sm:text-xs"
+                    style={{ color: "var(--clr-text-muted)" }}
+                  >
+                    {loadingStatus?.message ?? "요청을 보내고 있어요..."}
                   </span>
                 </div>
               </div>

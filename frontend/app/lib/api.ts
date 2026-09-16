@@ -100,13 +100,21 @@ export async function askBackend(
   };
 }
 
+export type AskStage = "planning" | "retrieval" | "generating";
+
 type StreamEvent =
+  | { type: "status"; stage: AskStage; message: string }
   | { type: "token"; content: string }
   | { type: "sources"; sources: BackendSource[] }
   | { type: "done" }
   | { type: "error"; detail: string };
 
 export type AskStreamHandlers = {
+  /** Called before each pipeline stage starts (planning -> retrieval ->
+   * generating), before the first answer token exists. Lets the UI show
+   * what the backend is actually doing instead of a generic spinner for
+   * however long retrieval+reranking takes. */
+  onStatus?: (stage: AskStage, message: string) => void;
   /** Called once per answer text chunk, in order, as it arrives. */
   onToken?: (delta: string) => void;
   /** Called once, after the full answer streamed — citations depend on the
@@ -156,7 +164,9 @@ export async function askBackendStream(
     const dataLine = raw.split("\n").find((line) => line.startsWith("data: "));
     if (!dataLine) return;
     const event = JSON.parse(dataLine.slice("data: ".length)) as StreamEvent;
-    if (event.type === "token") {
+    if (event.type === "status") {
+      handlers.onStatus?.(event.stage, event.message);
+    } else if (event.type === "token") {
       handlers.onToken?.(event.content);
     } else if (event.type === "sources") {
       handlers.onSources?.(event.sources.map(adaptSource));
