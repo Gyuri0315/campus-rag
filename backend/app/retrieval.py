@@ -551,11 +551,21 @@ def _row_uri(row: Dict[str, Any]) -> str:
 
 
 def _url_key(row: Dict[str, Any]) -> str:
-    """Per-URL cap 용 key. 쿼리스트링/앵커 제거해서 같은 문서 다른 뷰 통합."""
+    """Per-URL cap 용 key. 쿼리스트링/앵커 제거해서 같은 문서 다른 뷰 통합.
+
+    URL만으로 묶으면 안 된다 -- `www.pknu.ac.kr/main/434`처럼 서로 다른
+    문서 여러 개가 같은 CMS 랜딩페이지 URL을 공유하는 경우가 실제로 있다
+    (dedup 로직에서 이미 겪은 것과 동일한 문제). URL 하나로 묶으면, 그
+    URL을 공유하는 무관한 문서가 이미 max_chunks_per_url 자리를 다
+    채워버려서 정작 그 URL의 진짜 문서가 밀려나는 일이 생긴다 -- 오늘
+    부서 연락처 디렉터리를 잘게 쪼갠 뒤 실제로 겪은 사례. 제목까지 묶어야
+    "같은 문서의 여러 청크"만 캡 대상이 된다.
+    """
     uri = re.sub(r"[?#].*$", "", _normalize_text(_row_uri(row)).lower())
+    title = _normalize_text(_title_for_row(row)).lower()
     if uri:
-        return f"url:{uri}"
-    return f"title:{_normalize_text(_title_for_row(row)).lower()}"
+        return f"url:{uri}|title:{title}"
+    return f"title:{title}"
 
 
 def _dedupe_key(row: Dict[str, Any]) -> str:

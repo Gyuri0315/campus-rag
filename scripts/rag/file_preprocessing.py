@@ -286,32 +286,132 @@ def _split_oversized_text(text: str, max_size: int, overlap: int) -> list[str]:
     return pieces
 
 
+# A "dense list" paragraph is a directory-style block extracted from a PDF/HTML
+# table as one run of text (e.g. "학과별/부서별 연락처" -- dozens of
+# "department: phone number" lines back to back). Packed whole, it easily
+# stays under DEFAULT_CHUNK_SIZE as ONE topically-unfocused chunk mixing 50
+# unrelated departments -- fine by raw character count, bad for retrieval,
+# since a query about one specific department has to compete semantically
+# against 49 others in the same chunk. Detect this shape and split it into
+# small item-groups regardless of whether it would otherwise fit whole.
+DENSE_LIST_GROUP_SIZE = 8
+DENSE_LIST_MIN_LINES = 6
+DENSE_LIST_MIN_RATIO = 0.6
+_DENSE_LIST_DIGIT_RUN_RE = re.compile(r"\d{2,4}[-~]\d{2,4}")
+_DENSE_LIST_LABEL_RE = re.compile(r"^[^\s:：]{1,20}[:：]\s*\S")
+
+
+def _is_dense_list_line(line: str) -> bool:
+    """One directory row: short, and either 'label: value' or has a
+    hyphenated digit run (phone extension, room number, date range, etc.)."""
+    if not line or len(line) > 60:
+        return False
+    if _DENSE_LIST_DIGIT_RUN_RE.search(line):
+        return True
+    return bool(_DENSE_LIST_LABEL_RE.match(line))
+
+
+def _is_dense_list_text(text: str) -> bool:
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    if len(lines) < DENSE_LIST_MIN_LINES:
+        return False
+    matches = sum(1 for ln in lines if _is_dense_list_line(ln))
+    return (matches / len(lines)) >= DENSE_LIST_MIN_RATIO
+
+
+def _split_dense_list_text(text: str, group_size: int = DENSE_LIST_GROUP_SIZE) -> list[str]:
+    lines = [ln.strip() for ln in text.split("\n") if ln.strip()]
+    if not lines:
+        return []
+    groups = [lines[i : i + group_size] for i in range(0, len(lines), group_size)]
+    # A tiny orphan tail group (e.g. one leftover line) tends to fall under
+    # retrieval's own too-short/weak-chunk filter -- fold it back into the
+    # previous group instead of shipping a standalone group that never
+    # surfaces in search anyway.
+    min_last_group = max(1, group_size // 2)
+    if len(groups) > 1 and len(groups[-1]) < min_last_group:
+        groups[-2].extend(groups.pop())
+    return ["\n".join(group) for group in groups]
+
+
 def chunk_blocks(
     blocks: list[dict],
     chunk_size: int = DEFAULT_CHUNK_SIZE,
     overlap: int = DEFAULT_CHUNK_OVERLAP,
 ) -> list[dict]:
-    raw_texts = [normalize_text(b.get("text", "")) for b in blocks]
-    raw_texts = [t for t in raw_texts if t]
-    if not raw_texts:
-        return []
-
     # paragraph 단위 청킹이라, 단일 block의 text가 chunk_size를 넘으면
     # 아래 누적 루프의 size 체크가 동작하지 않아 거대 chunk가 생긴다.
     # 미리 펼쳐서 모든 텍스트가 chunk_size 이하가 되도록 한다.
+    # standalone=True인 조각은 다른 block과 합쳐지지 않고 그 자체로 하나의
+    # chunk가 된다 (dense list를 부서별 소그룹으로 쪼갠 결과).
+    #
+    # dense-list 판별은 반드시 normalize_text() 이전의 원본 텍스트로 해야 한다
+    # -- normalize_text가 줄바꿈을 공백으로 접어버려서, 정규화 후에는 한 줄에
+    # 한 항목씩 늘어선 디렉터리 구조 자체가 사라진다.
     texts: list[str] = []
-    for t in raw_texts:
+    standalone: list[bool] = []
+    for b in blocks:
+        original = str(b.get("text", ""))
+        if _is_dense_list_text(original):
+            for group in _split_dense_list_text(original):
+                normalized_group = normalize_text(group)
+                if not normalized_group:
+                    continue
+                pieces = (
+                    [normalized_group]
+                    if len(normalized_group) <= chunk_size
+                    else _split_oversized_text(normalized_group, chunk_size, overlap)
+                )
+                for piece in pieces:
+                    texts.append(piece)
+                    standalone.append(True)
+            continue
+
+        t = normalize_text(original)
+        if not t:
+            continue
         if len(t) <= chunk_size:
             texts.append(t)
+            standalone.append(False)
         else:
-            texts.extend(_split_oversized_text(t, chunk_size, overlap))
+            for piece in _split_oversized_text(t, chunk_size, overlap):
+                texts.append(piece)
+                standalone.append(False)
+
+    if not texts:
+        return []
 
     chunks: list[dict] = []
     current: list[str] = []
     current_len = 0
     idx = 1
 
-    for text in texts:
+    for text, is_standalone in zip(texts, standalone):
+        if is_standalone:
+            if current:
+                chunk_text = "\n".join(current)
+                chunks.append(
+                    {
+                        "chunk_id": idx,
+                        "text": chunk_text,
+                        "num_lines": len(current),
+                        "num_chars": len(chunk_text),
+                    }
+                )
+                idx += 1
+                current = []
+                current_len = 0
+            chunks.append(
+                {
+                    "chunk_id": idx,
+                    "text": text,
+                    "num_lines": text.count("\n") + 1,
+                    "num_chars": len(text),
+                }
+            )
+            idx += 1
+            continue
+
         add_len = len(text) + (1 if current else 0)
         if current and (current_len + add_len > chunk_size):
             chunk_text = "\n".join(current)

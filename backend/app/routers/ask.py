@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Iterator, List, Tuple
 from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
 from ..deps import AppState, get_state
 from ..excerpts import extract_relevant_excerpt
-from ..generation import generate_answer
+from ..generation import generate_answer, stream_answer
 from ..query_transform import transform_query
 from ..rate_limit import enforce_ask_rate_limit
 from ..retrieval import search
@@ -106,18 +108,22 @@ def _row_to_source(row: Dict[str, Any]) -> Source:
     )
 
 
-@router.post("/ask", response_model=AskResponse)
-def ask(
-    payload: AskRequest,
-    state: AppState = Depends(get_state),
-    user_id: str = Depends(enforce_ask_rate_limit),
-) -> AskResponse:
-    question = payload.question.strip()
-    if not question:
-        raise HTTPException(status_code=400, detail="question must not be empty")
-
+def _retrieve(
+    *,
+    state: AppState,
+    user_id: str,
+    question: str,
+    history_turns: int,
+) -> Tuple[List[Dict[str, Any]], List[Source]]:
+    """Shared embedding+search step for both the plain and streaming paths."""
     search_query = transform_query(question) or question
-    logger.info("ask: user=%s question=%r search=%r", user_id, question, search_query)
+    logger.info(
+        "ask: user=%s question=%r search=%r history_turns=%d",
+        user_id,
+        question,
+        search_query,
+        history_turns,
+    )
 
     try:
         embedding = state.embedder.encode_query(search_query)
@@ -148,11 +154,7 @@ def ask(
 
     sources = [_row_to_source(r) for r in rows]
     top_similarity = max((_similarity(row) for row in rows), default=0.0)
-    logger.info(
-        "ask: final_sources=%d top_similarity=%.4f",
-        len(sources),
-        top_similarity,
-    )
+    logger.info("ask: final_sources=%d top_similarity=%.4f", len(sources), top_similarity)
     if logger.isEnabledFor(logging.DEBUG):
         source_summaries = [
             {
@@ -169,6 +171,99 @@ def ask(
             for index, (row, source) in enumerate(zip(rows, sources), start=1)
         ]
         logger.debug("ask: final_source_summaries=%s", source_summaries)
+    return rows, sources
+
+
+def _sse(event_type: str, **payload: Any) -> str:
+    return f"data: {json.dumps({'type': event_type, **payload}, ensure_ascii=False)}\n\n"
+
+
+def _stream_ask(
+    *,
+    state: AppState,
+    question: str,
+    rows: List[Dict[str, Any]],
+    sources: List[Source],
+    chat_history: List[Dict[str, str]],
+) -> Iterator[str]:
+    """text/event-stream body: token-by-token answer, then sources (with
+    excerpts trimmed against the now-complete answer), then done/error."""
+    if not sources:
+        yield _sse("token", content=NO_INFO_ANSWER)
+        yield _sse("sources", sources=[])
+        yield _sse("done")
+        return
+
+    pieces: List[str] = []
+    try:
+        for delta in stream_answer(
+            openai_client=state.openai,
+            model=state.settings.openai_model,
+            system_prompt=state.system_prompt,
+            question=question,
+            rows=rows,
+            max_chars_per_chunk=state.settings.max_chars_per_chunk,
+            timeout=state.settings.openai_timeout_seconds,
+            temperature=state.settings.openai_temperature,
+            max_tokens=state.settings.openai_max_tokens,
+            chat_history=chat_history,
+        ):
+            pieces.append(delta)
+            yield _sse("token", content=delta)
+    except Exception:
+        logger.exception("generation failed")
+        yield _sse("error", detail="generation failed")
+        return
+
+    answer = "".join(pieces).strip() or NO_INFO_ANSWER
+    excerpted_sources = [
+        source.model_copy(
+            update={
+                "content": extract_relevant_excerpt(
+                    source.content,
+                    question=question,
+                    answer=answer,
+                    source_index=index,
+                    max_chars=state.settings.source_excerpt_max_chars,
+                )
+            }
+        )
+        for index, source in enumerate(sources, start=1)
+    ]
+    yield _sse("sources", sources=[s.model_dump() for s in excerpted_sources])
+    yield _sse("done")
+
+
+@router.post("/ask")
+def ask(
+    payload: AskRequest,
+    state: AppState = Depends(get_state),
+    user_id: str = Depends(enforce_ask_rate_limit),
+):
+    question = payload.question.strip()
+    if not question:
+        raise HTTPException(status_code=400, detail="question must not be empty")
+    chat_history = [turn.model_dump() for turn in payload.chat_history]
+
+    rows, sources = _retrieve(
+        state=state,
+        user_id=user_id,
+        question=question,
+        history_turns=len(chat_history),
+    )
+
+    if payload.stream:
+        return StreamingResponse(
+            _stream_ask(
+                state=state,
+                question=question,
+                rows=rows,
+                sources=sources,
+                chat_history=chat_history,
+            ),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     if not sources:
         return AskResponse(answer=NO_INFO_ANSWER, sources=[])
@@ -184,6 +279,7 @@ def ask(
             timeout=state.settings.openai_timeout_seconds,
             temperature=state.settings.openai_temperature,
             max_tokens=state.settings.openai_max_tokens,
+            chat_history=chat_history,
         )
     except Exception:
         logger.exception("generation failed")
