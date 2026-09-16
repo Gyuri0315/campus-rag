@@ -6,7 +6,7 @@ import Link from "next/link";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
 import { displayNameOf, useAuth } from "@/app/context/AuthContext";
-import { askBackend } from "@/app/lib/api";
+import { askBackendStream } from "@/app/lib/api";
 import {
   createChat,
   deleteChat,
@@ -41,6 +41,8 @@ interface Message {
   content: string;
   attachments?: Attachment[];
   sources?: Source[];
+  /** true while this assistant message's answer is still streaming in. */
+  streaming?: boolean;
 }
 
 interface HistoryItem {
@@ -64,7 +66,9 @@ function isPersistedChatId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
-type ChatState = "idle" | "loading" | "success" | "error";
+// "loading": 첫 토큰 전(스피너) · "streaming": 토큰 수신 중(말풍선에 타이핑) ·
+// "success"/"error": 완료 상태
+type ChatState = "idle" | "loading" | "streaming" | "success" | "error";
 
 // ── 고유 ID ───────────────────────────────────────────────────────────────────
 let _seq = 0;
@@ -402,9 +406,35 @@ function SourceCard({ source }: { source: Source }) {
   );
 }
 
+// 스트리밍 중 말풍선 끝에 표시하는 깜빡이는 커서
+function TypingCursor() {
+  return (
+    <span
+      aria-hidden="true"
+      className="typing-cursor inline-block ml-0.5 w-[2px] h-[1em] align-middle"
+      style={{ background: "currentColor" }}
+    />
+  );
+}
+
 // ── AI 답변 메시지 컴포넌트 ───────────────────────────────────────────────────
-function AnswerContent({ content }: { content: string }) {
+function AnswerContent({ content, streaming }: { content: string; streaming?: boolean }) {
   const lines = content.replace(/\r\n?/g, "\n").split("\n");
+  const lastNonEmptyIndex = (() => {
+    for (let i = lines.length - 1; i >= 0; i -= 1) {
+      if (lines[i].trim()) return i;
+    }
+    return -1;
+  })();
+
+  // 아직 토큰이 하나도 안 왔을 때(빈 문자열)도 커서는 보여준다.
+  if (lastNonEmptyIndex === -1) {
+    return streaming ? (
+      <div className="text-xs leading-7 sm:text-sm sm:leading-7" style={{ color: "var(--clr-text)" }}>
+        <TypingCursor />
+      </div>
+    ) : null;
+  }
 
   return (
     <div
@@ -414,12 +444,14 @@ function AnswerContent({ content }: { content: string }) {
       {lines.map((rawLine, index) => {
         const line = rawLine.trim();
         if (!line) return null;
+        const cursor = streaming && index === lastNonEmptyIndex ? <TypingCursor /> : null;
 
         const heading = line.match(/^#{1,3}\s+(.+)$/);
         if (heading) {
           return (
             <h4 key={index} className="mt-1 font-bold leading-relaxed first:mt-0">
               {heading[1]}
+              {cursor}
             </h4>
           );
         }
@@ -431,6 +463,7 @@ function AnswerContent({ content }: { content: string }) {
               <span className="mt-[0.05em] shrink-0 font-bold" aria-hidden="true">•</span>
               <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
                 {unordered[1]}
+                {cursor}
               </p>
             </div>
           );
@@ -445,6 +478,7 @@ function AnswerContent({ content }: { content: string }) {
               </span>
               <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
                 {ordered[2]}
+                {cursor}
               </p>
             </div>
           );
@@ -453,6 +487,7 @@ function AnswerContent({ content }: { content: string }) {
         return (
           <p key={index} className="whitespace-pre-wrap break-words">
             {line}
+            {cursor}
           </p>
         );
       })}
@@ -490,7 +525,7 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
 
         {/* 답변 카드 */}
         <div className="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex flex-col gap-3 sm:gap-4 w-full">
-          <AnswerContent content={msg.content} />
+          <AnswerContent content={msg.content} streaming={msg.streaming} />
 
           {/* 메시지 레벨 첨부파일 */}
           {msg.attachments && msg.attachments.length > 0 && (
@@ -804,25 +839,81 @@ export default function ChatContent() {
       }
     }
 
+    const assistantId = uid();
+    let started = false;
+    let finalContent = "";
+    let finalSources: Source[] | undefined;
+
     try {
-      const { answer, sources } = await askBackend(question, controller.signal);
-      if (controller.signal.aborted) return;
-      const text = answer || "관련 정보를 찾을 수 없습니다.";
-      setMessages((prev) => [
-        ...prev,
+      await askBackendStream(
+        question,
         {
-          id: uid(),
-          role: "assistant",
-          content: text,
-          attachments: [],
-          sources,
+          onToken: (delta) => {
+            if (controller.signal.aborted) return;
+            finalContent += delta;
+            if (!started) {
+              // 첫 토큰 도착 — 로딩 스피너를 말풍선으로 교체
+              started = true;
+              setChatState("streaming");
+              setMessages((prev) => [
+                ...prev,
+                {
+                  id: assistantId,
+                  role: "assistant",
+                  content: finalContent,
+                  attachments: [],
+                  streaming: true,
+                },
+              ]);
+            } else {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantId ? { ...m, content: finalContent } : m,
+                ),
+              );
+            }
+          },
+          onSources: (sources) => {
+            if (controller.signal.aborted) return;
+            finalSources = sources;
+            // 출처는 답변이 다 완성된 뒤 도착 — 이때 ①②… 토글 버튼이 나타남
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, sources } : m)),
+            );
+          },
+          onDone: () => {
+            if (controller.signal.aborted) return;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId ? { ...m, streaming: false } : m,
+              ),
+            );
+          },
         },
-      ]);
+        controller.signal,
+      );
+      if (controller.signal.aborted) return;
+
+      // 방어적 처리: 어떤 이유로든 토큰을 하나도 못 받았으면 빈 말풍선 대신 안내 문구를 채운다.
+      if (!started) {
+        finalContent = finalContent || "관련 정보를 찾을 수 없습니다.";
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: assistantId,
+            role: "assistant",
+            content: finalContent,
+            attachments: [],
+            sources: finalSources,
+          },
+        ]);
+      }
+
       setChatState("success");
 
-      if (user?.id && persistedChatId && !controller.signal.aborted) {
+      if (user?.id && persistedChatId) {
         try {
-          await insertChatMessage(persistedChatId, "assistant", text, sources ?? null);
+          await insertChatMessage(persistedChatId, "assistant", finalContent, finalSources ?? null);
           const refreshed = await listChats();
           setHistory(refreshed.map((r) => ({ id: r.id, title: r.title })));
         } catch (err) {
@@ -832,7 +923,7 @@ export default function ChatContent() {
       }
     } catch (err) {
       if (controller.signal.aborted) return;
-      console.error("[chat] askBackend failed:", err);
+      console.error("[chat] askBackendStream failed:", err);
       setChatState("error");
     } finally {
       if (aiAbortRef.current === controller) aiAbortRef.current = null;
