@@ -63,23 +63,45 @@ _STANDALONE_JAMO_RE = re.compile(r"[ㄱ-ㅎㅏ-ㅣ]{6,}")
 QUERY_TERM_GROUPS = {
     "복수전공": ("복수전공", "복수 전공", "다전공", "전공제도"),
     "부전공": ("부전공", "부 전공", "다전공", "전공제도"),
+    "마이크로전공": ("마이크로전공", "마이크로 전공", "소단위전공", "소단위 전공"),
     "전과": ("전과", "전부", "전공변경"),
     "전공": ("전공", "전공제도"),
-    "졸업": ("졸업", "졸업요건", "학위수여"),
+    "졸업": ("졸업", "졸업요건", "학위수여", "졸업작품", "졸업논문", "졸업사정"),
     "학점": ("학점", "소요학점", "이수학점"),
     "수강신청": ("수강신청", "수강 신청"),
     "휴학": ("휴학",),
     "복학": ("복학",),
     "장학": ("장학", "장학금"),
-    "등록금": ("등록금", "등록"),
+    # "등록" (bare) used to be a variant here too, but it matches ~2.8k-9.7k
+    # rows in the large chunk tables on its own (measured directly against
+    # content_tsv) -- ranking + sorting that many rows blew the lexical RPC's
+    # statement timeout whenever a query also triggered another group (e.g.
+    # "계절수업" -> schedule_005). Keep only the compound term.
+    "등록금": ("등록금",),
     "성적": ("성적", "평점", "평균평점"),
     "교직": ("교직", "교직과정"),
     "현장실습": ("현장실습", "현장실습학기제"),
+    # Bare "생활관"/"기숙사" measured at 300-800+ rows each in the large chunk
+    # tables; combined with the compound term in one OR-query that pushed
+    # lexical search over its statement timeout. The compound term alone
+    # already matches the eval's expected documents, so keep only that.
+    "생활관": ("학생생활관",),
+    "계절수업": ("계절수업",),
+    "외국인유학생": ("외국인유학생", "외국인 유학생", "외국인 신입생", "외국인 학위과정"),
+    # Bare "증명서" alone matches 2,300-2,700 rows in rag/notice_chunks --
+    # comparable to the "등록"/"졸업"/"전공" danger zone above -- so only
+    # narrower phrase/compound variants go in the OR-query. "증명서 발급" as a
+    # quoted adjacent-phrase is far rarer (16-142 rows per table) and safe.
+    # Covers both how a question might phrase the kiosk ("자동발급기") and
+    # how the source page actually phrases it ("무인발급기(기)"), which don't
+    # share a literal substring so plain full-text search can't bridge them.
+    "증명서발급": ("무인발급기", "무인발급기기", "자동발급기", "제증명", "증명서 발급"),
 }
 
 STRICT_QUERY_TERMS = {
     "복수전공",
     "부전공",
+    "마이크로전공",
     "전과",
     "학점",
     "수강신청",
@@ -117,11 +139,17 @@ DATASET_BOOST_RULES: tuple[tuple[tuple[str, ...], Dict[str, float]], ...] = (
             "셔틀", "생활관", "기숙사", "도서관", "식당",
             "보건진료소", "연락처", "사무실", "전화",
         ),
-        {"match_pknu_student_life_documents": 0.15},
+        # "국립부경대학교 학칙" 같은 거대 허브 문서는 rule 데이터셋 전체에
+        # 균일하게 걸리는 DATASET_PRIORITIES=1.00 덕에, 연락처류 질문과는
+        # 무관한 조항이라도 다른 데이터셋의 훨씬 더 구체적인 문서를 상위
+        # 랭킹에서 밀어내는 사례가 실측으로 확인됨(예: "컴퓨터·인공지능공학부
+        # 사무실 연락처" 질문에서 학칙 조항이 1~2위, 실제 연락처 문서가 6위).
+        # 위쪽 boost와 대칭으로 규정 데이터셋에는 페널티를 줘서 상쇄한다.
+        {"match_pknu_student_life_documents": 0.15, "match_rule_documents": -0.35},
     ),
     (
         ("캡스톤", "학부 사무실", "학과 사무실"),
-        {"match_rag_documents": 0.10},
+        {"match_rag_documents": 0.10, "match_rule_documents": -0.35},
     ),
 )
 
@@ -162,6 +190,74 @@ def _lexical_synthetic_similarity(rank_index: int, min_similarity: float) -> flo
     return min_similarity + norm * (ceiling - min_similarity)
 
 
+# Bare words that are members of a QUERY_TERM_GROUPS entry but, measured
+# directly against content_tsv, match thousands of rows in the largest chunk
+# tables (rag_chunks/pknu_notice_chunks) on their own -- e.g. bare "졸업"
+# alone needed 4.7-5.4s just to rank, right at (and sometimes past) the
+# lexical RPC's statement timeout. They still need to stay in
+# QUERY_TERM_GROUPS itself: other logic (_query_mismatch_flags /
+# _dataset_mismatch_flags, e.g. the 졸업+학점 combo check) relies on the bare
+# form to detect that a question is "about" that concept at all. Only the
+# lexical OR-query builder below excludes them, since it's the one place a
+# single overly-common token turns into a near-full-table scan.
+LEXICAL_EXCLUDED_VARIANTS = {"졸업", "전공"}
+
+# Filler words that carry no retrieval signal but frequently show up in
+# natural Korean questions. websearch_to_tsquery ANDs every remaining word
+# together, so leaving these in silently zeroes out the match (the source
+# chunk contains "학사관리과"/"증명서" but never literally "관련" next to it).
+_LEXICAL_STOPWORDS = {
+    "관련", "관련해서", "관련된", "관하여", "대해", "대해서", "대한",
+    "알려줘", "알려주세요", "알려줄래요", "알려주실래요",
+    "궁금해요", "궁금합니다", "궁금한데요", "궁금해",
+    "어디에", "어디서", "어디", "어떻게", "무엇인가요", "뭐예요", "뭔가요",
+    "있나요", "있어요", "있습니까", "됩니까", "되나요", "인가요", "인가",
+    "하나요", "합니까", "하는지", "하는가요",
+    "부탁드립니다", "부탁해요", "부탁드려요", "싶어요", "싶습니다",
+}
+
+# Korean particles attach directly to the noun with no space (문의처+를,
+# 도서관+에), so a literal AND match needs them stripped first. Longest
+# suffix first so e.g. "으로부터" doesn't get half-stripped to "로부터".
+_LEXICAL_PARTICLE_SUFFIXES = tuple(
+    sorted(
+        {
+            "으로부터", "에서부터", "에게서",
+            "이라서", "라서", "이라도", "라도", "이라는", "라는", "이라고", "라고",
+            "에서", "으로", "부터", "까지", "이나", "한테", "에게",
+            "와는", "과는",
+            "은", "는", "이", "가", "을", "를", "의", "에", "로", "와", "과", "도", "만", "나",
+        },
+        key=len,
+        reverse=True,
+    )
+)
+
+
+def _lexical_fallback_query(query_text: str) -> str:
+    """Best-effort AND-query for questions that hit no QUERY_TERM_GROUPS entry.
+
+    This only ever *removes* filler tokens and particle suffixes from the
+    existing AND-of-raw-sentence fallback -- it never switches to OR -- so it
+    can't reintroduce the near-full-table-scan timeout risk that
+    LEXICAL_EXCLUDED_VARIANTS guards against. It can only make an
+    already-safe AND query match in more cases, by narrowing the token list
+    down to the words actually likely to appear next to the answer.
+    """
+    tokens: list[str] = []
+    for raw_token in _normalize_text(query_text).split(" "):
+        token = raw_token.strip("?!.,~()[]\"'")
+        if not token or token in _LEXICAL_STOPWORDS:
+            continue
+        for suffix in _LEXICAL_PARTICLE_SUFFIXES:
+            if len(token) > len(suffix) + 1 and token.endswith(suffix):
+                token = token[: -len(suffix)]
+                break
+        if len(token) >= 2:
+            tokens.append(token)
+    return " ".join(dict.fromkeys(tokens))
+
+
 def _lexical_query_text(
     query_text: Optional[str],
     query_terms: list[tuple[str, tuple[str, ...]]],
@@ -188,16 +284,16 @@ def _lexical_query_text(
         if not any(term != other and term in other for other, _ in query_terms)
     ]
     if not specific_terms:
-        return _normalize_text(query_text or "")
+        return _lexical_fallback_query(query_text or "") or _normalize_text(query_text or "")
     parts: list[str] = []
     for _, variants in specific_terms:
         for variant in variants:
             variant = variant.strip()
-            if not variant:
+            if not variant or variant in LEXICAL_EXCLUDED_VARIANTS:
                 continue
             parts.append(f'"{variant}"' if " " in variant else variant)
     if not parts:
-        return _normalize_text(query_text or "")
+        return _lexical_fallback_query(query_text or "") or _normalize_text(query_text or "")
     return " OR ".join(dict.fromkeys(parts))
 
 
@@ -455,11 +551,21 @@ def _row_uri(row: Dict[str, Any]) -> str:
 
 
 def _url_key(row: Dict[str, Any]) -> str:
-    """Per-URL cap 용 key. 쿼리스트링/앵커 제거해서 같은 문서 다른 뷰 통합."""
+    """Per-URL cap 용 key. 쿼리스트링/앵커 제거해서 같은 문서 다른 뷰 통합.
+
+    URL만으로 묶으면 안 된다 -- `www.pknu.ac.kr/main/434`처럼 서로 다른
+    문서 여러 개가 같은 CMS 랜딩페이지 URL을 공유하는 경우가 실제로 있다
+    (dedup 로직에서 이미 겪은 것과 동일한 문제). URL 하나로 묶으면, 그
+    URL을 공유하는 무관한 문서가 이미 max_chunks_per_url 자리를 다
+    채워버려서 정작 그 URL의 진짜 문서가 밀려나는 일이 생긴다 -- 오늘
+    부서 연락처 디렉터리를 잘게 쪼갠 뒤 실제로 겪은 사례. 제목까지 묶어야
+    "같은 문서의 여러 청크"만 캡 대상이 된다.
+    """
     uri = re.sub(r"[?#].*$", "", _normalize_text(_row_uri(row)).lower())
+    title = _normalize_text(_title_for_row(row)).lower()
     if uri:
-        return f"url:{uri}"
-    return f"title:{_normalize_text(_title_for_row(row)).lower()}"
+        return f"url:{uri}|title:{title}"
+    return f"title:{title}"
 
 
 def _dedupe_key(row: Dict[str, Any]) -> str:
@@ -665,7 +771,7 @@ def _process_candidate_row(
 
     base_dataset_priority = DATASET_PRIORITIES.get(rpc_name, 0.50)
     boost = _dataset_priority_boost(rpc_name, query_text)
-    copied["_boosted_dataset_priority"] = min(1.0, base_dataset_priority + boost)
+    copied["_boosted_dataset_priority"] = max(0.0, min(1.0, base_dataset_priority + boost))
     copied["priority_score"] = _priority_score(copied)
     copied["dataset_priority"] = _dataset_priority(copied)
     copied["final_score"] = _final_score(
@@ -765,8 +871,10 @@ def search(
         # entirely are added here; rows both channels found already made the
         # vector top-K on their own merit and keep their real similarity.
         lexical_added = 0
+        lexical_boosted = 0
         if lexical_query:
-            vector_keys = {_dedupe_key(row) for row in rows}
+            rows_by_key = {_dedupe_key(row): row for row in rows}
+            vector_keys = set(rows_by_key)
             lexical_rpc_name = f"{rpc_name}_lexical"
             try:
                 lexical_response = client.rpc(
@@ -794,7 +902,26 @@ def search(
                     continue
                 dedupe_key = _dedupe_key(processed)
                 if dedupe_key in vector_keys:
-                    # Already surfaced by vector search on its own merit.
+                    # Vector search already found this chunk, but possibly at
+                    # a mediocre similarity that buries a strong exact-term
+                    # match (e.g. a short, keyword-dense chunk the embedding
+                    # model doesn't score highly on its own). A high BM25
+                    # rank here means the chunk deserves at least the score a
+                    # lexical-only hit at that rank would get -- take
+                    # whichever of the two signals is stronger instead of
+                    # always deferring to the vector channel.
+                    existing = rows_by_key[dedupe_key]
+                    lexical_equivalent = _lexical_synthetic_similarity(
+                        rank_index, min_similarity
+                    )
+                    if lexical_equivalent > _similarity(existing):
+                        existing["similarity"] = lexical_equivalent
+                        existing["priority_score"] = _priority_score(existing)
+                        existing["dataset_priority"] = _dataset_priority(existing)
+                        existing["final_score"] = _final_score(
+                            existing, priority_weight, dataset_priority_weight, source_kind_weight
+                        )
+                        lexical_boosted += 1
                     rank_index += 1
                     continue
                 processed["similarity"] = _lexical_synthetic_similarity(
@@ -807,6 +934,7 @@ def search(
                     processed, priority_weight, dataset_priority_weight, source_kind_weight
                 )
                 rows.append(processed)
+                rows_by_key[dedupe_key] = processed
                 vector_keys.add(dedupe_key)
                 lexical_added += 1
                 rank_index += 1
@@ -821,13 +949,14 @@ def search(
             reverse=True,
         )
         logger.info(
-            "retrieval: rpc=%s rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d lexical_added=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
+            "retrieval: rpc=%s rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d lexical_added=%d lexical_boosted=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
             rpc_name,
             len(rows),
             filtered_noise,
             penalized_query_mismatch,
             filtered_dataset_mismatch,
             lexical_added,
+            lexical_boosted,
             elapsed_ms,
             _similarity(rows[0]) if rows else 0.0,
             _priority_score(rows[0]) if rows else 0.0,

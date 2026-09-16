@@ -108,7 +108,15 @@ def extract_json_blocks(path: Path) -> list[dict]:
     append("metadata", "PostDate", doc.get("published_at") or doc.get("date", ""))
     append("metadata", "PostCategory", doc.get("category", ""))
     append("metadata", "PostSubcategory", doc.get("subcategory", ""))
-    append("body", "PostBody", doc.get("content") or doc.get("body") or "")
+
+    # Deliberately not routed through append()/normalize_text(): that collapses
+    # every newline to a space, which erases the one-entry-per-line shape a
+    # crawled directory/contact list has *before* chunk_blocks() ever runs, so
+    # its dense-list detector never gets a chance to see it. clean_extracted_text
+    # already preserves line structure (it's built for regulation articles).
+    body_text = clean_extracted_text(str(doc.get("content") or doc.get("body") or ""))
+    if body_text:
+        blocks.append({"type": "body", "style": "PostBody", "text": body_text})
 
     attachments = doc.get("attachments") or []
     if isinstance(attachments, list):

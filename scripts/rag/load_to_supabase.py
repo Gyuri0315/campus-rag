@@ -348,6 +348,124 @@ def flush_batch(
         cur.executemany(chunk_sql, chunks)
 
 
+def deduplicate_sources(
+    conn: psycopg.Connection,
+    sources_table: str,
+    chunks_table: str,
+) -> int:
+    """Keep at most one active source row per (url, title), deactivating the rest.
+
+    Root cause this guards against: each crawler generates a source's `id`
+    (slug) independently, and for several crawlers that slug is not fully
+    stable across re-crawls of the *same logical document* (e.g. a PDF
+    attachment whose upload path embeds a fresh random UUID each time the
+    site re-serves it). Since load()'s upsert is keyed on `id`
+    (`on conflict (id)`), an unstable slug means every re-crawl inserts a
+    brand new source row instead of updating the existing one, and inactive
+    duplicates silently pile up (18,477 rows found in production on
+    2026-09-15 across all four datasets before a one-off cleanup).
+
+    Grouping is (url, title) rather than url alone: some landing pages
+    (e.g. www.pknu.ac.kr/main/434) legitimately host several differently
+    titled documents at the same URL, so deduping on url alone would wrongly
+    collapse genuinely different documents together (this actually happened
+    during the manual 2026-09-15 cleanup and had to be corrected).
+
+    "Best" within a (url, title) group is the row with the most chunks
+    (a proxy for the most complete crawl/extraction), tie-broken by id for
+    determinism. This runs after every load() call so the invariant holds
+    continuously rather than needing another one-off cleanup later.
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            sql.SQL(
+                """
+                with chunk_counts as (
+                    select source_id, count(*) as chunk_count
+                    from {chunks_table}
+                    group by source_id
+                ),
+                ranked as (
+                    select s.id,
+                           coalesce(cc.chunk_count, 0) as chunk_count,
+                           row_number() over (
+                               partition by s.url, s.title
+                               order by coalesce(cc.chunk_count, 0) desc, s.id desc
+                           ) as rn
+                    from {sources_table} s
+                    left join chunk_counts cc on cc.source_id = s.id
+                    where s.status = 'active' and s.url is not null and s.url <> ''
+                )
+                update {sources_table} t
+                set status = 'inactive'
+                from ranked r
+                where t.id = r.id and r.rn > 1
+                """
+            ).format(
+                sources_table=sql.Identifier("public", sources_table),
+                chunks_table=sql.Identifier("public", chunks_table),
+            )
+        )
+        deactivated = cur.rowcount
+    if deactivated:
+        log.info(
+            "deduplicate_sources: deactivated %d redundant (url, title) duplicate(s) in %s",
+            deactivated,
+            sources_table,
+        )
+    return deactivated
+
+
+def refresh_priority_scores(dataset: str) -> None:
+    """Recompute priority_score for every active source in this dataset.
+
+    A freshly upserted source has no priority_score until someone separately
+    runs the dataset's update_priorities script -- until then it defaults to
+    0.0, which drags final_score down enough that even a strong lexical/exact
+    keyword match can miss the top-k cut entirely (this happened to a brand
+    new CE department contact page: it ranked #1 by lexical match but was
+    absent from the final results because every other candidate had a
+    precomputed priority_score and it did not). Each dataset's scoring
+    formula lives in its own update_priorities module -- they pull in
+    different reference corpora (rule text only, or rule+main text for ce) --
+    so dispatch to those instead of reimplementing the formula here. This
+    always does a full recompute (not just the newly loaded rows), matching
+    how those scripts are normally run by hand; on the datasets exercised so
+    far that has taken well under a minute.
+    """
+    from psycopg.rows import dict_row as _dict_row
+
+    if dataset == "ce":
+        from scripts.ce.update_priorities import update_ce_priorities
+
+        with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
+            count = update_ce_priorities(conn, False, 10)
+    elif dataset == "rule":
+        from scripts.rule.update_priorities import update_rule_priorities
+
+        with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
+            count = update_rule_priorities(conn, False, 10)
+    elif dataset in ("pknu_notice", "pknu_student_life"):
+        from scripts.main.update_priorities import fetch_rule_contents, update_dataset_priorities
+        from scripts.rag.priority import build_rule_feature_set
+
+        with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
+            rule_features = build_rule_feature_set(fetch_rule_contents(conn))
+            count = update_dataset_priorities(conn, dataset, rule_features, False, 10)
+    else:
+        log.warning(
+            "refresh_priority_scores: no priority model wired for dataset=%s, skipping",
+            dataset,
+        )
+        return
+
+    log.info(
+        "refresh_priority_scores: recomputed priority_score for %d %s source(s)",
+        count,
+        dataset,
+    )
+
+
 def load(
     index_path: Path,
     batch_size: int,
@@ -399,6 +517,11 @@ def load(
         )
         total += len(batch)
         conn.commit()
+
+        deduplicate_sources(conn, resolved_sources_table, resolved_chunks_table)
+        conn.commit()
+
+    refresh_priority_scores(dataset)
 
     return total
 
