@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from itertools import zip_longest
 from typing import Any, Dict, Iterator, List, Tuple
 from urllib.parse import unquote, urlparse
 
@@ -13,9 +14,10 @@ from fastapi.responses import StreamingResponse
 from ..deps import AppState, get_state
 from ..excerpts import extract_relevant_excerpt
 from ..generation import generate_answer, stream_answer
+from ..query_rewrite import plan_search_queries
 from ..query_transform import transform_query
 from ..rate_limit import enforce_ask_rate_limit
-from ..retrieval import search
+from ..retrieval import _dedupe_key, search
 from ..schemas import AskRequest, AskResponse, Attachment, Source
 
 logger = logging.getLogger(__name__)
@@ -108,49 +110,103 @@ def _row_to_source(row: Dict[str, Any]) -> Source:
     )
 
 
+def _search_one(state: AppState, search_query: str) -> List[Dict[str, Any]]:
+    """One embed+search() call for a single (already standalone) query
+    string -- the same call _retrieve() always made, just factored out so
+    it can run once per decomposed sub-query."""
+    embedding = state.embedder.encode_query(search_query)
+    return search(
+        state.supabase,
+        rpc_names=state.settings.rpc_names,
+        embedding=embedding,
+        top_k=state.settings.rag_top_k,
+        first_stage_k=state.settings.rag_first_stage_k,
+        min_similarity=state.settings.rag_min_similarity,
+        priority_weight=state.settings.rag_priority_weight,
+        dataset_priority_weight=state.settings.rag_dataset_priority_weight,
+        source_kind_weight=state.settings.rag_source_kind_weight,
+        reranker=state.reranker,
+        reranker_weight=state.settings.reranker_weight,
+        max_chunks_per_url=state.settings.rag_max_chunks_per_url,
+        max_lexical_chunks_per_url=state.settings.rag_max_lexical_chunks_per_url,
+        query_text=search_query,
+    )
+
+
+def _merge_rows(rows_by_query: List[List[Dict[str, Any]]], top_k: int) -> List[Dict[str, Any]]:
+    """Round-robin merge of one already-ranked rows list per sub-query.
+
+    Interleaving (rather than a global sort by final_score) matters
+    specifically for compound queries: each sub-query's final_score was
+    computed against its own reranker pass, on its own scale, so a plain
+    global sort would tend to let whichever intent scores systematically
+    higher crowd out the other -- exactly the failure mode decomposition
+    was meant to fix. Round-robin guarantees every sub-query gets a fair
+    share of the final slots. A single-query call (the common case) is
+    just one list, so this is a no-op pass-through.
+    """
+    merged: List[Dict[str, Any]] = []
+    seen: set[str] = set()
+    for row_group in zip_longest(*rows_by_query):
+        for row in row_group:
+            if row is None:
+                continue
+            key = _dedupe_key(row)
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(row)
+            if len(merged) >= top_k:
+                return merged
+    return merged
+
+
 def _retrieve(
     *,
     state: AppState,
     user_id: str,
     question: str,
-    history_turns: int,
+    chat_history: List[Dict[str, str]],
 ) -> Tuple[List[Dict[str, Any]], List[Source]]:
-    """Shared embedding+search step for both the plain and streaming paths."""
-    search_query = transform_query(question) or question
+    """Shared embedding+search step for both the plain and streaming paths.
+
+    `question` alone is frequently not enough to search with well:
+    - with prior conversation, a follow-up like "그럼 거기 대표 전화번호는요?"
+      carries no literal keyword for what "거기" refers to;
+    - a compound question ("도서관 전화번호나 증명서 발급기 위치") packs two
+      intents into one sentence that a single embedding/lexical search
+      represents as one diluted vector, typically favoring whichever intent
+      dominates;
+    - a colloquial abbreviation ("컴공") may not literally appear anywhere
+      near the formal name ("컴퓨터·인공지능공학부") official documents use.
+    plan_search_queries() resolves all three *only for the search step* --
+    the original `question` and chat_history are still what gets sent to
+    answer generation unchanged (see ask()/generate_answer/stream_answer
+    below), so none of this touches generation or the streaming response.
+    """
+    sub_questions = plan_search_queries(
+        openai_client=state.openai,
+        model=state.settings.openai_model,
+        question=question,
+        chat_history=chat_history,
+    )
+    search_queries = [transform_query(q) or q for q in sub_questions]
     logger.info(
-        "ask: user=%s question=%r search=%r history_turns=%d",
+        "ask: user=%s question=%r sub_questions=%r search_queries=%r history_turns=%d",
         user_id,
         question,
-        search_query,
-        history_turns,
+        sub_questions,
+        search_queries,
+        len(chat_history),
     )
 
     try:
-        embedding = state.embedder.encode_query(search_query)
-    except Exception:
-        logger.exception("embedding failed")
-        raise HTTPException(status_code=500, detail="embedding failed")
-
-    try:
-        rows = search(
-            state.supabase,
-            rpc_names=state.settings.rpc_names,
-            embedding=embedding,
-            top_k=state.settings.rag_top_k,
-            first_stage_k=state.settings.rag_first_stage_k,
-            min_similarity=state.settings.rag_min_similarity,
-            priority_weight=state.settings.rag_priority_weight,
-            dataset_priority_weight=state.settings.rag_dataset_priority_weight,
-            source_kind_weight=state.settings.rag_source_kind_weight,
-            reranker=state.reranker,
-            reranker_weight=state.settings.reranker_weight,
-            max_chunks_per_url=state.settings.rag_max_chunks_per_url,
-            max_lexical_chunks_per_url=state.settings.rag_max_lexical_chunks_per_url,
-            query_text=search_query,
-        )
+        rows_by_query = [_search_one(state, q) for q in search_queries]
     except Exception:
         logger.exception("retrieval failed")
         raise HTTPException(status_code=502, detail="retrieval failed")
+
+    rows = _merge_rows(rows_by_query, state.settings.rag_top_k)
 
     sources = [_row_to_source(r) for r in rows]
     top_similarity = max((_similarity(row) for row in rows), default=0.0)
@@ -249,7 +305,7 @@ def ask(
         state=state,
         user_id=user_id,
         question=question,
-        history_turns=len(chat_history),
+        chat_history=chat_history,
     )
 
     if payload.stream:

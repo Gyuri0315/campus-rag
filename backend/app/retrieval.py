@@ -96,6 +96,23 @@ QUERY_TERM_GROUPS = {
     # how the source page actually phrases it ("무인발급기(기)"), which don't
     # share a literal substring so plain full-text search can't bridge them.
     "증명서발급": ("무인발급기", "무인발급기기", "자동발급기", "제증명", "증명서 발급"),
+    # 실제 사용자 질문 사례("컴공학과사무실", 띄어쓰기 없는 구어체 줄임말)가
+    # 이 그룹 없이는 검색 후보에 전혀 안 걸리는 것을 확인함 -- 임베딩도
+    # "컴공"과 "컴퓨터·인공지능공학부"를 가깝게 못 보고, lexical fallback도
+    # 공백 기준 토큰화라 붙여쓴 줄임말은 원문과 겹치는 부분이 없음.
+    # "컴퓨터공학과"/"컴퓨터공학부"/"인공지능공학부"는 단독으로 1,400~1,900행씩
+    # 매치돼 위 "증명서"급 위험 구간에 가까워 실제 검색어(OR 대상)에서는 빼고
+    # LEXICAL_EXCLUDED_VARIANTS로 트리거 전용 처리. "컴퓨터·인공지능공학부"는
+    # 개설학과 원문 명칭이라 그대로 둬도 인공지능공학부와 매치 집합이 거의
+    # 겹쳐 추가 위험이 크지 않음(측정: 최대 1,405행, 안전 구간).
+    "컴공학과": (
+        "컴공",
+        "컴퓨터공학과",
+        "컴퓨터공학부",
+        "인공지능공학부",
+        "컴퓨터·인공지능공학부",
+        "컴퓨터인공지능공학부",
+    ),
 }
 
 STRICT_QUERY_TERMS = {
@@ -200,7 +217,7 @@ def _lexical_synthetic_similarity(rank_index: int, min_similarity: float) -> flo
 # form to detect that a question is "about" that concept at all. Only the
 # lexical OR-query builder below excludes them, since it's the one place a
 # single overly-common token turns into a near-full-table scan.
-LEXICAL_EXCLUDED_VARIANTS = {"졸업", "전공"}
+LEXICAL_EXCLUDED_VARIANTS = {"졸업", "전공", "컴퓨터공학과", "컴퓨터공학부", "인공지능공학부"}
 
 # Filler words that carry no retrieval signal but frequently show up in
 # natural Korean questions. websearch_to_tsquery ANDs every remaining word
@@ -359,6 +376,31 @@ def _source_kind_priority(row: Dict[str, Any]) -> float:
     if source_ext in {".html", ".htm", ".json"} and not source_kind:
         source_kind = "html"
     return SOURCE_KIND_PRIORITIES.get(source_kind, 0.70)
+
+
+# A cross-encoder reranker trained on single-topic passage relevance tends to
+# score a chunk that mentions one phone number in a clean, focused sentence
+# higher than a chunk that is actually the authoritative directory/contact
+# page for that number, but lists it among several other facts (other
+# extensions, a fax number, an unrelated program's number) -- the dense
+# chunk reads as "less about" the query even though it is the better source.
+# Observed live: "컴공학과사무실 전화번호 알려줘" cited a notice that happened to
+# mention one CE department number in passing, over the department's own
+# contact-directory chunk (6 numbers: 3 office lines, a program line, 2 fax
+# numbers) -- reranker preferred the single coincidental mention. Detect the
+# directory shape directly (several distinct phone numbers in one chunk) and
+# nudge it back up *after* reranking, so the fix doesn't get diluted by
+# reranker_weight the way a priority_score change would (that only feeds the
+# ~20% "initial_score" side of the blend, not the ~80% reranker side).
+_PHONE_NUMBER_RE = re.compile(r"\d{2,4}[-–]\d{3,4}[-–]\d{4}")
+CONTACT_DIRECTORY_MIN_PHONE_NUMBERS = 2
+CONTACT_DIRECTORY_BONUS = 0.06
+
+
+def _is_contact_directory_row(row: Dict[str, Any]) -> bool:
+    content = str(row.get("content") or "")
+    numbers = set(_PHONE_NUMBER_RE.findall(content))
+    return len(numbers) >= CONTACT_DIRECTORY_MIN_PHONE_NUMBERS
 
 
 def _query_mismatch_penalty(row: Dict[str, Any]) -> float:
@@ -727,6 +769,11 @@ def _rerank_candidates(
             rerank_score * bounded_reranker_weight
             + initial_score * initial_weight
         )
+        # Applied *after* the reranker blend, not folded into initial_score,
+        # so it isn't diluted by (1 - reranker_weight) -- see
+        # _is_contact_directory_row's docstring for why this lives here.
+        if _is_contact_directory_row(copied):
+            rerank_final_score += CONTACT_DIRECTORY_BONUS
         copied["rerank_score"] = rerank_score
         copied["rerank_final_score"] = rerank_final_score
         rescored.append(copied)
