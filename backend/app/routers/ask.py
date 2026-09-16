@@ -2,18 +2,16 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from itertools import zip_longest
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Any, Dict, List, Tuple
 from urllib.parse import unquote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.responses import StreamingResponse
 
 from ..deps import AppState, get_state
 from ..excerpts import extract_relevant_excerpt
-from ..generation import generate_answer, stream_answer
+from ..generation import generate_answer
 from ..query_rewrite import plan_search_queries
 from ..query_transform import transform_query
 from ..rate_limit import enforce_ask_rate_limit
@@ -168,7 +166,7 @@ def _retrieve(
     question: str,
     chat_history: List[Dict[str, str]],
 ) -> Tuple[List[Dict[str, Any]], List[Source]]:
-    """Shared embedding+search step for both the plain and streaming paths.
+    """Query planning and retrieval for the JSON answer response.
 
     `question` alone is frequently not enough to search with well:
     - with prior conversation, a follow-up like "그럼 거기 대표 전화번호는요?"
@@ -181,8 +179,8 @@ def _retrieve(
       near the formal name ("컴퓨터·인공지능공학부") official documents use.
     plan_search_queries() resolves all three *only for the search step* --
     the original `question` and chat_history are still what gets sent to
-    answer generation unchanged (see ask()/generate_answer/stream_answer
-    below), so none of this touches generation or the streaming response.
+    answer generation unchanged (see ask()/generate_answer
+    below), so none of this touches generation or the JSON response.
     """
     sub_questions = plan_search_queries(
         openai_client=state.openai,
@@ -230,109 +228,7 @@ def _retrieve(
     return rows, sources
 
 
-def _sse(event_type: str, **payload: Any) -> str:
-    return f"data: {json.dumps({'type': event_type, **payload}, ensure_ascii=False)}\n\n"
-
-
-def _stream_ask_full(
-    *,
-    state: AppState,
-    user_id: str,
-    question: str,
-    chat_history: List[Dict[str, str]],
-) -> Iterator[str]:
-    """Full streaming pipeline: query planning -> retrieval -> generation,
-    with a "status" SSE event announcing each stage before it starts.
-
-    This used to be two pieces -- _retrieve() ran to completion *before*
-    ask() even constructed the StreamingResponse, then this function only
-    covered generation. That meant planning+retrieval+reranking (measured:
-    several seconds, sometimes 10+ once the reranker sees a big candidate
-    pool) happened with literally zero bytes sent to the client -- no
-    status event could have reached it during that window no matter what
-    the frontend did, since the HTTP response hadn't started yet. Inlining
-    the whole pipeline into this generator is what makes progressive status
-    possible: each yield flushes immediately, so the client sees "planning"
-    right away, then "retrieval", then "generating", then real tokens.
-    """
-    yield _sse("status", stage="planning", message="질문을 분석하고 검색어를 준비하고 있어요...")
-    sub_questions = plan_search_queries(
-        openai_client=state.openai,
-        model=state.settings.openai_model,
-        question=question,
-        chat_history=chat_history,
-    )
-    search_queries = [transform_query(q) or q for q in sub_questions]
-    logger.info(
-        "ask: user=%s question=%r sub_questions=%r search_queries=%r history_turns=%d",
-        user_id,
-        question,
-        sub_questions,
-        search_queries,
-        len(chat_history),
-    )
-
-    yield _sse("status", stage="retrieval", message="관련 문서를 검색하고 있어요...")
-    try:
-        rows_by_query = [_search_one(state, q) for q in search_queries]
-    except Exception:
-        logger.exception("retrieval failed")
-        yield _sse("error", detail="retrieval failed")
-        return
-
-    rows = _merge_rows(rows_by_query, state.settings.rag_top_k)
-    sources = [_row_to_source(r) for r in rows]
-    top_similarity = max((_similarity(row) for row in rows), default=0.0)
-    logger.info("ask: final_sources=%d top_similarity=%.4f", len(sources), top_similarity)
-
-    if not sources:
-        yield _sse("token", content=NO_INFO_ANSWER)
-        yield _sse("sources", sources=[])
-        yield _sse("done")
-        return
-
-    yield _sse("status", stage="generating", message="답변을 작성하고 있어요...")
-    pieces: List[str] = []
-    try:
-        for delta in stream_answer(
-            openai_client=state.openai,
-            model=state.settings.openai_model,
-            system_prompt=state.system_prompt,
-            question=question,
-            rows=rows,
-            max_chars_per_chunk=state.settings.max_chars_per_chunk,
-            timeout=state.settings.openai_timeout_seconds,
-            temperature=state.settings.openai_temperature,
-            max_tokens=state.settings.openai_max_tokens,
-            chat_history=chat_history,
-        ):
-            pieces.append(delta)
-            yield _sse("token", content=delta)
-    except Exception:
-        logger.exception("generation failed")
-        yield _sse("error", detail="generation failed")
-        return
-
-    answer = "".join(pieces).strip() or NO_INFO_ANSWER
-    excerpted_sources = [
-        source.model_copy(
-            update={
-                "content": extract_relevant_excerpt(
-                    source.content,
-                    question=question,
-                    answer=answer,
-                    source_index=index,
-                    max_chars=state.settings.source_excerpt_max_chars,
-                )
-            }
-        )
-        for index, source in enumerate(sources, start=1)
-    ]
-    yield _sse("sources", sources=[s.model_dump() for s in excerpted_sources])
-    yield _sse("done")
-
-
-@router.post("/ask")
+@router.post("/ask", response_model=AskResponse)
 def ask(
     payload: AskRequest,
     state: AppState = Depends(get_state),
@@ -342,18 +238,6 @@ def ask(
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
     chat_history = [turn.model_dump() for turn in payload.chat_history]
-
-    if payload.stream:
-        return StreamingResponse(
-            _stream_ask_full(
-                state=state,
-                user_id=user_id,
-                question=question,
-                chat_history=chat_history,
-            ),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
-        )
 
     rows, sources = _retrieve(
         state=state,

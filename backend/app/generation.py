@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
@@ -178,57 +178,3 @@ def generate_answer(
         total_tokens,
     )
     return (response.choices[0].message.content or "").strip()
-
-
-def stream_answer(
-    *,
-    openai_client: OpenAI,
-    model: str,
-    system_prompt: str,
-    question: str,
-    rows: List[Dict[str, Any]],
-    max_chars_per_chunk: int,
-    timeout: float,
-    temperature: float = 0.1,
-    max_tokens: int = 700,
-    chat_history: Optional[List[Dict[str, str]]] = None,
-) -> Iterator[str]:
-    """Same prompt assembly as generate_answer, but yields the answer text
-    incrementally (OpenAI stream=True) instead of waiting for the full
-    completion. Callers that need the assembled full answer (e.g. to run
-    excerpt extraction, which needs the [n] citations) should join the
-    yielded pieces themselves."""
-    messages = build_messages(system_prompt, question, rows, max_chars_per_chunk, chat_history)
-    logger.info(
-        "generation: start(stream) model=%s source_count=%d max_chars_per_chunk=%d history_turns=%d",
-        model,
-        len(rows),
-        max_chars_per_chunk,
-        len(chat_history or []),
-    )
-    started = time.perf_counter()
-    stream = openai_client.chat.completions.create(
-        model=model,
-        messages=messages,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        timeout=timeout,
-        stream=True,
-    )
-    chunk_count = 0
-    try:
-        for chunk in stream:
-            if not chunk.choices:
-                continue
-            delta = chunk.choices[0].delta.content
-            if delta:
-                chunk_count += 1
-                yield delta
-    finally:
-        elapsed_ms = (time.perf_counter() - started) * 1000
-        logger.info(
-            "generation: done(stream) model=%s latency_ms=%.1f chunk_count=%d",
-            model,
-            elapsed_ms,
-            chunk_count,
-        )

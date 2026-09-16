@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  const stream = Boolean((body as { stream?: unknown } | null)?.stream);
+
   const chatHistory = (body as { chat_history?: unknown } | null)?.chat_history;
 
   const authHeader = request.headers.get("authorization");
@@ -41,28 +41,27 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
         Authorization: authHeader,
       },
       body: JSON.stringify({
         question: question.trim(),
-        stream,
+        stream: false,
         ...(Array.isArray(chatHistory) ? { chat_history: chatHistory } : {}),
       }),
       cache: "no-store",
       signal: controller.signal,
     });
 
-    // Pass the body straight through as a stream instead of buffering it
-    // with `.text()` first — required for stream:true's text/event-stream
-    // response to actually reach the browser token-by-token; harmless for
-    // the plain JSON response (same bytes, just not held in memory first).
-    return new Response(upstream.body, {
-      status: upstream.status,
-      headers: {
-        "Content-Type":
-          upstream.headers.get("Content-Type") ?? "application/json",
-      },
-    });
+    if (!upstream.headers.get("Content-Type")?.includes("application/json")) {
+      await upstream.body?.cancel();
+      return Response.json(
+        { detail: "백엔드 응답 형식이 올바르지 않습니다. JSON 응답이 필요합니다." },
+        { status: 502 },
+      );
+    }
+    const data = await upstream.json();
+    return Response.json(data, { status: upstream.status });
   } catch (err) {
     if (controller.signal.aborted && !request.signal.aborted) {
       return Response.json(

@@ -18,11 +18,8 @@ class AskRequest(BaseModel):
     # (10 exchanges) so a long-running chat can't unboundedly grow the prompt
     # sent to OpenAI on every request.
     chat_history: List[ChatMessage] = Field(default_factory=list, max_length=20)
-    # Defaults to false so existing callers (eval_ask.py, the current
-    # frontend proxy) keep getting the plain AskResponse JSON body they
-    # already parse. Opt in with stream=true to get a text/event-stream
-    # response instead (see routers/ask.py).
-    stream: bool = False
+    # Legacy `stream` request fields are ignored; /ask always returns JSON.
+
 
 
 class Attachment(BaseModel):
