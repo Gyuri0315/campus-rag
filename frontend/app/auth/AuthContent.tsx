@@ -10,9 +10,10 @@ import { useAuth } from "@/app/context/AuthContext";
 const NAVY = "#25348B";
 const NAVY_MUTED = "rgba(37,52,139,0.45)";
 
-// 실제 강제는 auth.users 트리거(enforce_school_email_domain, 010 마이그레이션)에서
-// 하고, 이건 사용자에게 즉시 피드백을 주기 위한 클라이언트 측 사전 검증이다.
-const SCHOOL_EMAIL_RE = /@(pknu\.ac\.kr|pukyong\.ac\.kr)$/i;
+// 실제 강제는 auth.users 트리거(enforce_school_email_domain, 010 + 013
+// 마이그레이션)에서 하고, 이건 사용자에게 즉시 피드백을 주기 위한 클라이언트
+// 측 사전 검증이다. office.pknu.ac.kr는 행정실 등 교직원 계정으로 추정.
+const SCHOOL_EMAIL_RE = /@(pknu\.ac\.kr|pukyong\.ac\.kr|office\.pknu\.ac\.kr)$/i;
 
 // ── 아이콘 ────────────────────────────────────────────────────────────────────
 const IconArrowLeft = () => (
@@ -96,7 +97,9 @@ export default function AuthContent() {
       return;
     }
     if (mode === "signup" && !SCHOOL_EMAIL_RE.test(trimmedEmail)) {
-      setError("학교 이메일(@pknu.ac.kr 또는 @pukyong.ac.kr)로만 가입할 수 있습니다.");
+      setError(
+        "학교 이메일(@pknu.ac.kr, @pukyong.ac.kr, @office.pknu.ac.kr)로만 가입할 수 있습니다.",
+      );
       return;
     }
 
@@ -217,7 +220,7 @@ export default function AuthContent() {
               />
               {isSignup && (
                 <span className="text-[11px]" style={{ color: NAVY_MUTED }}>
-                  @pknu.ac.kr 또는 @pukyong.ac.kr 학교 이메일만 가입할 수 있어요
+                  @pknu.ac.kr, @pukyong.ac.kr, @office.pknu.ac.kr 학교 이메일만 가입할 수 있어요
                 </span>
               )}
             </label>
