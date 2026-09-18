@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 
 from scripts.crawlers.departments.adapters.base import DepartmentCMSAdapter
 from scripts.crawlers.departments.probe import numeric_menu_links, select_content_container
+from scripts.crawlers.departments.urls import resolve_link
 
 
 _NAV_TEXTS = {"목록보기", "다음", "이전", "next", "prev"}
@@ -28,7 +29,9 @@ def _slug(url: str, extra: str = "") -> str:
 
 
 def _detail_source_id(href: str, board_url: str) -> str:
-    absolute = urljoin(board_url, href)
+    absolute = resolve_link(href, board_url)
+    if not absolute:
+        return ""
     parsed = urlparse(absolute)
     if parse_qs(parsed.query).get("action", [""])[0].lower() != "view":
         return ""
@@ -78,7 +81,7 @@ def _fallback_list_items(soup: BeautifulSoup, board_url: str) -> list[dict[str, 
         seen.add(source_id)
         items.append({
             "source_id": source_id,
-            "post_url": urljoin(board_url, href),
+            "post_url": resolve_link(href, board_url),
             "num": "NOTICE" if notice else number,
             "post_no": post_no,
             "is_notice": notice,
@@ -125,27 +128,78 @@ def _has_board_table(soup: BeautifulSoup) -> bool:
     return False
 
 
+def _table_text(table) -> str:
+    """Keep row/cell boundaries and carry merged row labels into each row."""
+    lines = []
+    spans: dict[int, tuple[str, int]] = {}
+    caption = table.find("caption", recursive=False)
+    if caption:
+        lines.append(_text(caption))
+    for row in table.find_all("tr"):
+        if row.find_parent("table") is not table:
+            continue
+        values = {col: value for col, (value, _) in spans.items()}
+        spans = {col: (value, left - 1) for col, (value, left) in spans.items() if left > 1}
+        col = 0
+        for cell in row.find_all(["th", "td"], recursive=False):
+            while col in values:
+                col += 1
+            def span(name: str) -> int:
+                try:
+                    return min(1000, max(1, int(cell.get(name, 1))))
+                except (TypeError, ValueError):
+                    return 1
+            width, height = span("colspan"), span("rowspan")
+            value = _text(cell)
+            for offset in range(width):
+                text = value
+                values[col + offset] = text
+                if height > 1:
+                    spans[col + offset] = (text, height - 1)
+            col += width
+        if any(values.values()):
+            lines.append(" | ".join(values.get(i, "") for i in range(max(values) + 1)))
+    return "\n".join(lines)
+
+
 def extract_body_content(content_el) -> str:
     if content_el is None:
         return ""
     copy = BeautifulSoup(str(content_el), "lxml")
-    for selector in (".c_bdvBtn", ".c_bdvNav", ".a_bdPaging", ".board-nav", ".btn-list"):
+    for selector in ("script", "style", "#subTitle", ".c_bdvBtn", ".c_bdvNav", ".a_bdPaging", ".board-nav", ".btn-list"):
         for element in copy.select(selector):
             element.decompose()
     body = copy.select_one(".bdvEdit")
-    if body:
-        text = body.get_text(" ", strip=True)
-    else:
-        table = copy.select_one("table")
-        if table:
-            table.decompose()
+    if not body:
         for anchor in copy.select("a"):
             if anchor.get_text(strip=True).lower() in _NAV_TEXTS:
                 anchor.decompose()
-        text = copy.get_text(" ", strip=True)
+    root = body if body is not None else copy
+    # Static guides often consist entirely of a table. Never discard a table
+    # merely because it is the first one; the detail body already excludes metadata.
+    tables = root.select("table")
+    for table in reversed(tables):
+        table.replace_with("\n" + _table_text(table) + "\n")
+    text = root.get_text(" ", strip=not bool(tables))
+    if tables:
+        text = "\n".join(line.strip() for line in text.splitlines() if line.strip())
     text = _NAV_PHRASE_RE.sub("", text)
     text = re.sub(r"[ \t]{2,}", " ", text)
     return re.sub(r"\n{3,}", "\n\n", text).strip()
+
+
+def _content_root(soup):
+    # select_one with a comma-separated selector uses document order, not
+    # selector priority. CE has an empty layout .container before #sbCont.
+    return soup.select_one("#sbCont") or select_content_container(soup)
+
+
+def _empty_content_info(root, text, attachments):
+    if text.strip():
+        return {}
+    images = [str(img.get("src")) for img in root.select("img[src]")] if root else []
+    return {"content_state": "attachment_only" if attachments else "image_only" if images else "empty",
+            "content_images": images}
 
 
 def _attachment_candidate(href: str, name: str) -> bool:
@@ -221,7 +275,10 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
                 post_no = None if notice else int(number)
             except ValueError:
                 post_no = None
-            items.append({"post_url": urljoin(board_url, link.get("href", "")), "num": number,
+            post_url = resolve_link(link.get("href", ""), board_url)
+            if not post_url:
+                continue
+            items.append({"post_url": post_url, "num": number,
                           "post_no": post_no, "is_notice": notice,
                           "date": cells[-2].get_text(strip=True) if len(cells) >= 2 else ""})
         return items or _fallback_list_items(soup, board_url)
@@ -235,7 +292,9 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
             href, name = str(anchor.get("href") or ""), anchor.get_text(strip=True)
             if not href or href.startswith("javascript") or name.lower() in _NAV_TEXTS:
                 continue
-            absolute = urljoin(base_url, href)
+            absolute = resolve_link(href, page_url or base_url)
+            if not absolute:
+                continue
             parsed = urlparse(absolute)
             if "action=view" in parsed.query:
                 continue
@@ -246,6 +305,27 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
         return attachments
 
     def parse_detail(self, soup: BeautifulSoup, post_url: str, item: dict[str, Any], *, base_url: str, site_prefix: str) -> dict[str, Any] | None:
+        # Department boards can redirect individual posts to the university CMS.
+        # Only accept its explicit detail structure on the known university host.
+        if urlparse(post_url).hostname in {"www.pknu.ac.kr", "pknujob.pknu.ac.kr"}:
+            requested_no = parse_qs(urlparse(str(item.get("post_url") or "")).query).get("no")
+            actual_query = parse_qs(urlparse(post_url).query)
+            if actual_query.get("action") != ["view"] or (requested_no and actual_query.get("no") != requested_no):
+                return None
+            title = soup.select_one("td.title_b")
+            body = soup.select_one("div.bdvTxt")
+            wrapper = soup.select_one("div.bdCont, form#frmPost")
+            if title is None or body is None or wrapper is None:
+                return None
+            author = soup.select_one("td.text_l.noti_name")
+            dates = re.findall(r"\d{4}-\d{2}-\d{2}", " ".join(_text(row) for row in wrapper.select("tr.noti")))
+            attachments = [{"name": _text(a), "url": urljoin(post_url, a["href"])}
+                           for a in wrapper.select('a[href*="boardDownload.do"]')]
+            attachments = list({a["url"]: a for a in attachments}.values())
+            text = extract_body_content(body)
+            return {"title": _text(title), "author": _text(author), "date": dates[0] if dates else item.get("date", ""),
+                    "url": post_url, "body": text, "is_notice": item.get("is_notice", False),
+                    "attachments": attachments, **_empty_content_info(body, text, attachments)}
         title_el, content_el = soup.select_one(".bdvTitle"), soup.select_one(".a_bdCont")
         if not title_el and not content_el:
             return None
@@ -254,15 +334,20 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
         if content_el and not date:
             match = re.search(r"\d{4}-\d{2}-\d{2}", _text(content_el))
             date = match.group() if match else date
+        body = extract_body_content(content_el)
+        attachments = self.parse_attachments(content_el, page_url=post_url, base_url=base_url,
+                                             site_prefix=site_prefix)
+        root = content_el.select_one(".bdvEdit") if content_el else None
         return {"slug": _slug(post_url, title), "title": title, "date": date, "url": post_url,
-                "is_notice": item.get("is_notice", False), "body": extract_body_content(content_el),
-                "attachments": self.parse_attachments(content_el, page_url=post_url, base_url=base_url,
-                                                      site_prefix=site_prefix)}
+                "is_notice": item.get("is_notice", False), "body": body, "attachments": attachments,
+                **_empty_content_info(root or content_el, body, attachments)}
 
     def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]:
         breadcrumb = soup.select(".a_sbtNav dd")
         title = breadcrumb[-1].get_text(strip=True) if breadcrumb else fallback_title
         title = title or _text(soup.select_one("title")) or fallback_title
-        content = select_content_container(soup)
-        return {"title": title, "content": extract_body_content(content) if content else _text(soup.body),
-                "attachments": []}
+        content = _content_root(soup)
+        text = extract_body_content(content)
+        attachments = self.parse_attachments(content, page_url="", base_url="", site_prefix="")
+        return {"title": title, "content": text, "attachments": attachments,
+                **_empty_content_info(content, text, attachments)}

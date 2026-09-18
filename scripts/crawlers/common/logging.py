@@ -16,6 +16,8 @@ from scripts.crawlers.common.schema import KST
 
 
 COMMON_EVENTS = {
+    "content_validation",
+    "url_skipped",
     "run_started", "run_finished", "section_started", "section_finished",
     "list_fetched", "document_discovered", "document_saved",
     "document_unchanged", "document_skipped", "document_deleted",
