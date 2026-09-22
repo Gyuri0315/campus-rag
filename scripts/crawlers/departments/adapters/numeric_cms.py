@@ -199,18 +199,12 @@ def _empty_content_info(root, text, attachments):
         return {}
     images = [str(img.get("src")) for img in root.select("img[src]")] if root else []
     return {"content_state": "attachment_only" if attachments else "image_only" if images else "empty",
-            "content_images": images}
+            "content_images": [src for src in images if not src.lower().startswith('data:')]}
 
 
 def _attachment_candidate(href: str, name: str) -> bool:
-    href_l, name_l = href.lower(), name.lower()
-    blocked = (".html", ".htm", ".shtml", ".php", ".asp", ".aspx", ".jsp")
-    if href_l.endswith(blocked) or name_l.endswith(blocked):
-        return False
-    extensions = r"\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z|txt|csv|png|jpg|jpeg|gif)$"
-    if re.search(extensions, href_l) or re.search(extensions, name_l):
-        return True
-    return any(token in href_l for token in ("download", "down", "attach", "file", "atchfile"))
+    from scripts.crawlers.departments.attachments import attachment_candidate
+    return attachment_candidate(href, name)
 
 
 class NumericCMSAdapter(DepartmentCMSAdapter):
