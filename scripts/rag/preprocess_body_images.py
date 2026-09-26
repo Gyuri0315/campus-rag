@@ -1,6 +1,7 @@
-"""Target IMAGE_ONLY_REQUIRES_OCR documents without modifying crawl state.
+"""OCR department body images without modifying crawl state.
 
 python -m scripts.rag.preprocess_body_images --dataset ce
+python -m scripts.rag.preprocess_body_images --all-body-images
 """
 from __future__ import annotations
 
@@ -13,10 +14,10 @@ import shutil
 import subprocess
 
 from bs4 import BeautifulSoup
-import requests
-
 from scripts.crawlers.departments.body_images import collect_body_images, save_body_images
+from scripts.crawlers.departments.engine import build_session
 from scripts.extractors.image_ocr import VERSION, extract_image
+from scripts.rag.body_image_layout import enrich_entry
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -31,6 +32,10 @@ def write_json(path, data):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset', action='append', help='Repeatable; default: all datasets')
+    parser.add_argument(
+        '--all-body-images', action='store_true',
+        help='Process image candidates from every saved departmental HTML body. Default: only IMAGE_ONLY_REQUIRES_OCR documents.',
+    )
     parser.add_argument('--limit', type=int)
     parser.add_argument('--tesseract', default=shutil.which('tesseract') or 'C:/Program Files/Tesseract-OCR/tesseract.exe')
     parser.add_argument('--tessdata')
@@ -49,14 +54,17 @@ def main():
         parser.error(f'Tesseract unavailable: {exc}')
     datasets = args.dataset or [p.name for p in (ROOT/'files').iterdir() if (p/'output/json').is_dir()]
     report = []
-    with requests.Session() as session:
+    # Match crawler request behavior: direct, normal browser headers and no
+    # inherited dead proxy. This does not loosen TLS verification or bypass
+    # access controls.
+    with build_session() as session:
         for dataset in datasets:
             if Path(dataset).name != dataset or dataset in {'.', '..'}:
                 parser.error('Invalid dataset')
             output = ROOT/'files'/dataset/'output'
             for path in sorted((output/'json').rglob('*.json')):
                 doc = json.loads(path.read_text(encoding='utf-8'))
-                if 'IMAGE_ONLY_REQUIRES_OCR' not in doc.get('crawl', {}).get('warnings', []):
+                if not args.all_body_images and 'IMAGE_ONLY_REQUIRES_OCR' not in doc.get('crawl', {}).get('warnings', []):
                     continue
                 if args.limit is not None and len(report) >= args.limit:
                     break
@@ -66,17 +74,31 @@ def main():
                          'language': args.language, 'status': 'needs_review'}
                 try:
                     html = (output/'html'/path.relative_to(output/'json')).with_suffix('.html')
+                    old = json.loads(target.read_text(encoding='utf-8')) if target.exists() else {}
                     records = doc.get('metadata', {}).get('body_images', [])
                     if not records:
                         candidates = collect_body_images(BeautifulSoup(html.read_text(encoding='utf-8'), 'html.parser'))
-                        records = save_body_images(candidates, session=session, page_url=doc['url'],
-                                                   output_dir=output/'images', project_root=ROOT)
-                    old = json.loads(target.read_text(encoding='utf-8')) if target.exists() else {}
-                    cached = {r.get('sha256'): r for r in old.get('images', []) if r.get('blocks')}
+                        prior = old.get('images', [])
+                        # Reuse byte-addressed originals from a prior OCR run.
+                        # The HTML snapshot still supplies the expected image count;
+                        # each reused file is hash-verified below before OCR.
+                        if len(prior) == len(candidates) and all(item.get('saved_path') and item.get('sha256') for item in prior):
+                            records = prior
+                        else:
+                            records = save_body_images(candidates, session=session, page_url=doc['url'],
+                                                       output_dir=output/'images', project_root=ROOT)
+                    if args.all_body_images and not records:
+                        # Normal text-only pages are not OCR targets and do not
+                        # get a misleading empty preprocessing result.
+                        continue
+                    cached = {
+                        r.get('sha256'): r for r in old.get('images', [])
+                        if r.get('blocks') and r.get('status') == 'needs_review'
+                    }
                     for record in records:
                         record = dict(record)
                         try:
-                            if record.get('status') != 'saved':
+                            if record.get('status') != 'saved' and not (record.get('saved_path') and record.get('sha256')):
                                 raise ValueError(str(record.get('error') or 'Image not saved'))
                             image_path = (ROOT/record['saved_path']).resolve()
                             image_path.relative_to(output.resolve())
@@ -86,6 +108,7 @@ def main():
                             if not args.force and old.get('ocr_version') == VERSION and old.get('language') == args.language and digest in cached:
                                 record = cached[digest]
                             else:
+                                record.pop('ocr_error', None)
                                 record.update(extract_image(image_path, executable=args.tesseract,
                                                             language=args.language, tessdata=args.tessdata))
                         except Exception as exc:
@@ -95,6 +118,7 @@ def main():
                         entry['status'] = 'partial_failure' if any(r.get('blocks') for r in entry['images']) else 'failed'
                 except Exception as exc:
                     entry.update(status='failed', error=str(exc))
+                enrich_entry(entry)
                 write_json(target, entry)
                 report.append({'source_path': entry['source_path'], 'status': entry['status'],
                                'images': len(entry['images']),
