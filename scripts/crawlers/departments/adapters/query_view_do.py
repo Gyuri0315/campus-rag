@@ -74,7 +74,7 @@ class QueryViewDoAdapter(DepartmentCMSAdapter):
     def parse_list(self, soup: BeautifulSoup, board_url: str) -> list[dict[str, Any]]:
         items: list[dict[str, Any]] = []
         seen: set[str] = set()
-        for row in soup.select(".board-list-wrap tbody tr"):
+        for row in soup.select(".board-list-wrap tbody tr, li:has(a[onclick*=moveView])"):
             link = row.select_one("a[onclick*=moveView], a[href*=idx]")
             if not link:
                 continue
@@ -88,11 +88,14 @@ class QueryViewDoAdapter(DepartmentCMSAdapter):
             seen.add(item_id)
             cells = row.select("td")
             date = cells[-1].get_text(strip=True) if cells else ""
+            if not cells:
+                match_date = re.search(r"\d{4}[.-]\d{2}[.-]\d{2}", row.get_text(" ", strip=True))
+                date = match_date.group().replace(".", "-") if match_date else ""
             notice = bool(row.select_one('img[alt="공지"]'))
             items.append({"source_id": item_id, "post_url": _query_url(board_url, pgMode="View", idx=item_id),
                           "num": "NOTICE" if notice else (cells[0].get_text(strip=True) if cells else ""),
                           "post_no": None if notice else int(item_id), "is_notice": notice, "date": date,
-                          "title": link.get_text(" ", strip=True)})
+                          "title": (link.select_one('.btxt') or link).get_text(" ", strip=True)})
         return items
 
     def parse_attachments(self, content, *, page_url: str, base_url: str, site_prefix: str) -> list[dict[str, str]]:
@@ -139,12 +142,16 @@ class QueryViewDoAdapter(DepartmentCMSAdapter):
             for element in body_copy.select(selector):
                 element.decompose()
         body_text = re.sub(r"\s+", " ", body_copy.get_text(" ", strip=True)).strip()
+        images = body_copy.select("img[src]")
         return {"title": title.get_text(" ", strip=True), "author": author,
                 "date": published or item.get("date", ""),
                 "url": post_url, "is_notice": item.get("is_notice", False), "body": body_text,
                 "attachments": self.parse_attachments(wrapper, page_url=post_url, base_url=base_url,
                                                       site_prefix=site_prefix),
-                "source_id": source_id}
+                "source_id": source_id,
+                **({"content_state": "image_only", "content_images": [str(img["src"]) for img in images
+                    if not str(img["src"]).startswith("data:")]}
+                   if not body_text and images else {})}
 
     def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]:
         title = soup.select_one("h1, .page-title")

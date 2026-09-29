@@ -30,6 +30,13 @@ def detect_access_block(*, final_url: str, html: str) -> AccessBlockEvidence:
     body = soup.get_text(" ", strip=True)
     path = urlsplit(final_url).path.lower().rstrip("/") or "/"
     reasons: list[str] = []
+    # A public page may contain a login link or a generic session-timeout
+    # handler. Require an explicit login-required alert AND redirect together.
+    for script in soup.select("script:not([src])"):
+        code = script.get_text()
+        if (re.search(r"alert\s*\(\s*['\"][^'\"]*로그인\s*후\s*이용", code)
+                and re.search(r"(?:window\.)?location(?:\.href)?\s*=\s*['\"][^'\"]*(?:/login|/main/49)", code, re.I)):
+            reasons.append("login_required")
     if any(path.endswith(candidate) for candidate in _DENY_PATHS):
         reasons.append("deny_url")
     title_lower, body_lower = (title or "").lower(), body.lower()

@@ -8,6 +8,8 @@ import re
 import ssl
 import sys
 import time
+import mimetypes
+from itertools import chain
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -56,6 +58,7 @@ from scripts.crawlers.departments.config import (  # noqa: E402
 from scripts.crawlers.departments.probe import select_content_container  # noqa: E402
 from scripts.crawlers.departments.adapters import get_adapter  # noqa: E402
 from scripts.crawlers.departments.access import ACCESS_BLOCKED, detect_access_block  # noqa: E402
+from scripts.crawlers.departments.urls import resolve_url, resolve_link
 from scripts.crawlers.departments.tls import (  # noqa: E402
     NETWORK_REQUEST_FAILED,
     TLS_CERTIFICATE_VERIFY_FAILED,
@@ -310,6 +313,12 @@ def fetch(
 ) -> requests.Response | None:
     global TLS_SYSTEM_TRUST_FALLBACK_USED, _LAST_FETCH_FAILURE
     _LAST_FETCH_FAILURE = None
+    try:
+        url = resolve_url(url)
+    except ValueError as exc:
+        _LAST_FETCH_FAILURE = RequestFailure(code=str(exc).split(':', 1)[0], url=str(url), message=str(exc), retryable=False)
+        log_event(log, logging.WARNING, "url_skipped", error_code=_LAST_FETCH_FAILURE.code, reason=str(exc), retryable=False)
+        return None
     time.sleep(delay)
     try:
         resp, fallback_used = get_with_tls_policy(
@@ -334,20 +343,25 @@ def fetch(
         if resp.status_code == 200:
             blocked = detect_access_block(final_url=resp.url or url, html=resp.text)
             if blocked.blocked:
+                denial_code = "LOGIN_REQUIRED" if "login_required" in blocked.reasons else ACCESS_BLOCKED
                 _LAST_FETCH_FAILURE = RequestFailure(
-                    code=ACCESS_BLOCKED,
+                    code=denial_code,
                     url=resp.url or url,
                     message=f"access blocked ({', '.join(blocked.reasons)})",
                     retryable=False,
                 )
                 log_event(log, logging.ERROR, "request_failed", url=resp.url or url,
-                          error_code=ACCESS_BLOCKED, retryable=False)
+                          error_code=denial_code, retryable=False, requested_url=url,
+                          reason="server_denial_response")
                 return None
             return resp
         _LAST_FETCH_FAILURE = _http_failure(resp, url)
         log_event(log, logging.ERROR, "request_failed", url=_LAST_FETCH_FAILURE.url,
                   status_code=resp.status_code, error_code=_LAST_FETCH_FAILURE.code,
                   retryable=_LAST_FETCH_FAILURE.retryable)
+    except ValueError as exc:
+        _LAST_FETCH_FAILURE = RequestFailure(code="INVALID_URL", url=url, message=str(exc), retryable=False)
+        log_event(log, logging.WARNING, "url_skipped", error_code="INVALID_URL", reason=str(exc), retryable=False)
     except requests.RequestException as exc:
         _LAST_FETCH_FAILURE = _exception_failure(exc, url)
         log_event(log, logging.ERROR, "request_failed", url=url, error=exc,
@@ -382,26 +396,34 @@ def extract_filename(resp: requests.Response, url: str, fallback_name: str) -> s
 
 
 def is_attachment_candidate(href: str, name: str = "") -> bool:
-    href_l = href.lower()
-    name_l = name.lower()
-
-    blocked_exts = (".html", ".htm", ".shtml", ".php", ".asp", ".aspx", ".jsp")
-    if href_l.endswith(blocked_exts) or name_l.endswith(blocked_exts):
-        return False
-
-    file_ext_pattern = (
-        r"\.(pdf|hwp|hwpx|doc|docx|xls|xlsx|ppt|pptx|zip|rar|7z|txt|csv|png|jpg|jpeg|gif)$"
-    )
-    if re.search(file_ext_pattern, href_l) or re.search(file_ext_pattern, name_l):
-        return True
-
-    if any(k in href_l for k in ("download", "down", "attach", "file", "atchfile")):
-        return True
-
-    return False
+    from scripts.crawlers.departments.attachments import attachment_candidate
+    return attachment_candidate(href, name)
 
 
 def save_attachments(
+    session: requests.Session, attachments: list[dict], category: str, slug: str, source_page_url: str,
+) -> list[dict]:
+    """Return one terminal result per URL; retry transient failures at most twice."""
+    results = []
+    seen = set()
+    for attachment in attachments:
+        key = attachment.get("url", "")
+        if key in seen:
+            continue
+        seen.add(key)
+        for attempt in range(3):
+            result = _save_attachment_attempt(session, [attachment], category, slug, source_page_url)[0]
+            error = result.get("error") or {}
+            if error.get("code") not in {"REQUEST_FAILED", "STREAM_FAILED", "HTTP_429", "HTTP_500", "HTTP_502", "HTTP_503", "HTTP_504"} or attempt == 2:
+                break
+            log_event(log, logging.INFO, "retry_scheduled", url=key, attempt=attempt + 2, error_code=error["code"])
+            time.sleep(0.5 * (attempt + 1))
+        result["id"] = f"attachment-{len(results) + 1:03d}"
+        results.append(result)
+    return results
+
+
+def _save_attachment_attempt(
     session: requests.Session,
     attachments: list[dict],
     category: str,
@@ -413,7 +435,7 @@ def save_attachments(
 
     file_dir = ensure_file_dir(category, slug)
     results: list[dict] = []
-    used_names: set[str] = set()
+    used_names: set[str] = {p.name for p in file_dir.iterdir() if p.is_file()}
 
     for idx, attachment in enumerate(attachments, start=1):
         file_url = attachment.get("url", "").strip()
@@ -428,6 +450,14 @@ def save_attachments(
                     legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL},
                 )
             )
+            continue
+
+        try:
+            file_url = resolve_url(file_url, source_page_url)
+        except ValueError as exc:
+            results.append(build_attachment(index=idx, name=attachment.get("name") or f"attachment-{idx}",
+                url=file_url, project_root=PROJECT_ROOT,
+                error=attachment_error(str(exc).split(':', 1)[0], str(exc), False)))
             continue
 
         try:
@@ -455,7 +485,8 @@ def save_attachments(
                     name=attachment.get("name") or f"attachment-{idx}",
                     url=file_url,
                     project_root=PROJECT_ROOT,
-                    error=attachment_error("REQUEST_FAILED", exc, True),
+                    error=attachment_error("TLS_ERROR" if isinstance(exc, requests.exceptions.SSLError) else "REQUEST_FAILED",
+                                           exc, not isinstance(exc, requests.exceptions.SSLError)),
                     legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL},
                 )
             )
@@ -477,7 +508,7 @@ def save_attachments(
                     error=attachment_error(
                         f"HTTP_{resp.status_code}",
                         f"attachment returned HTTP {resp.status_code}",
-                        resp.status_code == 429 or resp.status_code >= 500,
+                        resp.status_code in {429, 500, 502, 503, 504},
                     ),
                     legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL},
                 )
@@ -485,7 +516,16 @@ def save_attachments(
             continue
 
         filename = extract_filename(resp, file_url, attachment.get("name", ""))
-        if "text/html" in content_type or "application/xhtml+xml" in content_type:
+        try:
+            chunks = resp.iter_content(chunk_size=8192)
+            prefix = next(chunks, b'')
+        except requests.RequestException as exc:
+            resp.close()
+            results.append(build_attachment(index=idx, name=filename, url=file_url, project_root=PROJECT_ROOT,
+                error=attachment_error("STREAM_FAILED", exc, True)))
+            continue
+        from scripts.crawlers.departments.attachments import html_response
+        if html_response(content_type, prefix):
             log.info("HTML 응답은 첨부로 저장하지 않음: %s", file_url)
             resp.close()
             results.append(
@@ -519,19 +559,24 @@ def save_attachments(
             )
             continue
 
-        if "." not in filename:
-            fallback_ext = Path(urlparse(resp.url).path).suffix
+        if "." not in filename or filename.lower().endswith(('.do', '.php', '.jsp')):
+            from scripts.crawlers.departments.attachments import EXTENSIONS
+            source_name = attachment.get("name", "")
+            fallback_ext = (Path(source_name).suffix if re.search(EXTENSIONS, source_name.lower()) else None)
+            fallback_ext = fallback_ext or mimetypes.guess_extension(content_type.split(';')[0].strip())
             if fallback_ext:
-                filename = f"{filename}{fallback_ext}"
+                filename = f"{Path(filename).stem}{fallback_ext}"
 
         filename = unique_attachment_filename(filename, used_names)
 
         output_file = file_dir / filename
+        partial_file = output_file.with_name(output_file.name + '.part')
         try:
-            with output_file.open("wb") as f:
-                for chunk in resp.iter_content(chunk_size=8192):
+            with partial_file.open("wb") as f:
+                for chunk in chain([prefix], chunks):
                     if chunk:
                         f.write(chunk)
+            partial_file.replace(output_file)
             saved_path = output_file
             downloaded = True
             save_error = None
@@ -543,6 +588,8 @@ def save_attachments(
             save_error = attachment_error(error_code, exc, True)
         finally:
             resp.close()
+            if partial_file.exists():
+                partial_file.unlink()
 
         results.append(
             build_attachment(
@@ -761,6 +808,8 @@ def crawl_board(
     max_items: int | None = None,
     no_download_files: bool = False,
     diagnostics: CrawlDiagnostics | None = None,
+    retry_items: list[dict] | None = None,
+    accumulator: CrawlStats | None = None,
 ) -> tuple[CrawlStats, int]:
     """
     게시판을 크롤링한다.
@@ -791,15 +840,17 @@ def crawl_board(
         name, last_known_no, "ALL" if max_pages is None else str(max_pages)
     )
 
-    stats = CrawlStats()
+    stats = accumulator if accumulator is not None else CrawlStats()
+    if retry_items is not None:
+        last_known_no, max_pages = -1, 1
     new_max_no = stored_last_no
     seen_post_urls: set[str] = set()
 
     page = 1
     while max_pages is None or page <= max_pages:
         list_url, params = ACTIVE_ADAPTER.list_request(board_url, page, bbs_id or None)
-        resp = fetch(session, list_url, params=params, delay=LIST_DELAY)
-        if resp is None:
+        resp = fetch(session, list_url, params=params, delay=LIST_DELAY) if retry_items is None else None
+        if resp is None and retry_items is None:
             stats.failed += 1
             _record_request_failure(
                 diagnostics, _LAST_FETCH_FAILURE, url=list_url, source_id=section.get("id") or name,
@@ -808,8 +859,9 @@ def crawl_board(
         if page == 1 and diagnostics is not None:
             diagnostics.sections_initialized += 1
 
-        soup = BeautifulSoup(resp.text, "lxml")
-        items = parse_list_page(soup, board_url)
+        soup = BeautifulSoup(resp.text if resp is not None else "", "lxml")
+        effective_list_url = (getattr(resp, "url", None) or board_url) if resp is not None else board_url
+        items = parse_list_page(soup, effective_list_url) if retry_items is None else retry_items
         stats.discovered += len(items)
         log_event(log, logging.INFO, "list_fetched", section=name, page=page, discovered=len(items), url=board_url)
         if not items:
@@ -911,6 +963,8 @@ def crawl_board(
                 f"{bbs_id or url_source_id(board_url)}:{item_token}"
                 if numeric_incremental else native_source_id
             )
+            if retry_items is not None:
+                source_id = item["retry_source_id"]
             log_event(log, logging.DEBUG, "document_discovered", source_id=source_id, url=item.get("post_url"))
             if item["post_url"] in seen_post_urls:
                 stats.skipped += 1
@@ -934,84 +988,101 @@ def crawl_board(
                 log_event(log, logging.ERROR, "document_failed", source_id=source_id, url=item["post_url"], stage="request")
                 continue
 
-            post_soup = BeautifulSoup(post_resp.text, "lxml")
-            view = parse_view_page(post_soup, item["post_url"], item)
-            if view is None:
+            try:
+                post_soup = BeautifulSoup(post_resp.text, "lxml")
+                effective_url = getattr(post_resp, "url", None) or item["post_url"]
+                view = parse_view_page(post_soup, effective_url, item)
+                if view is None:
+                    stats.failed += 1
+                    if diagnostics is not None:
+                        diagnostics.errors.append({
+                            "code": "DOCUMENT_PARSE_FAILED",
+                            "source_id": source_id,
+                            "url": item["post_url"],
+                            "message": "document parser returned no result",
+                            "retryable": False,
+                        })
+                    log_event(log, logging.ERROR, "document_failed", source_id=source_id, url=item["post_url"], stage="parse")
+                    continue
+
+                view["slug"] = document_slug(ACTIVE_CONFIG.dataset, source_id)
+
+                existing_attachments = (
+                    load_existing_attachments(category, view["slug"])
+                    if REUSE_EXISTING_ATTACHMENTS and not no_download_files
+                    else []
+                )
+                if existing_attachments:
+                    view["attachments"] = existing_attachments
+                elif no_download_files:
+                    view["attachments"] = attachment_metadata_only(
+                        view.get("attachments", []), item["post_url"]
+                    )
+                else:
+                    view["attachments"] = save_attachments(
+                        session=session,
+                        attachments=view.get("attachments", []),
+                        category=category,
+                        slug=view["slug"],
+                        source_page_url=effective_url,
+                    )
+
+                doc = {
+                    **view,
+                    "category": category,
+                    "subcategory": name,
+                    "type": doc_type,
+                    "content": view.pop("body"),
+                    "crawled_at": datetime.now().isoformat(),
+                }
+                doc = apply_common_schema(
+                    doc,
+                    source_dataset=ACTIVE_CONFIG.dataset,
+                    source_id=source_id,
+                    source_site=BASE_URL,
+                    document_type="notice",
+                    content_source="pknu_cms_html",
+                    author=doc.get("author"),
+                    published_at=doc.get("date"),
+                    metadata={
+                        **({"requested_url": item["post_url"]} if effective_url != item["post_url"] else {}),
+                        "bbs_id": bbs_id or None,
+                        "post_no": item.get("post_no"),
+                        "is_notice": item.get("is_notice", False),
+                        "legacy_type": doc_type,
+                        **({"source_type": section["source_type"]} if section.get("source_type") else {}),
+                    },
+                    crawled_at=doc.get("crawled_at"),
+                )
+                remove_redundant_legacy_fields(doc)
+                collect_document_images(doc, post_soup, session, download=not no_download_files,
+                                        page_url=effective_url)
+                if validate_body_content(doc, view, diagnostics):
+                    stats.failed += 1
+                    save_document(doc, post_resp.text)
+                    continue
+                existing_path = PATHS.document_json(category, doc["slug"])
+                existing_hash = ""
+                if existing_path.exists():
+                    try:
+                        existing_hash = json.loads(existing_path.read_text(encoding="utf-8")).get("content_hash", "")
+                    except (OSError, json.JSONDecodeError):
+                        pass
+                outcome = classify_document(existing_hash, doc.get("content_hash"))
+                setattr(stats, outcome, getattr(stats, outcome) + 1)
+                stats.count_attachments(doc.get("attachments"))
+                log_attachment_events(log, doc.get("attachments"), source_id=source_id)
+                save_document(doc, post_resp.text)
+                event = "document_unchanged" if outcome == "unchanged" else "document_saved"
+                log_event(log, logging.INFO, event, source_id=source_id, url=doc.get("url"), status=outcome)
+            except Exception as exc:
                 stats.failed += 1
                 if diagnostics is not None:
-                    diagnostics.errors.append({
-                        "code": "DOCUMENT_PARSE_FAILED",
-                        "source_id": source_id,
-                        "url": item["post_url"],
-                        "message": "document parser returned no result",
-                        "retryable": False,
-                    })
-                log_event(log, logging.ERROR, "document_failed", source_id=source_id, url=item["post_url"], stage="parse")
+                    diagnostics.errors.append({"code": "DOCUMENT_PROCESSING_FAILED", "source_id": source_id,
+                                               "url": item["post_url"], "message": str(exc), "retryable": False})
+                log_event(log, logging.ERROR, "document_failed", source_id=source_id,
+                          url=item["post_url"], stage="processing", error=str(exc), retryable=False)
                 continue
-
-            view["slug"] = document_slug(ACTIVE_CONFIG.dataset, source_id)
-
-            existing_attachments = (
-                load_existing_attachments(category, view["slug"])
-                if REUSE_EXISTING_ATTACHMENTS and not no_download_files
-                else []
-            )
-            if existing_attachments:
-                view["attachments"] = existing_attachments
-            elif no_download_files:
-                view["attachments"] = attachment_metadata_only(
-                    view.get("attachments", []), item["post_url"]
-                )
-            else:
-                view["attachments"] = save_attachments(
-                    session=session,
-                    attachments=view.get("attachments", []),
-                    category=category,
-                    slug=view["slug"],
-                    source_page_url=item["post_url"],
-                )
-
-            doc = {
-                **view,
-                "category": category,
-                "subcategory": name,
-                "type": doc_type,
-                "content": view.pop("body"),
-                "crawled_at": datetime.now().isoformat(),
-            }
-            doc = apply_common_schema(
-                doc,
-                source_dataset=ACTIVE_CONFIG.dataset,
-                source_id=source_id,
-                source_site=BASE_URL,
-                document_type="notice",
-                content_source="pknu_cms_html",
-                author=doc.get("author"),
-                published_at=doc.get("date"),
-                metadata={
-                    "bbs_id": bbs_id or None,
-                    "post_no": item.get("post_no"),
-                    "is_notice": item.get("is_notice", False),
-                    "legacy_type": doc_type,
-                    **({"source_type": section["source_type"]} if section.get("source_type") else {}),
-                },
-                crawled_at=doc.get("crawled_at"),
-            )
-            remove_redundant_legacy_fields(doc)
-            existing_path = PATHS.document_json(category, doc["slug"])
-            existing_hash = ""
-            if existing_path.exists():
-                try:
-                    existing_hash = json.loads(existing_path.read_text(encoding="utf-8")).get("content_hash", "")
-                except (OSError, json.JSONDecodeError):
-                    pass
-            outcome = classify_document(existing_hash, doc.get("content_hash"))
-            setattr(stats, outcome, getattr(stats, outcome) + 1)
-            stats.count_attachments(doc.get("attachments"))
-            log_attachment_events(log, doc.get("attachments"), source_id=source_id)
-            save_document(doc, post_resp.text)
-            event = "document_unchanged" if outcome == "unchanged" else "document_saved"
-            log_event(log, logging.INFO, event, source_id=source_id, url=doc.get("url"), status=outcome)
 
         # 이번 페이지에 last_known_no 이하의 번호가 포함됐으면 다음 페이지는 불필요
         if numeric_incremental and page_min_no is not None and page_min_no <= last_known_no:
@@ -1030,14 +1101,48 @@ def crawl_board(
         page += 1
 
     log.info("[게시판] %s 완료 → 신규 %d건 | new_max_no=%d", name, stats.new, new_max_no)
-    return stats, new_max_no
+    # Never advance the watermark past a failed request/parser result.
+    return stats, stored_last_no if stats.failed else new_max_no
 
 
 # ─── 정적 페이지 크롤러 ───────────────────────────────────────────────────────
+def validate_body_content(doc, parsed, diagnostics=None):
+    """Record extraction gaps instead of silently treating empty text as success."""
+    if str(doc.get("content") or "").strip():
+        return False
+    state = parsed.get("content_state") or ("attachment_only" if doc.get("attachments") else "empty")
+    doc["metadata"]["content_state"] = state
+    if parsed.get("content_images"):
+        doc["metadata"]["content_images"] = [urljoin(doc["url"], src) for src in parsed["content_images"]]
+    code = {"attachment_only": "ATTACHMENT_ONLY", "image_only": "IMAGE_ONLY_REQUIRES_OCR"}.get(state, "EMPTY_BODY")
+    doc["crawl"]["warnings"].append(code)
+    doc["crawl"]["status"] = "success" if state == "attachment_only" else "partial_success" if state == "image_only" else "failed"
+    log_event(log, logging.WARNING, "content_validation", source_id=doc["source_id"], url=doc["url"], code=code)
+    if state != "attachment_only" and diagnostics is not None:
+        diagnostics.errors.append({"code": code, "source_id": doc["source_id"], "url": doc["url"],
+                                   "message": "No extractable body text", "retryable": False})
+    return state == "empty"
+
+
+def collect_document_images(doc, soup, session, *, download=True, page_url=None):
+    from scripts.crawlers.departments.body_images import collect_body_images, save_body_images
+    candidates = collect_body_images(soup)
+    if not candidates:
+        return
+    records = save_body_images(candidates, session=session, page_url=page_url or doc['url'],
+        output_dir=PATHS.output / 'images', project_root=PROJECT_ROOT, download=download,
+        system_trust_fallback=bool(ACTIVE_CONFIG and ACTIVE_CONFIG.tls_system_trust_fallback))
+    doc['metadata']['body_images'] = records
+    if any(image['status'] == 'failed' for image in records):
+        doc['crawl']['warnings'].append('BODY_IMAGE_DOWNLOAD_FAILED')
+        doc['crawl']['status'] = 'partial_success'
+
+
 def crawl_static(
     session: requests.Session,
     section: dict,
     diagnostics: CrawlDiagnostics | None = None,
+    no_download_files: bool = False,
 ) -> CrawlStats:
     """정적 소개/안내 페이지를 크롤링해 저장한다."""
     page_url = section["url"]
@@ -1061,6 +1166,8 @@ def crawl_static(
     parsed = ACTIVE_ADAPTER.parse_static(soup, fallback_title=name)
     title = parsed["title"]
     content_text = parsed["content"]
+    for attachment in parsed.get("attachments", []):
+        attachment["url"] = urljoin(page_url, attachment["url"])
 
     source_id = f"static:{url_source_id(page_url)}"
     slug = document_slug(ACTIVE_CONFIG.dataset, source_id)
@@ -1092,7 +1199,13 @@ def crawl_static(
         crawled_at=doc.get("crawled_at"),
     )
     remove_redundant_legacy_fields(doc)
+    collect_document_images(doc, soup, session, download=not no_download_files,
+                            page_url=getattr(resp, 'url', None) or page_url)
     stats = CrawlStats(discovered=1, requested=1)
+    if validate_body_content(doc, parsed, diagnostics):
+        stats.failed = 1
+        save_document(doc, resp.text)
+        return stats
     existing_path = PATHS.document_json(category, doc["slug"])
     existing_hash = ""
     if existing_path.exists():
@@ -1145,6 +1258,7 @@ def run_crawl(
         if remaining is not None and remaining <= 0:
             break
         log_event(log, logging.INFO, "section_started", section=section["name"], url=section["url"])
+        section_stats = CrawlStats()
         try:
             if section["is_board"]:
                 section_stats, new_max_no = crawl_board(
@@ -1156,8 +1270,8 @@ def run_crawl(
                     max_items=remaining,
                     no_download_files=no_download_files,
                     diagnostics=diagnostics,
+                    accumulator=section_stats,
                 )
-                total_stats.add(section_stats)
                 # 상태 갱신 (max_no 증가 시에만)
                 key = section["url"]
                 prev_no = state.setdefault("items", {}).get(key, {}).get("last_no", 0)
@@ -1178,8 +1292,7 @@ def run_crawl(
                         "updated_at": now_kst(),
                     }
             else:
-                section_stats = crawl_static(session, section, diagnostics=diagnostics)
-                total_stats.add(section_stats)
+                section_stats = crawl_static(session, section, diagnostics=diagnostics, no_download_files=no_download_files)
             if remaining is not None:
                 remaining -= section_stats.requested
         except Exception as exc:
@@ -1196,6 +1309,7 @@ def run_crawl(
             log.error("섹션 오류 [%s]: %s", section["name"], exc, exc_info=True)
             log_event(log, logging.ERROR, "document_failed", source_id=section["name"], url=section["url"], exc_info=True)
         finally:
+            total_stats.add(section_stats)
             log_event(log, logging.INFO, "section_finished", section=section["name"])
 
     save_state(new_state)

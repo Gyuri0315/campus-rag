@@ -26,6 +26,7 @@ from scripts.extractors.common import (
     extract_blocks,
     normalize_text,
 )
+from scripts.rag.body_image_review import apply_body_image_reviews, body_image_input_mtime
 
 log = logging.getLogger(__name__)
 
@@ -494,6 +495,12 @@ def save_preprocessed_file(
         ocr_language=ocr_language,
         ocr_dpi=ocr_dpi,
     )
+    body_image_provenance: list[dict] = []
+    body_image_review_warnings: list[str] = []
+    if ext == ".json":
+        blocks, body_image_provenance, body_image_review_warnings = apply_body_image_reviews(
+            input_file, blocks, project_root=project_root
+        )
     for block in blocks:
         block["text"] = clean_extracted_text(block.get("text", ""))
     blocks = [b for b in blocks if normalize_text(b.get("text", ""))]
@@ -525,6 +532,10 @@ def save_preprocessed_file(
         "blocks": blocks,
         "chunks": chunks,
     }
+    if body_image_provenance:
+        result["body_image_provenance"] = body_image_provenance
+    if body_image_review_warnings:
+        result["body_image_review_warnings"] = body_image_review_warnings
 
     out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return True, out_path.as_posix()
@@ -732,7 +743,11 @@ def is_preprocessed_current(
         return False
     rel = rel_project_path(input_file, project_root)
     provenance_mtime = float(attachment_index.get(rel, {}).get("_source_json_mtime") or 0.0)
-    newest_input_mtime = max(input_file.stat().st_mtime, provenance_mtime)
+    newest_input_mtime = max(
+        input_file.stat().st_mtime,
+        provenance_mtime,
+        body_image_input_mtime(input_file, project_root=project_root),
+    )
     return out_path.exists() and out_path.stat().st_mtime >= newest_input_mtime
 
 

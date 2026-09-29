@@ -458,6 +458,7 @@ def extract_chunk_records(doc: dict, input_file: Path, project_root: Path) -> li
         "source_json_path": provenance.get("source_json_path", ""),
         "source_html_path": provenance.get("source_html_path", ""),
         "source_attachment_path": provenance.get("source_attachment_path", ""),
+        "body_image_provenance": doc.get("body_image_provenance", []),
     }
 
     records: list[dict] = []
