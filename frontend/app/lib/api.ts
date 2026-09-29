@@ -24,6 +24,7 @@ export type ChatSource = {
 export type AskResult = {
   answer: string;
   sources: ChatSource[];
+  answerable: boolean;
 };
 
 type BackendSource = {
@@ -36,6 +37,7 @@ type BackendSource = {
 type BackendAskResponse = {
   answer?: string;
   sources?: BackendSource[];
+  answerable?: boolean;
 };
 
 const DEFAULT_CATEGORY = "자료";
@@ -98,8 +100,12 @@ export async function askBackend(
   if (typeof data?.answer !== "string" || !Array.isArray(data.sources)) {
     throw new Error("답변 응답 형식이 올바르지 않습니다.");
   }
+  // Older backends omit the flag; treat that as answerable.
+  const answerable = data.answerable !== false;
   return {
     answer: (data.answer ?? "").trim(),
-    sources: (data.sources ?? []).map(adaptSource),
+    // A "no info" refusal cites nothing, so don't show source chips under it.
+    sources: answerable ? (data.sources ?? []).map(adaptSource) : [],
+    answerable,
   };
 }

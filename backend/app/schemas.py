@@ -43,3 +43,7 @@ class Source(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     sources: List[Source]
+    # False when retrieval found nothing or the model gave the "no info"
+    # refusal (system prompt rule 5). Defaults to True so older clients and
+    # tests that ignore the field keep working.
+    answerable: bool = True

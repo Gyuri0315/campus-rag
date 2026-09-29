@@ -24,6 +24,14 @@ router = APIRouter()
 NO_INFO_ANSWER = "관련 정보를 찾을 수 없습니다."
 
 
+def _is_no_info_answer(answer: str) -> bool:
+    """True only for the bare refusal sentence (prompt rule 5 says to reply
+    with exactly that sentence). A partial answer that merely mentions some
+    detail is missing still counts as answerable."""
+    core = answer.strip().strip("\"'“”").rstrip(".").strip()
+    return core == NO_INFO_ANSWER.rstrip(".")
+
+
 def _similarity(row: Dict[str, Any]) -> float:
     try:
         return float(row.get("similarity") or 0.0)
@@ -248,7 +256,7 @@ def ask(
     )
 
     if not sources:
-        return AskResponse(answer=NO_INFO_ANSWER, sources=[])
+        return AskResponse(answer=NO_INFO_ANSWER, sources=[], answerable=False)
 
     try:
         answer = generate_answer(
@@ -282,4 +290,5 @@ def ask(
         for index, source in enumerate(sources, start=1)
     ]
 
-    return AskResponse(answer=answer or NO_INFO_ANSWER, sources=sources)
+    answer = answer or NO_INFO_ANSWER
+    return AskResponse(answer=answer, sources=sources, answerable=not _is_no_info_answer(answer))
