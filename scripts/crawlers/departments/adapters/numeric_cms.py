@@ -336,12 +336,15 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
                 "is_notice": item.get("is_notice", False), "body": body, "attachments": attachments,
                 **_empty_content_info(root or content_el, body, attachments)}
 
-    def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]:
+    def parse_static(
+        self, soup: BeautifulSoup, *, fallback_title: str,
+        page_url: str = "", base_url: str = "", site_prefix: str = "",
+    ) -> dict[str, Any]:
         breadcrumb = soup.select(".a_sbtNav dd")
         title = breadcrumb[-1].get_text(strip=True) if breadcrumb else fallback_title
         title = title or _text(soup.select_one("title")) or fallback_title
         content = _content_root(soup)
         text = extract_body_content(content)
-        attachments = self.parse_attachments(content, page_url="", base_url="", site_prefix="")
+        attachments = self.parse_attachments(content, page_url=page_url, base_url=base_url, site_prefix=site_prefix)
         return {"title": title, "content": text, "attachments": attachments,
                 **_empty_content_info(content, text, attachments)}
