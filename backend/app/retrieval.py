@@ -170,6 +170,51 @@ DATASET_BOOST_RULES: tuple[tuple[tuple[str, ...], Dict[str, float]], ...] = (
     ),
 )
 
+# Query-time first-stage candidate pool widening. Reuses the same "department
+# self-intro/contact" intent signal as DATASET_BOOST_RULES rule 3 above, but
+# fixes a different layer of the bug: that rule only nudges *ranking* among
+# candidates that already made the pool. It does nothing when the CE
+# contact-directory chunk never enters the pool at all -- measured:
+# first_stage_k=30 -> absent from top 30, first_stage_k=60 -> rank ~44,
+# first_stage_k=80 -> rank #1 (combined with CONTACT_DIRECTORY_BONUS above).
+# Compact (no-space) colloquial forms are included because real user queries
+# look like "컴공학과사무실 전화번호" with no internal space, unlike the spaced
+# "학과 사무실" the existing rule 3 was tuned against.
+RAG_SELF_INTRO_TRIGGER_KEYWORDS = (
+    "캡스톤",
+    "학부 사무실", "학과 사무실",
+    "학부사무실", "학과사무실", "과사무실",
+)
+
+# Empirically-verified-sufficient candidate pool size for match_rag_documents
+# when the self-intro/contact trigger fires. A hardcoded module constant
+# (same convention as CONTACT_DIRECTORY_BONUS below), not a Settings field --
+# this number is coupled tightly to one specific rpc name + one specific
+# trigger, not a general operational knob.
+RAG_SELF_INTRO_FIRST_STAGE_K = 80
+
+
+def _rag_self_intro_first_stage_overrides(
+    query_text: Optional[str],
+) -> Optional[Dict[str, int]]:
+    """Per-RPC first_stage_k override when `query_text` looks like a
+    department self-referential contact/office query, else None.
+
+    Scoped narrowly on purpose: every trigger phrase requires "사무실"
+    combined with a department-shaped prefix (학과/학부/과) or "캡스톤", so it
+    does not fire on generic office/contact queries that have nothing to do
+    with the rag dataset (e.g. "도서관 전화번호", "생활관 연락처" contain no
+    학과/학부/과 + 사무실 combination and are correctly left alone -- those are
+    handled by DATASET_BOOST_RULES rule 2 instead).
+    """
+    text = _normalize_text(query_text or "")
+    if not text:
+        return None
+    if any(kw in text for kw in RAG_SELF_INTRO_TRIGGER_KEYWORDS):
+        return {"match_rag_documents": RAG_SELF_INTRO_FIRST_STAGE_K}
+    return None
+
+
 SOURCE_KIND_PRIORITIES = {
     "post": 1.00,
     "page": 1.00,
@@ -834,6 +879,7 @@ def search(
     embedding: List[float],
     top_k: int,
     first_stage_k: int,
+    per_rpc_first_stage_k: Optional[Dict[str, int]] = None,
     min_similarity: float,
     priority_weight: float = 0.30,
     dataset_priority_weight: float = 0.15,
@@ -855,9 +901,18 @@ def search(
     query_terms = _query_term_groups(query_text)
     lexical_query = _lexical_query_text(query_text, query_terms)
     candidate_count = max(first_stage_k, top_k)
+    # When per_rpc_first_stage_k widens one specific RPC's fetch (see
+    # RAG_SELF_INTRO_FIRST_STAGE_K), the final candidate-list caps below must
+    # widen too, or the extra rows fetched from that RPC get truncated back
+    # down to candidate_count before the reranker ever sees them.
+    overall_candidate_count = candidate_count
+    if per_rpc_first_stage_k:
+        overall_candidate_count = max(
+            candidate_count,
+            *(max(value, top_k) for value in per_rpc_first_stage_k.values()),
+        )
     payload = {
         "query_embedding": _vector_literal(embedding),
-        "match_count": candidate_count,
         "min_similarity": min_similarity,
         "metadata_filter": metadata_filter or {},
     }
@@ -865,6 +920,10 @@ def search(
     per_rpc_rows: List[List[Dict[str, Any]]] = []
     merged: List[Dict[str, Any]] = []
     for rpc_name in rpc_names:
+        rpc_candidate_count = max(
+            (per_rpc_first_stage_k or {}).get(rpc_name, first_stage_k), top_k
+        )
+        payload["match_count"] = rpc_candidate_count
         try:
             started = time.perf_counter()
             response = client.rpc(rpc_name, payload).execute()
@@ -926,7 +985,7 @@ def search(
             try:
                 lexical_response = client.rpc(
                     lexical_rpc_name,
-                    {"query_text": lexical_query, "match_count": candidate_count},
+                    {"query_text": lexical_query, "match_count": rpc_candidate_count},
                 ).execute()
             except Exception:
                 logger.warning(
@@ -996,8 +1055,9 @@ def search(
             reverse=True,
         )
         logger.info(
-            "retrieval: rpc=%s rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d lexical_added=%d lexical_boosted=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
+            "retrieval: rpc=%s match_count=%d rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d lexical_added=%d lexical_boosted=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
             rpc_name,
+            rpc_candidate_count,
             len(rows),
             filtered_noise,
             penalized_query_mismatch,
@@ -1032,7 +1092,7 @@ def search(
     # Keep one high-scoring row from each successful RPC before global ranking.
     # This prevents one noisy collection from crowding out regulations/notices.
     for rows in per_rpc_rows:
-        if len(candidates) >= candidate_count:
+        if len(candidates) >= overall_candidate_count:
             break
         for row in rows:
             if _add_row(
@@ -1056,7 +1116,7 @@ def search(
         reverse=True,
     )
     for row in merged:
-        if len(candidates) >= candidate_count:
+        if len(candidates) >= overall_candidate_count:
             break
         _add_row(
             candidates,
@@ -1082,7 +1142,8 @@ def search(
     )
 
     logger.info(
-        "retrieval: merged=%d candidates=%d trimmed=%d top_sim=%.3f top_priority=%.3f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.3f top_rerank=%.3f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f reranker=%s",
+        "retrieval: overall_candidate_count=%d merged=%d candidates=%d trimmed=%d top_sim=%.3f top_priority=%.3f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.3f top_rerank=%.3f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f reranker=%s",
+        overall_candidate_count,
         len(merged),
         len(candidates),
         len(selected),

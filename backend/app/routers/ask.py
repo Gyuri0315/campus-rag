@@ -15,7 +15,7 @@ from ..generation import generate_answer
 from ..query_rewrite import plan_search_queries
 from ..query_transform import transform_query
 from ..rate_limit import enforce_ask_rate_limit
-from ..retrieval import _dedupe_key, search
+from ..retrieval import _dedupe_key, _rag_self_intro_first_stage_overrides, search
 from ..schemas import AskRequest, AskResponse, Attachment, Source
 
 logger = logging.getLogger(__name__)
@@ -119,6 +119,7 @@ def _search_one(state: AppState, search_query: str) -> List[Dict[str, Any]]:
         embedding=embedding,
         top_k=state.settings.rag_top_k,
         first_stage_k=state.settings.rag_first_stage_k,
+        per_rpc_first_stage_k=_rag_self_intro_first_stage_overrides(search_query),
         min_similarity=state.settings.rag_min_similarity,
         priority_weight=state.settings.rag_priority_weight,
         dataset_priority_weight=state.settings.rag_dataset_priority_weight,
