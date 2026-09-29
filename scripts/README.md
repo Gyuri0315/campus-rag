@@ -53,3 +53,13 @@ python scripts/crawlers/departments/cli.py discover --dataset ce
 ```
 
 `probe` performs a shallow homepage fingerprint check. `discover` first requires a compatible probe, then inspects same-host numeric menu pages and writes candidates under `files/_discovery/<site_key>/`. Discovery output is never merged into `registry.json` automatically.
+
+Layout-aware OCR RAG evaluation (isolated test store, never touches Supabase):
+
+```powershell
+python -m scripts.rag.ingest_layout_data            # files/_reviewed/body_image_ocr/*.reviewed.jsonl -> files/_test_db/test_layout_rag_YYYYMMDD/
+python -m scripts.eval.generate_testset             # <= 50 QA pairs -> tests/eval_dataset.csv (--mode rule: no API cost)
+python -m scripts.eval.run_evaluation               # -> eval_report.md (+ .json)   (--retrieval-only: no API cost)
+```
+
+Tables are chunked as markdown (header repeated per chunk), diagrams are rewritten as sentences, and every chunk keeps `provenance` (source path, image hash, review/extraction origin). Test store names must match `test_layout_rag_YYYYMMDD[_suffix]`. LLM calls go through `scripts/eval/llm_budget.py`: at most 3 attempts per call, a hard per-run request cap, and no retry on 400/401/403/404. `scripts/tests/fixtures/layout_rag/` holds a synthetic fixture with the same schema for smoke runs.
