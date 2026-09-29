@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -11,6 +12,7 @@ from scripts.crawlers.departments import cli, engine
 from scripts.crawlers.departments.config import DepartmentConfig, load_registry
 from scripts.crawlers.departments.engine import crawl_ready_configs
 from scripts.crawlers.departments.preflight import build_preflight, classify_preflight
+from scripts.crawlers.departments.registry_ops import safe_site_key
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -28,8 +30,22 @@ class DepartmentPreflightTests(unittest.TestCase):
         self.assertEqual(2, report["summary"]["excluded"])
 
     def test_known_special_states_are_classified_from_saved_results(self) -> None:
+        # files/_discovery is git-ignored crawl output that only exists on the
+        # machine that ran the probes, so recreate the two saved results here.
         registry = load_registry()
-        report = build_preflight(registry, discovery_root=DISCOVERY_ROOT)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+
+            def save(dataset: str, name: str, payload: dict) -> None:
+                folder = root / safe_site_key(registry[dataset].source_catalog_key)
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / name).write_text(json.dumps(payload), encoding="utf-8")
+
+            save("humanict", "probe.json", {"status": "blocked", "error": {"code": "ACCESS_BLOCKED"}})
+            save("dmfbe", "discovery.json", {"status": "success", "sections": [
+                {"status": "unsupported", "warnings": ["external redirect: https://other.example.test"]},
+            ]})
+            report = build_preflight(registry, discovery_root=root)
         states = {item["dataset"]: item["status"] for item in report["items"]}
         self.assertEqual("blocked", states["humanict"])
         self.assertEqual("hub_only", states["dmfbe"])
