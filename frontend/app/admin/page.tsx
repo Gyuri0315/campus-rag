@@ -580,7 +580,7 @@ export default function AdminPage() {
         style={{ borderBottom: "1px solid rgba(37,52,139,0.08)" }}
       >
         <span className="text-sm sm:text-base font-semibold" style={{ color: NAVY }}>
-          부경대학교 | 컴퓨터·인공지능공학부
+          부경대학교
         </span>
       </header>
 

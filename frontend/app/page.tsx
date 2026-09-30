@@ -14,11 +14,6 @@ const { header, hero, search, exampleTags, footer } = homeData.page;
 const NAVY = "#25348B";
 const NAVY_MUTED = "rgba(37,52,139,0.45)";
 
-// 헤더 로고("부경대학교 | 컴퓨터·인공지능공학부")가 356~393px 폭 화면에서
-// Admin/Login 버튼과 함께 있으면 truncate로 잘려 보이는 문제 — 좁은 화면에선
-// " | " 뒤 학부명을 숨기고 대학명만 보여준다(sm: 이상에서는 원래대로 전체 표시).
-const [LOGO_PREFIX, LOGO_SUFFIX] = header.logo.split(" | ");
-
 export default function HomePage() {
   const router = useRouter();
   const { setPendingQuery } = useQueryContext();
@@ -82,8 +77,7 @@ export default function HomePage() {
               className="text-sm sm:text-base font-semibold truncate min-w-0"
               style={{ color: NAVY }}
             >
-              {LOGO_PREFIX}
-              {LOGO_SUFFIX && <span className="hidden sm:inline"> | {LOGO_SUFFIX}</span>}
+              {header.logo}
             </span>
           </div>
 

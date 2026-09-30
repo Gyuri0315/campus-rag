@@ -1055,7 +1055,7 @@ export default function ChatContent() {
                 className="text-xs sm:text-sm font-bold leading-snug block"
                 style={{ color: "var(--clr-navy)" }}
               >
-                부경대학교<br />컴퓨터·인공지능공학부
+                부경대학교
               </span>
             </div>
 

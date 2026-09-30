@@ -2,7 +2,7 @@
   "__mock": { "mode": "success" },
   "page": {
     "header": {
-      "logo": "부경대학교 | 컴퓨터·인공지능공학부",
+      "logo": "부경대학교",
       "buttons": ["Sign Up", "Login"]
     },
     "hero": {

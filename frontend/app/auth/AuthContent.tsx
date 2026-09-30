@@ -164,7 +164,7 @@ export default function AuthContent() {
               style={{ width: 26, height: 26 }}
             />
             <span className="text-xs sm:text-sm font-semibold truncate" style={{ color: NAVY }}>
-              컴퓨터·인공지능공학부
+              부경대학교
             </span>
           </div>
         </header>
