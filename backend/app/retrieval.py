@@ -80,6 +80,11 @@ QUERY_TERM_GROUPS = {
     # "계절수업" -> schedule_005). Keep only the compound term.
     "등록금": ("등록금",),
     "성적": ("성적", "평점", "평균평점"),
+    # Students still say "학점포기", but the school's system is called
+    # "성적자율삭제" (main/244) and no document uses the old word, so the
+    # 2026-09-29 eval (rules_016) never retrieved it. Both are rare compound
+    # terms, so the OR-query stays small.
+    "학점포기": ("학점포기", "학점 포기", "성적자율삭제"),
     "교직": ("교직", "교직과정"),
     "현장실습": ("현장실습", "현장실습학기제"),
     # Bare "생활관"/"기숙사" measured at 300-800+ rows each in the large chunk
