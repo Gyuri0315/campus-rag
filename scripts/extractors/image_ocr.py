@@ -3,13 +3,28 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import subprocess
 from collections import defaultdict
+from functools import lru_cache
 
 import numpy as np
 from PIL import Image, ImageOps
 
 VERSION = '2'
+
+
+@lru_cache(maxsize=16)
+def require_ocr_languages(executable, language='kor+eng', tessdata=None):
+    """Reject missing models before Tesseract silently falls back to one language."""
+    command = [str(executable), '--list-langs']
+    if tessdata:
+        command += ['--tessdata-dir', str(tessdata)]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=15, check=True)
+    installed = {line.strip() for line in result.stdout.splitlines()}
+    missing = set(language.split('+')) - installed
+    if missing:
+        raise RuntimeError('Missing Tesseract languages: ' + ', '.join(sorted(missing)))
 
 
 def _centers(indices):
@@ -167,17 +182,20 @@ def layout_blocks(tsv, grid=None):
     return sorted(blocks, key=lambda b: (b['bbox'][1], b['bbox'][0]))
 
 
-def extract_image(path, *, executable, language='kor+eng', tessdata=None):
+def extract_image(path, *, executable, language='kor+eng', tessdata=None, psm=6,
+                  restore_spacing=False, group_regions=False):
+    require_ocr_languages(executable, language, tessdata)
+    if psm not in {6, 11}:
+        raise ValueError('Image OCR supports PSM 6 or 11')
     with Image.open(path) as original:
         image = ImageOps.exif_transpose(original).convert('RGB')
         grid = detect_grid(image)
         # Send exactly the oriented raster used by grid detection to Tesseract.
         data = io.BytesIO()
         image.save(data, format='PNG')
-    # PSM 6 is substantially more reliable for the poster-like body images
-    # found in the currently flagged documents. Table cells are still assigned
-    # by their coordinates, never by the text reading order.
-    command = [str(executable), 'stdin', 'stdout', '-l', language, '--psm', '6']
+    # Keep PSM 6 as the existing default; use PSM 11 for sparse infographics.
+    # Table cells are assigned by coordinates, never by text reading order.
+    command = [str(executable), 'stdin', 'stdout', '-l', language, '--psm', str(psm)]
     if tessdata:
         command += ['--tessdata-dir', str(tessdata)]
     # Windows installers can omit the named ``tsv`` config from the search path.
@@ -185,9 +203,37 @@ def extract_image(path, *, executable, language='kor+eng', tessdata=None):
     result = subprocess.run(command + ['-c', 'tessedit_create_tsv=1'], input=data.getvalue(), capture_output=True,
                             timeout=180, check=True)
     blocks = layout_blocks(result.stdout.decode('utf-8-sig'), grid)
-    return {'blocks': blocks, 'status': 'needs_review' if blocks else 'empty',
-            'warnings': ['OCR_REVIEW_REQUIRED'] + ([] if grid else ['TABLE_LAYOUT_UNVERIFIED']),
-            'width': image.width, 'height': image.height}
+    low_confidence = sum(block.get('confidence', 100) < 40 for block in blocks)
+    output = {'blocks': blocks, 'status': 'needs_review' if blocks else 'empty',
+              'warnings': ['OCR_REVIEW_REQUIRED'] + ([] if grid else ['TABLE_LAYOUT_UNVERIFIED']),
+              'width': image.width, 'height': image.height,
+              'low_confidence_blocks': low_confidence}
+    if blocks and low_confidence / len(blocks) >= .1:
+        output['warnings'].append('OCR_LOW_CONFIDENCE_BLOCKS')
+    if restore_spacing:
+        plain = subprocess.run(command, input=data.getvalue(), capture_output=True,
+                               timeout=180, check=True).stdout.decode('utf-8-sig')
+        lines = defaultdict(list)
+        for line in plain.splitlines():
+            line = line.strip()
+            if line:
+                lines[re.sub(r'\s+', '', line)].append(line)
+        restored = 0
+        for block in blocks:
+            if block['type'] != 'ocr_paragraph':
+                continue
+            matches = lines.get(re.sub(r'\s+', '', block['text']))
+            if matches:
+                block['text'] = matches.pop(0)
+                restored += 1
+        output.update(ocr_text=plain.strip(), spacing_restored_blocks=restored)
+    if group_regions:
+        from scripts.extractors.image_regions import group_ocr_regions
+
+        output['ocr_regions'] = group_ocr_regions(
+            image, blocks, executable=executable, language=language, tessdata=tessdata)
+        output['warnings'].extend(output['ocr_regions']['warnings'])
+    return output
 
 
 def _nearby_labels(paragraphs, table_bbox, image_height):
@@ -216,6 +262,7 @@ def _nearby_labels(paragraphs, table_bbox, image_height):
 
 def extract_table_image(path, *, executable, language='kor+eng', tessdata=None):
     """Extract a table only when its ruled cell geometry is conservatively verified."""
+    require_ocr_languages(executable, language, tessdata)
     with Image.open(path) as original:
         image = ImageOps.exif_transpose(original).convert('RGB')
         grid = detect_grid(image, conservative=True)

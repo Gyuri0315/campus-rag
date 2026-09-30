@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 import urllib3
@@ -57,9 +57,15 @@ from scripts.crawlers.common.logging import (  # noqa: E402
     configure_crawler_logging, log_attachment_events, log_event, set_run_id,
 )
 from scripts.crawlers.common.storage import (  # noqa: E402
-    empty_state, get_dataset_paths, load_state_with_migration, save_state_atomic, write_document,
+    archive_document, empty_state, get_dataset_paths, load_state_with_migration,
+    save_state_atomic, write_document,
 )
 from scripts.crawlers.common.reader import remove_redundant_legacy_fields  # noqa: E402
+from scripts.crawlers import pknu_notice  # noqa: E402
+from scripts.crawlers.pknu_main_tuition import (  # noqa: E402
+    IFRAME_URL as TUITION_IFRAME_URL, collect_main_102_tuition,
+)
+from scripts.crawlers.pknu_main_org import collect_main_533_org  # noqa: E402
 
 log, log_context = configure_crawler_logging("pknu_student_life", PROJECT_ROOT)
 
@@ -230,11 +236,13 @@ def fetch(
     method: str = "GET",
     data: dict[str, str] | None = None,
     stream: bool = False,
+    allow_redirects: bool = True,
 ) -> requests.Response:
     time.sleep(REQUEST_DELAY)
     try:
         resp = session.request(
-            method, url, data=data, timeout=REQUEST_TIMEOUT, verify=False, stream=stream,
+            method, url, data=data, timeout=REQUEST_TIMEOUT, verify=False,
+            stream=stream, allow_redirects=allow_redirects,
         )
     except requests.RequestException as exc:
         log_event(log, logging.ERROR, "request_failed", url=url, method=method, error=exc, retryable=True)
@@ -704,56 +712,121 @@ STATIC_PAGE_IDS: tuple[int, ...] = (
     92,   # 학적변동 (휴학/복학)
     93,   # 전공제도 (복수전공/부전공/전과)
     94,   # 졸업 (조기졸업/학사학위취득유예/졸업사정)
-    95,   # 학점인정안내
     96,   # 성적관리
     97,   # 강의평가 및 성적확인
     98,   # 학·석사연계과정
     99,   # 학적부기재사항정정
-    100,  # 교직 및 평생교육사과정
     101,  # 현장실습
-    102,  # 등록금안내
     103,  # 장학제도
     104,  # 학자금융자
-    110,  # 수강신청 안내
-    112,  # 강의계획서 조회
     114,  # 학생증발급
     115,  # 국제학생증발급
     117,  # 국외여행 및 어학연수
     118,  # 복지시설
     119,  # 학생자치기구
     237,  # 졸업안내
-    238,  # [공통] 졸업요건 안내자료
     244,  # 성적자율삭제(학점포기)
     262,  # 학생생활관
     449,  # 제증명발급 안내
     481,  # 주차요금
-    528,  # 예비군
+)
+
+BOARD_PAGE_IDS = (95,)
+LINK_HUB_PAGE_IDS = (100, 110)
+TUITION_PAGE_IDS = (102,)
+ORG_PAGE_IDS = (533,)
+REDIRECT_PAGE_TARGETS = {
+    112: "https://irumi.pknu.ac.kr/link.jsp?menuId=U020913",
+    528: "https://yebigun.pknu.ac.kr/",
+}
+FILE_PAGE_IDS = (238,)
+CONFIGURED_PAGE_IDS = frozenset(
+    (*STATIC_PAGE_IDS, *BOARD_PAGE_IDS, *LINK_HUB_PAGE_IDS, *TUITION_PAGE_IDS, *ORG_PAGE_IDS,
+     *REDIRECT_PAGE_TARGETS, *FILE_PAGE_IDS)
 )
 
 SUBCATEGORY_STATIC_PAGE = "학사안내_페이지"
 
 
-def fetch_static_page(session: requests.Session, page_id: int) -> tuple[str, str] | None:
-    """Fetch a plain-HTML /main/<id> info page and return (title, content) or None."""
+@dataclass(frozen=True)
+class StaticPageExtraction:
+    title: str
+    content: str
+    status: str
+    reason: str = ""
+    warnings: tuple[str, ...] = ()
+
+
+_STATIC_REMOVE = (
+    "script, style, noscript, .subMenu, .subTitle, .edtDay, .paging, "
+    ".brdSch, .brdAll, .brdBtn, .bdvNav, .c_bdvNav, .share, .sns"
+)
+_STATIC_BOARD = ".brdList, .board_list, .board-list, .board-w, #tbl_contents, input[name=bbsId], input[name=bbs_id]"
+_STATIC_DYNAMIC = ".getOrgMngList, .uploadPdf[data-id], #calendar, #loadArea, #direction_daeyeon, #direction_yongdang"
+
+
+def parse_static_page_html(html: str, page_id: int) -> StaticPageExtraction:
+    """Accept only verified prose from a main-site static page."""
+    soup = BeautifulSoup(html, "lxml")
+    title = normalize_title(soup.title.get_text(strip=True)) if soup.title else f"main-{page_id}"
+    container = soup.select_one("#subCont")
+    if container is None:
+        return StaticPageExtraction(title, "", "needs_review", "no_subcont")
+    if container.select_one(_STATIC_BOARD):
+        return StaticPageExtraction(title, "", "needs_review", "board_list_not_static")
+    body = BeautifulSoup(str(container), "lxml")
+    for element in body.select(_STATIC_REMOVE):
+        element.decompose()
+    content = re.sub(r"\n{2,}", "\n", body.get_text("\n", strip=True)).strip()
+    if body.select_one(_STATIC_DYNAMIC):
+        return StaticPageExtraction(title, content, "needs_review", "dynamic_content_requires_adapter")
+    if body.select_one("img[src], img[data-src]") and not content:
+        return StaticPageExtraction(title, content, "needs_review", "image_only_requires_ocr")
+    attachment = body.select_one('.uploadPdf[data-id], a[download], a[href$=".pdf" i], a[href$=".hwp" i], a[href$=".hwpx" i]')
+    if attachment and len(content) < MIN_PDF_TEXT_CHARS:
+        return StaticPageExtraction(title, content, "needs_review", "attachment_only_requires_extractor")
+    without_links = BeautifulSoup(str(body), "lxml")
+    for anchor in without_links.select("a"):
+        anchor.decompose()
+    prose_length = len(without_links.get_text(" ", strip=True))
+    if body.select_one("a[href]") and prose_length < MIN_PDF_TEXT_CHARS:
+        return StaticPageExtraction(title, content, "needs_review", "link_hub_not_static")
+    if len(content) < MIN_PDF_TEXT_CHARS:
+        return StaticPageExtraction(title, content, "needs_review", "content_too_short")
+    tables = body.select("table")
+    if tables:
+        without_tables = BeautifulSoup(str(body), "lxml")
+        for table in without_tables.select("table"):
+            table.decompose()
+        if len(without_tables.get_text(" ", strip=True)) < MIN_PDF_TEXT_CHARS:
+            return StaticPageExtraction(title, content, "needs_review", "table_requires_structured_extraction")
+    warnings = ("TABLE_STRUCTURE_UNVERIFIED",) if tables else ()
+    return StaticPageExtraction(title, content, "ready", warnings=warnings)
+
+
+def fetch_static_page(session: requests.Session, page_id: int) -> StaticPageExtraction:
+    """Fetch a main-site info page and return its validated static extraction."""
     url = f"{BASE_URL}/main/{page_id}"
     resp = fetch(session, url)
     resp.raise_for_status()
-    soup = BeautifulSoup(resp.text, "lxml")
-    container = soup.select_one("#subCont")
-    if container is None:
-        return None
-    for tag in container(["script", "style"]):
-        tag.decompose()
-    content = re.sub(r"\n{2,}", "\n", container.get_text("\n", strip=True)).strip()
-    title = normalize_title(soup.title.get_text(strip=True)) if soup.title else f"main-{page_id}"
-    return title, content
+    mime = getattr(resp, "headers", {}).get("Content-Type", "").lower()
+    if mime and "text/html" not in mime and "application/xhtml+xml" not in mime:
+        return StaticPageExtraction(f"main-{page_id}", "", "needs_review", "non_html_response")
+    final_url = getattr(resp, "url", url)
+    if final_url != url:
+        return StaticPageExtraction(f"main-{page_id}", "", "needs_review", "redirect_destination_unverified")
+    return parse_static_page_html(resp.text, page_id)
 
 
-def crawl_static_pages(session: requests.Session, state: dict[str, Any], full_resync: bool) -> CrawlStats:
-    stats = CrawlStats(discovered=len(STATIC_PAGE_IDS))
+def crawl_static_pages(
+    session: requests.Session, state: dict[str, Any], full_resync: bool,
+    page_ids: tuple[int, ...] | None = None,
+) -> CrawlStats:
+    selected = STATIC_PAGE_IDS if page_ids is None else page_ids
+    stats = CrawlStats(discovered=len(selected))
     items_state: dict[str, Any] = state.setdefault("items", {})
 
-    for page_id in STATIC_PAGE_IDS:
+    for page_id in selected:
         url = f"{BASE_URL}/main/{page_id}"
         log_event(log, logging.DEBUG, "document_discovered", source_id=f"page:{page_id}", url=url)
         stats.requested += 1
@@ -765,13 +838,13 @@ def crawl_static_pages(session: requests.Session, state: dict[str, Any], full_re
             log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, error=exc)
             continue
 
-        if fetched is None:
+        if fetched.status != "ready":
             stats.failed += 1
-            log.warning("[PAGE] %s: #subCont 없음, 스킵", url)
-            log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, reason="no_subcont")
+            log.warning("[PAGE] %s: %s, 스킵", url, fetched.reason)
+            log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, reason=fetched.reason)
             continue
 
-        title, content = fetched
+        title, content = fetched.title, fetched.content
         if len(content) < MIN_PDF_TEXT_CHARS:
             stats.failed += 1
             log.warning("[PAGE] %s: 본문 %d자 (너무 짧음), 스킵", url, len(content))
@@ -799,6 +872,7 @@ def crawl_static_pages(session: requests.Session, state: dict[str, Any], full_re
             "content": content,
             "content_hash": c_hash,
             "attachments": [],
+            "extraction_warnings": list(fetched.warnings),
             "source_site": BASE_URL,
             "crawled_at": datetime.now().isoformat(),
         }
@@ -815,6 +889,340 @@ def crawl_static_pages(session: requests.Session, state: dict[str, Any], full_re
         log.info("[PAGE] %s: %s", outcome, title)
 
     return stats
+
+
+def _html_response(resp: requests.Response, expected_url: str) -> bool:
+    mime = resp.headers.get("Content-Type", "").lower()
+    return (resp.status_code == 200 and resp.url == expected_url
+            and ("text/html" in mime or "application/xhtml+xml" in mime))
+
+
+def crawl_board_page(
+    session: requests.Session, state: dict[str, Any], page_id: int,
+    full_resync: bool, max_pages: int = 1,
+) -> tuple[CrawlStats, dict[str, Any]]:
+    """Collect recent posts from a configured main-site board, never its list as prose."""
+    url = f"{BASE_URL}/main/{page_id}"
+    stats = CrawlStats()
+    result: dict[str, Any] = {"page_id": page_id, "route": "board", "url": url}
+    try:
+        first = fetch(session, url)
+        if not _html_response(first, url):
+            raise ValueError(f"board_list_unverified: HTTP {first.status_code}, {first.url}")
+        soup = BeautifulSoup(first.text, "lxml")
+        bbs_input = soup.select_one('input[name="bbsId"]')
+        bbs_id = (bbs_input.get("value") or "").strip() if bbs_input else ""
+        if page_id == 95 and bbs_id != "307":
+            raise ValueError(f"board_id_changed: {bbs_id!r}")
+        _, total_pages = pknu_notice.parse_page_indicator(first.text)
+        pages = min(max_pages, total_pages)
+        items: dict[str, pknu_notice.ListItem] = {}
+        for page in range(1, pages + 1):
+            response = first if page == 1 else fetch(session, f"{url}?bbsId={bbs_id}&pageIndex={page}")
+            if page > 1 and not _html_response(response, f"{url}?bbsId={bbs_id}&pageIndex={page}"):
+                raise ValueError(f"board_page_unverified: page {page}")
+            found = pknu_notice.parse_list_page(response.text, bbs_id, "타대학 이수학점 인정안내")
+            if not found:
+                raise ValueError(f"board_list_empty: page {page}")
+            items.update((item.no, item) for item in found)
+        stats.discovered = len(items)
+        result.update(bbs_id=bbs_id, total_pages=total_pages, pages_crawled=pages,
+                      discovered=len(items), documents=[])
+    except (requests.RequestException, ValueError) as exc:
+        stats.failed += 1
+        result.update(status="failed", reason=str(exc), retryable=isinstance(exc, requests.RequestException))
+        log_event(log, logging.ERROR, "section_finished", section=f"main:{page_id}", status="failed", error=exc)
+        return stats, result
+
+    for post_no, item in items.items():
+        post_url = f"{url}?action=view&no={post_no}"
+        stats.requested += 1
+        try:
+            response = fetch(session, post_url)
+            if not _html_response(response, post_url):
+                raise ValueError(f"detail_response_unverified: HTTP {response.status_code}, {response.url}")
+            detail = pknu_notice.parse_detail_page(response.text, item)
+            if not detail or not detail["content"].strip():
+                raise ValueError("detail_body_missing")
+            source_id = f"main:{page_id}:{post_no}"
+            attachments = [build_attachment(
+                index=index, name=entry["name"], url=entry["url"], project_root=PROJECT_ROOT,
+            ) for index, entry in enumerate(detail["attachments"], start=1)]
+            doc = apply_common_schema(
+                {"url": post_url, "title": detail["title"], "category": CATEGORY,
+                 "subcategory": "학점교류_게시판", "content": detail["content"],
+                 "attachments": attachments},
+                source_dataset="pknu_student_life", source_id=source_id,
+                source_site=BASE_URL, document_type="notice", content_source="pknu_main_board_html",
+                published_at=detail["date"], author=detail["author"],
+                metadata={"page_id": page_id, "bbs_id": result["bbs_id"], "post_no": post_no},
+            )
+            if attachments:
+                doc["crawl"]["warnings"].append("ATTACHMENTS_NOT_DOWNLOADED")
+            slug = doc["slug"]
+            previous = state.setdefault("items", {}).get(source_id, {})
+            if not previous:
+                saved_doc = PATHS.document_json("학점교류_게시판", slug)
+                if saved_doc.is_file():
+                    try:
+                        previous = json.loads(saved_doc.read_text(encoding="utf-8"))
+                    except (OSError, json.JSONDecodeError):
+                        previous = {}
+            if previous.get("content_hash") == doc["content_hash"] and not full_resync:
+                stats.unchanged += 1
+                outcome = "unchanged"
+            else:
+                save_json(doc, "학점교류_게시판", slug)
+                outcome = "updated" if previous else "new"
+                setattr(stats, outcome, getattr(stats, outcome) + 1)
+            state["items"][source_id] = {"slug": slug, "content_hash": doc["content_hash"],
+                                         "url": post_url, "last_seen_at": now_kst()}
+            stats.count_attachments(attachments)
+            result["documents"].append({"post_no": post_no, "status": outcome,
+                                         "slug": slug, "attachments_pending": len(attachments)})
+            log_event(log, logging.INFO, "document_saved" if outcome != "unchanged" else "document_unchanged",
+                      source_id=source_id, url=post_url, status=outcome)
+        except (requests.RequestException, ValueError, OSError) as exc:
+            stats.failed += 1
+            result["documents"].append({"post_no": post_no, "status": "failed", "reason": str(exc)})
+            log_event(log, logging.ERROR, "document_failed", source_id=f"main:{page_id}:{post_no}",
+                      url=post_url, error=exc)
+    result["status"] = "partial_success" if stats.failed else "success"
+    return stats, result
+
+
+def inspect_link_hub(session: requests.Session, page_id: int) -> dict[str, Any]:
+    url = f"{BASE_URL}/main/{page_id}"
+    result: dict[str, Any] = {"page_id": page_id, "route": "link_hub", "url": url}
+    try:
+        resp = fetch(session, url)
+        if not _html_response(resp, url):
+            raise ValueError(f"link_hub_response_unverified: HTTP {resp.status_code}, {resp.url}")
+        soup = BeautifulSoup(resp.text, "lxml")
+        body = soup.select_one("#subCont")
+        if body is None:
+            raise ValueError("link_hub_body_missing")
+        body = BeautifulSoup(str(body), "lxml")
+        for element in body.select(_STATIC_REMOVE):
+            element.decompose()
+        links = []
+        seen = set()
+        for element in body.select("a[href], iframe[src]"):
+            raw_url = (element.get("href") or element.get("src") or "").strip()
+            if not raw_url or raw_url.startswith("#") or urlparse(raw_url).scheme.lower() in {"javascript", "mailto", "tel", "data"}:
+                continue
+            target = urljoin(url, raw_url)
+            if urlparse(target).scheme not in {"http", "https"} or target in seen:
+                continue
+            seen.add(target)
+            links.append({"label": element.get_text(" ", strip=True) or "embedded content",
+                          "url": target, "kind": "iframe" if element.name == "iframe" else "link"})
+        embedded_pdfs = sorted({str(element.get("data-id")) for element in body.select(".uploadPdf[data-id]")})
+        if not links and not embedded_pdfs:
+            raise ValueError("link_hub_targets_missing")
+        result.update(status="success", links=links, embedded_pdf_media_ids=embedded_pdfs)
+    except (requests.RequestException, ValueError) as exc:
+        result.update(status="failed", reason=str(exc), retryable=isinstance(exc, requests.RequestException))
+    return result
+
+
+def crawl_tuition_page(session: requests.Session) -> tuple[CrawlStats, dict[str, Any]]:
+    """Store #102's verified public JSON response apart from RAG documents."""
+    page_id = 102
+    url = f"{BASE_URL}/main/{page_id}"
+    target = PATHS.output / "tuition" / "main_102.json"
+    stats = CrawlStats(discovered=1, requested=1)
+    detail: dict[str, Any] = {"page_id": page_id, "route": "tuition", "url": url,
+                              "data_path": target.relative_to(PROJECT_ROOT).as_posix()}
+    try:
+        response = fetch(session, url)
+        if not _html_response(response, url):
+            raise ValueError(f"tuition_page_unverified: HTTP {response.status_code}, {response.url}")
+        soup = BeautifulSoup(response.text, "lxml")
+        frame = soup.select_one('#subCont iframe[title="계열별 등록금 조회"][src]')
+        iframe_url = urljoin(url, frame.get("src", "")) if frame else ""
+        if iframe_url != TUITION_IFRAME_URL:
+            raise ValueError(f"tuition_iframe_unverified: {iframe_url!r}")
+        data = collect_main_102_tuition(session, url, iframe_url)
+        if (not all(data["counts"][name] for name in ("tuition", "departments", "installments"))
+                or "official_checks" not in data or "installment_reconciliation" not in data):
+            raise ValueError("tuition_query_returned_no_confirmed_rows: " + "; ".join(data["warnings"]))
+        previous = target.is_file()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(target)
+        detail.update(status="partial_success" if data["status"] == "needs_review" else "success",
+                      counts=data["counts"], review_counts=data["review_counts"],
+                      warnings=data["warnings"],
+                      official_checks={key: data["official_checks"][key] for key in
+                                       ("amount_rows_checked", "amount_rows_matched",
+                                        "classification_rows_checked", "classification_rows_matched")},
+                      installment_group_counts=data["installment_reconciliation"]["group_counts"])
+        if previous:
+            stats.updated += 1
+        else:
+            stats.new += 1
+    except (requests.RequestException, ValueError, OSError) as exc:
+        stats.failed += 1
+        detail.update(status="failed", reason=str(exc),
+                      retryable=isinstance(exc, requests.RequestException))
+    return stats, detail
+
+
+def crawl_org_page(session: requests.Session) -> tuple[CrawlStats, dict[str, Any]]:
+    """Collect /main/533's intro and the 249 organization widget."""
+    page_id = 533
+    url = f"{BASE_URL}/main/{page_id}"
+    target = PATHS.output / "organization" / "main_533.json"
+    stats = CrawlStats(discovered=1, requested=1)
+    detail: dict[str, Any] = {"page_id": page_id, "route": "organization", "url": url,
+                              "data_path": target.relative_to(PROJECT_ROOT).as_posix()}
+    try:
+        response = fetch(session, url)
+        if not _html_response(response, url):
+            raise ValueError(f"organization_page_unverified: HTTP {response.status_code}, {response.url}")
+        data = collect_main_533_org(session, url, response.text)
+        if not data.get("staff_count") or not data.get("contact"):
+            raise ValueError("organization_content_unverified: " + "; ".join(data["warnings"]))
+        previous = target.is_file()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(target)
+        detail.update(status="success" if data["status"] == "collected" else "partial_success",
+                      staff_count=data["staff_count"], contact=data["contact"],
+                      review_status=data["review_status"], warnings=data["warnings"])
+        if previous:
+            stats.updated += 1
+        else:
+            stats.new += 1
+    except (requests.RequestException, ValueError, OSError) as exc:
+        stats.failed += 1
+        detail.update(status="failed", reason=str(exc),
+                      retryable=isinstance(exc, requests.RequestException))
+    return stats, detail
+
+
+def inspect_redirect(session: requests.Session, page_id: int) -> dict[str, Any]:
+    url = f"{BASE_URL}/main/{page_id}"
+    expected = REDIRECT_PAGE_TARGETS[page_id]
+    result: dict[str, Any] = {"page_id": page_id, "route": "redirect", "url": url,
+                              "expected_destination": expected}
+    try:
+        first = fetch(session, url, stream=True, allow_redirects=False)
+        location = urljoin(url, first.headers.get("Location", ""))
+        result.update(http_status=first.status_code, destination=location)
+        first.close()
+        if first.status_code not in {301, 302, 303, 307, 308} or location != expected:
+            raise ValueError("redirect_destination_unverified")
+        if not urlparse(location).hostname.endswith(".pknu.ac.kr"):
+            raise ValueError("redirect_destination_outside_pknu")
+        destination = fetch(session, location, stream=True)
+        result.update(destination_http_status=destination.status_code,
+                      final_url=destination.url,
+                      content_type=destination.headers.get("Content-Type", ""))
+        destination.close()
+        if not urlparse(result["final_url"]).hostname.endswith(".pknu.ac.kr"):
+            raise ValueError("redirect_final_url_outside_pknu")
+        if destination.status_code in {401, 403}:
+            result.update(status="access_restricted", retryable=False)
+        elif destination.status_code == 200:
+            result.update(status="reachable", content_verified=False)
+        else:
+            result.update(status="failed", reason="destination_http_error",
+                          retryable=destination.status_code == 429 or destination.status_code >= 500)
+    except (requests.RequestException, ValueError) as exc:
+        result.update(status="failed", reason=str(exc), retryable=isinstance(exc, requests.RequestException))
+    return result
+
+
+def crawl_file_page(
+    session: requests.Session, state: dict[str, Any], page_id: int, full_resync: bool,
+) -> tuple[CrawlStats, dict[str, Any]]:
+    url = f"{BASE_URL}/main/{page_id}"
+    result: dict[str, Any] = {"page_id": page_id, "route": "file", "url": url}
+    stats = CrawlStats(discovered=1, requested=1)
+    try:
+        resp = fetch(session, url, stream=True)
+        if resp.status_code != 200 or resp.url != url:
+            raise ValueError(f"file_response_unverified: HTTP {resp.status_code}, {resp.url}")
+        mime = resp.headers.get("Content-Type", "").split(";", 1)[0].lower()
+        disposition = resp.headers.get("Content-Disposition", "")
+        match = re.search(r'filename="?([^";]+)', disposition, re.I)
+        filename = sanitize_attachment_filename(unquote(match.group(1))) if match else "main-238.pdf"
+        if not filename.lower().endswith(".pdf"):
+            raise ValueError("file_name_not_pdf")
+        chunks = resp.iter_content(chunk_size=256 * 1024)
+        first = next(chunks, b"")
+        if mime not in {"application/pdf", "application/octet-stream"} or not first.startswith(b"%PDF-"):
+            raise ValueError("file_signature_or_mime_unverified")
+        slug = document_slug("pknu_student_life", f"main:{page_id}:file")
+        dest = PATHS.attachment_dir("학사안내_파일", slug) / filename
+        reusable = False
+        if dest.is_file() and not full_resync:
+            with dest.open("rb") as existing:
+                reusable = existing.read(5) == b"%PDF-"
+        if not reusable:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            temporary = dest.with_name(dest.name + ".part")
+            try:
+                with temporary.open("wb") as handle:
+                    handle.write(first)
+                    for chunk in chunks:
+                        if chunk:
+                            handle.write(chunk)
+                temporary.replace(dest)
+            finally:
+                temporary.unlink(missing_ok=True)
+        attachment = build_attachment(index=1, name=filename, url=url, final_url=resp.url,
+                                      saved_path=dest, downloaded=True, content_type=mime,
+                                      project_root=PROJECT_ROOT)
+        content = extract_pdf_text(dest)
+        doc = apply_common_schema(
+            {"url": url, "title": "[공통] 졸업요건 안내자료", "category": CATEGORY,
+             "subcategory": "학사안내_파일", "content": content,
+             "attachments": [attachment], "pdf_url": url},
+            source_dataset="pknu_student_life", source_id=f"main:{page_id}:file",
+            source_site=BASE_URL, document_type="guide", content_source="pknu_main_pdf",
+            metadata={"page_id": page_id, "file_name": filename},
+        )
+        if len(content) < MIN_PDF_TEXT_CHARS:
+            doc["crawl"]["warnings"].append("PDF_TEXT_REQUIRES_REVIEW")
+        previous = state.setdefault("items", {}).get(f"file:{page_id}", {})
+        outcome = "unchanged" if previous.get("content_hash") == doc["content_hash"] and not full_resync else ("updated" if previous else "new")
+        if outcome != "unchanged":
+            save_json(doc, "학사안내_파일", slug)
+        setattr(stats, outcome, getattr(stats, outcome) + 1)
+        stats.count_attachments([attachment])
+        state["items"][f"file:{page_id}"] = {"slug": slug, "content_hash": doc["content_hash"],
+                                               "url": url, "last_seen_at": now_kst()}
+        result.update(status=outcome, content_length=len(content), filename=filename,
+                      saved_path=attachment["saved_path"], sha256=attachment["sha256"],
+                      size_bytes=attachment["size_bytes"], warnings=doc["crawl"]["warnings"])
+    except (requests.RequestException, ValueError, OSError, ImportError) as exc:
+        stats.failed += 1
+        result.update(status="failed", reason=str(exc), retryable=isinstance(exc, requests.RequestException))
+    finally:
+        if "resp" in locals():
+            resp.close()
+    return stats, result
+
+
+def retire_legacy_static_route(state: dict[str, Any], page_id: int) -> int:
+    """Remove only a misrouted static state entry, archiving its old document if present."""
+    url = f"{BASE_URL}/main/{page_id}"
+    items = state.setdefault("items", {})
+    retired = 0
+    for key, record in list(items.items()):
+        if not isinstance(record, dict) or record.get("url") != url or key == f"file:{page_id}":
+            continue
+        slug = record.get("slug") or key
+        if PATHS.document_json(SUBCATEGORY_STATIC_PAGE, slug).is_file():
+            archive_document(PATHS, SUBCATEGORY_STATIC_PAGE, slug)
+        del items[key]
+        retired += 1
+    return retired
 
 
 def crawl_guide(
@@ -851,7 +1259,11 @@ def crawl_guide(
     return stats
 
 
-def run(mode: str, full_resync: bool, limit: int | None) -> CrawlStats:
+def run(
+    mode: str, full_resync: bool, limit: int | None,
+    page_ids: tuple[int, ...] | None = None, board_pages: int = 1,
+    route_report: Path | None = None,
+) -> CrawlStats:
     state = load_state()
     session = build_session()
 
@@ -868,7 +1280,55 @@ def run(mode: str, full_resync: bool, limit: int | None) -> CrawlStats:
 
     if mode in ("pages", "all"):
         log_event(log, logging.INFO, "section_started", section="pages")
-        stats = crawl_static_pages(session, state, full_resync)
+        selected = CONFIGURED_PAGE_IDS if page_ids is None else frozenset(page_ids)
+        static_ids = tuple(page_id for page_id in STATIC_PAGE_IDS if page_id in selected)
+        stats = crawl_static_pages(session, state, full_resync, static_ids)
+        route_results: list[dict[str, Any]] = []
+        for page_id in sorted(selected - set(static_ids)):
+            if page_id in BOARD_PAGE_IDS:
+                route_stats, detail = crawl_board_page(session, state, page_id, full_resync, board_pages)
+                stats.add(route_stats)
+            elif page_id in TUITION_PAGE_IDS:
+                route_stats, detail = crawl_tuition_page(session)
+                stats.add(route_stats)
+            elif page_id in ORG_PAGE_IDS:
+                route_stats, detail = crawl_org_page(session)
+                stats.add(route_stats)
+            elif page_id in LINK_HUB_PAGE_IDS:
+                detail = inspect_link_hub(session, page_id)
+                stats.discovered += 1
+                stats.requested += 1
+                if detail["status"] == "success":
+                    stats.skipped += 1  # Link targets are recorded, not stored as body text.
+                else:
+                    stats.failed += 1
+            elif page_id in REDIRECT_PAGE_TARGETS:
+                detail = inspect_redirect(session, page_id)
+                stats.discovered += 1
+                stats.requested += 1
+                if detail["status"] == "reachable":
+                    stats.skipped += 1  # External destination content is outside this route.
+                else:
+                    stats.failed += 1
+            elif page_id in FILE_PAGE_IDS:
+                route_stats, detail = crawl_file_page(session, state, page_id, full_resync)
+                stats.add(route_stats)
+            else:
+                raise ValueError(f"unconfigured main page: {page_id}")
+            if (page_id not in (*TUITION_PAGE_IDS, *ORG_PAGE_IDS) and detail["status"] in
+                    {"success", "partial_success", "reachable", "new", "updated", "unchanged"}):
+                detail["legacy_static_state_retired"] = retire_legacy_static_route(state, page_id)
+            route_results.append(detail)
+            log.info("[ROUTE] /main/%s %s: %s", page_id, detail["route"], detail["status"])
+            log_event(log, logging.INFO if detail["status"] not in {"failed", "access_restricted"} else logging.ERROR,
+                      "section_finished", section=f"main:{page_id}", route=detail["route"],
+                      status=detail["status"], reason=detail.get("reason"))
+        report_path = route_report or PATHS.output / "route_inventory.json"
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps({
+                "selected_page_ids": sorted(selected), "static_page_ids": list(static_ids),
+                "routes": route_results, "stats": stats.to_dict(),
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
         total_stats.add(stats)
         log.info("[PAGE] 완료: %s", stats)
         log_event(log, logging.INFO, "section_finished", section="pages", stats=stats.to_dict())
@@ -882,7 +1342,11 @@ def run(mode: str, full_resync: bool, limit: int | None) -> CrawlStats:
         log.info("[EBOOK] 완료: %s", stats)
         log_event(log, logging.INFO, "section_finished", section="ebook", stats=stats.to_dict())
 
-    save_state(state)
+    # These two dynamic routes write standalone data and never change crawler
+    # items. Selected-only runs must leave state byte-for-byte.
+    if not (mode == "pages" and page_ids is not None
+            and set(page_ids) <= set((*TUITION_PAGE_IDS, *ORG_PAGE_IDS))):
+        save_state(state)
     log.info("=" * 60)
     return total_stats
 
@@ -903,6 +1367,11 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="guide 모드에서 처리할 PDF 최대 건수 (스모크 테스트용)",
     )
+    parser.add_argument("--page-ids", help="pages 모드에서 수집할 /main/ 번호 (쉼표 구분)")
+    parser.add_argument("--board-pages", type=int, default=1,
+                        help="게시판의 최신 목록 페이지 수 (기본 1)")
+    parser.add_argument("--route-report", type=Path,
+                        help="경로 검사 결과 JSON 경로 (기본: output/route_inventory.json)")
     return parser.parse_args()
 
 
@@ -911,6 +1380,16 @@ def main() -> int:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
     args = parse_args()
+    if args.page_ids and args.mode != "pages":
+        raise SystemExit("--page-ids requires --mode pages")
+    if args.board_pages < 1:
+        raise SystemExit("--board-pages must be >= 1")
+    try:
+        page_ids = tuple(dict.fromkeys(int(value.strip()) for value in args.page_ids.split(","))) if args.page_ids else None
+    except ValueError as exc:
+        raise SystemExit("--page-ids must be comma-separated integers") from exc
+    if page_ids is not None and (not page_ids or set(page_ids) - CONFIGURED_PAGE_IDS):
+        raise SystemExit(f"unconfigured page ids: {sorted(set(page_ids or ()) - CONFIGURED_PAGE_IDS)}")
     limit = args.limit
     if args.mode == "ebook":
         limit = None
@@ -923,7 +1402,9 @@ def main() -> int:
         if args.reset_state:
             save_state_atomic(STATE_FILE, empty_state("pknu_student_life"), "pknu_student_life")
             log_event(log, logging.INFO, "state_saved", path=STATE_FILE, action="reset")
-        result.stats = run(args.mode, args.full_resync, limit)
+        result.stats = run(args.mode, args.full_resync, limit,
+                           page_ids=page_ids, board_pages=args.board_pages,
+                           route_report=args.route_report)
         if result.stats.failed:
             result.add_error("DOCUMENT_FAILURES", f"{result.stats.failed} document(s) failed", retryable=True)
         if result.stats.attachments_failed:

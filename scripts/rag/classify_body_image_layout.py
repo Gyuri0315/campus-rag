@@ -80,7 +80,11 @@ def visual_features(path: Path) -> dict[str, Any]:
 
 def _paragraph_blocks(image: dict[str, Any]) -> list[dict[str, Any]]:
     result = image.get("result") if isinstance(image.get("result"), dict) else {}
-    blocks = result.get("paragraphs") if isinstance(result.get("paragraphs"), list) else image.get("blocks", [])
+    paragraphs = result.get("paragraphs")
+    if image.get("ocr_storage") == "compact_v1" and not paragraphs:
+        blocks = image.get("blocks", [])
+    else:
+        blocks = paragraphs if isinstance(paragraphs, list) else image.get("blocks", [])
     return [block for block in blocks if isinstance(block, dict) and block.get("type") == "ocr_paragraph" and isinstance(block.get("bbox"), list)]
 
 
