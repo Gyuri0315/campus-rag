@@ -73,6 +73,7 @@ def _default_layout(image: dict[str, Any]) -> dict[str, Any]:
             "paragraphs": paragraphs,
             "tables": tables,
             "diagram": {"nodes": [], "edges": [], "unverified_edges": []},
+            "regions": deepcopy(image.get("ocr_regions", {}).get("regions", [])),
         },
     }
 
@@ -101,6 +102,11 @@ def enrich_image_layout(image: dict[str, Any]) -> bool:
         raise ValueError("result must contain paragraphs and tables lists")
     if not isinstance(result.get("diagram"), dict):
         raise ValueError("result must contain a diagram object")
+    if "regions" in result and not isinstance(result["regions"], list):
+        raise ValueError("result regions must be a list")
+    if "regions" not in result and isinstance(image.get("ocr_regions"), dict):
+        result["regions"] = deepcopy(image["ocr_regions"].get("regions", []))
+        changed = True
     return changed
 
 

@@ -10,6 +10,8 @@ from collections import defaultdict
 import numpy as np
 from PIL import Image, ImageOps
 
+from scripts.extractors.image_ocr import require_ocr_languages
+
 VERSION = '1'
 
 
@@ -517,6 +519,7 @@ def _edges(nodes: list[dict], mask: np.ndarray) -> tuple[list[dict], list[dict]]
 def extract_diagram_image(path, *, executable, language='kor+eng', tessdata=None,
                           existing_paragraphs: list[dict] | None = None):
     """OCR sparse diagram labels and only accept visibly continuous node-to-node strokes."""
+    require_ocr_languages(executable, language, tessdata)
     with Image.open(path) as original:
         image = ImageOps.exif_transpose(original).convert('RGB')
     tsv = _run_ocr(image, executable=executable, language=language, tessdata=tessdata, psm=11)

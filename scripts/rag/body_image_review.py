@@ -184,6 +184,10 @@ def _result_texts(result: Any, layout_type: str) -> list[str]:
         diagram = result
     if layout_type in {"diagram", "mixed", "unknown"}:
         texts.extend(_diagram_texts(diagram))
+    if not texts:
+        # Compact infographic OCR keeps the grouped regions in the review
+        # result and leaves the noisy raw blocks outside result.paragraphs.
+        texts.extend(_paragraph_texts(result.get("regions")))
     return texts
 
 
