@@ -13,8 +13,12 @@ import { askBackend } from "@/app/lib/api";
 import {
   createChat,
   deleteChat,
+  deleteFeedback,
   fetchChatMessages,
+  fetchFeedbackForMessages,
   insertChatMessage,
+  saveFeedback,
+  type MessageFeedback,
   listChats,
   parseStoredSources,
   updateChatTitle,
@@ -39,11 +43,16 @@ interface Source {
 }
 
 interface Message {
+  /** 화면용 로컬 id (React key) */
   id: string;
+  /** DB(chat_messages) id — 저장이 끝난 메시지에만 있다. 피드백은 이 id 에 연결된다. */
+  dbId?: string;
   role: "user" | "assistant";
   content: string;
   attachments?: Attachment[];
   sources?: Source[];
+  /** 내가 이 답변에 남긴 피드백 (없으면 null/undefined) */
+  feedback?: MessageFeedback | null;
 }
 
 interface HistoryItem {
@@ -174,9 +183,19 @@ const FEEDBACK_TYPES = [
   "원하는 답변이 아니에요",
 ];
 
-function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => void }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [comment, setComment] = useState("");
+const FEEDBACK_COMMENT_MAX = 1000; // DB 제약(message_feedback_comment_length)과 같은 값
+
+function DislikeFeedbackModal({
+  onClose,
+  onSubmit,
+  initial,
+}: {
+  onClose: () => void;
+  onSubmit: (reasons: string[], comment: string | null) => void;
+  initial?: MessageFeedback | null;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(initial?.reasons ?? []));
+  const [comment, setComment] = useState(initial?.comment ?? "");
 
   const toggle = (type: string) => {
     setSelected((prev) => {
@@ -188,7 +207,10 @@ function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSu
   };
 
   const handleSubmit = () => {
-    onSubmit();
+    // 선택 순서와 무관하게 화면 순서대로 저장
+    const reasons = FEEDBACK_TYPES.filter((type) => selected.has(type));
+    const trimmed = comment.trim();
+    onSubmit(reasons, trimmed ? trimmed : null);
     onClose();
   };
 
@@ -256,6 +278,7 @@ function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSu
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="추가 의견을 입력해 주세요 (선택)"
+          maxLength={FEEDBACK_COMMENT_MAX}
           rows={3}
           className="w-full resize-none rounded-xl px-3 py-2.5 text-xs sm:text-[13px] outline-none placeholder:text-gray-400 leading-relaxed"
           style={{
@@ -470,11 +493,32 @@ function AnswerContent({ content }: { content: string }) {
   );
 }
 
-function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () => void }) {
+function AssistantMessage({
+  msg,
+  onFeedbackChange,
+}: {
+  msg: Message;
+  /** 피드백 저장/취소(null). 상태는 부모의 messages 에 있어 대화를 다시 열어도 유지된다. */
+  onFeedbackChange: (next: MessageFeedback | null) => void;
+}) {
   const [activeSourceId, setActiveSourceId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
-  const [liked, setLiked] = useState(false);
   const [dislikeOpen, setDislikeOpen] = useState(false);
+  const rating = msg.feedback?.rating ?? null;
+  // 저장이 끝난 답변(DB id 있음)에만 피드백을 남길 수 있다.
+  const canFeedback = Boolean(msg.dbId);
+  const feedbackDisabledTitle = "답변 저장이 끝난 뒤 피드백을 남길 수 있어요";
+
+  // 좋아요 ↔ 싫어요는 배타적: 좋아요를 누르면 싫어요(사유 포함)가 좋아요로 바뀌고, 같은 버튼을 다시 누르면 취소.
+  const handleLike = () => {
+    if (!canFeedback) return;
+    onFeedbackChange(rating === "up" ? null : { rating: "up", reasons: [], comment: null });
+  };
+  const handleDislike = () => {
+    if (!canFeedback) return;
+    if (rating === "down") onFeedbackChange(null);
+    else setDislikeOpen(true);
+  };
   const hasSources = msg.sources && msg.sources.length > 0;
 
   const handleCopy = () => {
@@ -536,21 +580,30 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
                 {copied ? <IconCheckSm /> : <IconCopy />}
               </button>
               <button
-                onClick={() => setLiked((v) => !v)}
-                title="도움이 됐어요"
-                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+                type="button"
+                onClick={handleLike}
+                disabled={!canFeedback}
+                aria-pressed={rating === "up"}
+                title={canFeedback ? (rating === "up" ? "좋아요 취소" : "도움이 됐어요") : feedbackDisabledTitle}
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60 disabled:cursor-not-allowed disabled:opacity-40"
                 style={{
-                  color: liked ? "var(--clr-navy)" : "var(--clr-text-muted)",
-                  background: liked ? "rgba(37,52,139,0.08)" : "transparent",
+                  color: rating === "up" ? "var(--clr-navy)" : "var(--clr-text-muted)",
+                  background: rating === "up" ? "rgba(37,52,139,0.08)" : "transparent",
                 }}
               >
                 <IconThumbUp />
               </button>
               <button
-                onClick={() => setDislikeOpen(true)}
-                title="도움이 안 됐어요"
-                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
-                style={{ color: "var(--clr-text-muted)" }}
+                type="button"
+                onClick={handleDislike}
+                disabled={!canFeedback}
+                aria-pressed={rating === "down"}
+                title={canFeedback ? (rating === "down" ? "싫어요 취소" : "도움이 안 됐어요") : feedbackDisabledTitle}
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{
+                  color: rating === "down" ? "#c53030" : "var(--clr-text-muted)",
+                  background: rating === "down" ? "rgba(197,48,48,0.08)" : "transparent",
+                }}
               >
                 <IconThumbDown />
               </button>
@@ -598,7 +651,8 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
         {dislikeOpen && (
           <DislikeFeedbackModal
             onClose={() => setDislikeOpen(false)}
-            onSubmit={onFeedback}
+            onSubmit={(reasons, comment) => onFeedbackChange({ rating: "down", reasons, comment })}
+            initial={msg.feedback}
           />
         )}
 
@@ -650,6 +704,33 @@ export default function ChatContent() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(msg);
     toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  };
+
+  // ── 답변 피드백 저장 ──────────────────────────────────────────
+  // 화면을 먼저 바꾸고(낙관적 업데이트) 저장이 실패하면 이전 상태로 되돌린다.
+  // 같은 답변에 요청이 겹치면 응답 순서가 뒤바뀌어 화면과 DB가 어긋날 수 있어,
+  // 저장 중인 답변의 추가 클릭은 무시한다.
+  const feedbackInFlightRef = useRef<Set<string>>(new Set());
+  const handleFeedbackChange = async (localId: string, next: MessageFeedback | null) => {
+    const target = messages.find((m) => m.id === localId);
+    if (!target?.dbId || feedbackInFlightRef.current.has(localId)) return;
+    const previous = target.feedback ?? null;
+    const setFeedback = (feedback: MessageFeedback | null) =>
+      setMessages((prev) => prev.map((m) => (m.id === localId ? { ...m, feedback } : m)));
+
+    feedbackInFlightRef.current.add(localId);
+    setFeedback(next);
+    try {
+      if (next) await saveFeedback(target.dbId, next);
+      else await deleteFeedback(target.dbId);
+      if (next?.rating === "down") showToast("피드백 감사합니다");
+    } catch (err) {
+      console.error("[chat] save feedback failed:", err);
+      setFeedback(previous);
+      showToast("피드백 저장에 실패했습니다.");
+    } finally {
+      feedbackInFlightRef.current.delete(localId);
+    }
   };
 
   const closeContextMenu = () => {
@@ -821,16 +902,21 @@ export default function ChatContent() {
       if (controller.signal.aborted) return;
       const finalContent = answer || "관련 정보를 찾을 수 없습니다.";
       const finalSources = sources;
+      const assistantLocalId = uid();
       setMessages((prev) => [
         ...prev,
-        { id: uid(), role: "assistant", content: finalContent, attachments: [], sources },
+        { id: assistantLocalId, role: "assistant", content: finalContent, attachments: [], sources },
       ]);
 
       setChatState("success");
 
       if (user?.id && persistedChatId) {
         try {
-          await insertChatMessage(persistedChatId, "assistant", finalContent, finalSources ?? null);
+          const assistantDbId = await insertChatMessage(persistedChatId, "assistant", finalContent, finalSources ?? null);
+          // 저장이 끝나야 피드백 버튼이 활성화된다(피드백은 DB 메시지 id 에 연결).
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantLocalId ? { ...m, dbId: assistantDbId } : m)),
+          );
           const refreshed = await listChats();
           setHistory(refreshed.map((r) => ({ id: r.id, title: r.title })));
         } catch (err) {
@@ -896,15 +982,26 @@ export default function ChatContent() {
       persistChatIdRef.current = item.id;
       try {
         const rows = await fetchChatMessages(item.id);
+        // 내가 남긴 피드백을 함께 불러와 버튼 상태를 복원한다. 실패해도 대화는 보여준다.
+        let feedbackByMessage: Record<string, MessageFeedback> = {};
+        try {
+          feedbackByMessage = await fetchFeedbackForMessages(
+            rows.filter((r) => r.role === "assistant").map((r) => r.id),
+          );
+        } catch (err) {
+          console.error("[chat] fetchFeedbackForMessages failed:", err);
+        }
         const mapped: Message[] = rows.map((r) => {
           const src =
             r.role === "assistant" ? parseStoredSources(r.sources) : undefined;
           return {
             id: uid(),
+            dbId: r.id,
             role: r.role,
             content: r.content,
             attachments: [],
             sources: src as Source[] | undefined,
+            feedback: feedbackByMessage[r.id] ?? null,
           };
         });
         setMessages(mapped);
@@ -1471,7 +1568,11 @@ export default function ChatContent() {
                 </span>
               </div>
             ) : (
-              <AssistantMessage key={msg.id} msg={msg} onFeedback={() => showToast("피드백 감사합니다")} />
+              <AssistantMessage
+                key={msg.id}
+                msg={msg}
+                onFeedbackChange={(next) => void handleFeedbackChange(msg.id, next)}
+              />
             )
           )}
 
