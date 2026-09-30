@@ -16,6 +16,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -52,10 +53,17 @@ JUDGE_SYSTEM_PROMPT = (
     "2. 답변이 특정 연도·학기의 과거 값(날짜, 금액 등)을 예시로 들면서 '학기마다 다르다', '최신 공지를 "
     "확인해야 한다', '변동될 수 있다' 등 명확한 단서를 붙였다면, 그 부분은 violated가 아니라 hedged로 "
     "판정하세요. 단서 없이 값만 단독으로 확정 제시한 경우에만 violated입니다.\n"
-    "3. 표현이 다르더라도 같은 의미를 전달하면 covered/violated로 판정하세요.\n\n"
+    "3. 표현이 다르더라도 같은 의미를 전달하면 covered/violated로 판정하세요.\n"
+    "4. violated 또는 hedged로 판정하려면, 그 주장을 하고 있는 답변 속 문장을 evidence에 "
+    "**답변에 적힌 그대로 한 글자도 바꾸지 말고** 인용하세요. 인용할 문장이 없으면 ok입니다.\n"
+    "5. evidence를 적은 뒤, 그 문장이 금지된 주장과 '같은 의미'인지 다시 확인하세요. 답변이 금지된 "
+    "주장과 반대되는 내용(예: 금지 주장 'X가 가능하다고 안내'인데 답변은 'X는 불가능하다')이거나, "
+    "같은 주제의 다른 내용(예: 조건을 구분해 설명, 다른 부서 번호 안내)을 말하는 것이라면 ok입니다. "
+    "금지된 주장과 주제가 겹친다는 이유만으로 violated로 판정하지 마세요.\n\n"
     "반드시 아래 JSON 스키마로만 답하세요. 다른 텍스트를 추가하지 마세요:\n"
     '{"facts": [{"id": "<fact id>", "verdict": "covered|partial|missing", "reason": "<한 문장 근거>"}], '
-    '"forbidden": [{"index": <0-based int>, "verdict": "violated|hedged|ok", "reason": "<한 문장 근거>"}]}'
+    '"forbidden": [{"index": <0-based int>, "verdict": "violated|hedged|ok", '
+    '"evidence": "<violated/hedged일 때 답변 원문 인용, ok면 빈 문자열>", "reason": "<한 문장 근거>"}]}'
 )
 
 
@@ -101,7 +109,86 @@ def grade_case(client: OpenAI, model: str, case: dict[str, Any], timeout: float)
         return {"facts": [], "forbidden": [], "judge_error": "invalid_json"}
     parsed.setdefault("facts", [])
     parsed.setdefault("forbidden", [])
+    verify_forbidden_evidence(parsed["forbidden"], case.get("answer") or "")
+    confirm_forbidden_violations(client, model, parsed["forbidden"], forbidden, timeout)
     return parsed
+
+
+CONFIRM_SYSTEM_PROMPT = (
+    "당신은 한 문장이 특정 주장을 하고 있는지만 판단합니다. "
+    "'금지된 주장'은 챗봇이 하면 안 되는 잘못된 안내를 설명한 것입니다. "
+    "'답변 문장'이 그 잘못된 안내와 같은 의미를 사실로 말하고 있으면 asserts=true, "
+    "반대되는 내용이거나(예: 금지된 주장은 'X가 가능하다고 안내', 답변 문장은 'X는 불가능하다'), "
+    "같은 주제의 다른 내용이거나, 확인이 필요하다고만 말하면 asserts=false입니다.\n"
+    "금지된 주장이 '정답이 아닌 값을 제시'하는 형태일 때를 주의하세요. 예: 금지된 주장 "
+    "'기준 평점을 1.75가 아닌 다른 수치로 제시', 답변 문장 '평점 2.00 미만이면 학사경고' → "
+    "답변이 1.75가 아닌 값을 제시했으므로 asserts=true. 같은 금지된 주장에 답변 문장이 "
+    "'평점 1.75 미만이면 학사경고'라면 asserts=false.\n"
+    'JSON {"asserts": true|false, "reason": "<한 문장>"} 으로만 답하세요.'
+)
+
+
+def confirm_forbidden_violations(
+    client: OpenAI, model: str, items: list[dict[str, Any]], claims: list[str], timeout: float,
+) -> None:
+    """Second, narrow pass for each remaining "violated" verdict: one claim,
+    one quoted sentence, one yes/no. The combined judge prompt (many facts +
+    claims at once) kept flagging answers that state the *opposite* of a
+    forbidden claim (e.g. "전공필수 미이수 시 졸업 불가" judged as violating
+    "졸업 가능하다고 안내"); a focused question fixes most of those."""
+    for item in items:
+        if item.get("verdict") != "violated":
+            continue
+        index = item.get("index")
+        if not isinstance(index, int) or not 0 <= index < len(claims):
+            continue
+        try:
+            response = client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": CONFIRM_SYSTEM_PROMPT},
+                    {"role": "user", "content": f"금지된 주장: {claims[index]}\n\n답변 문장: {item.get('evidence', '')}"},
+                ],
+                temperature=0.0,
+                max_tokens=150,
+                timeout=timeout,
+                response_format={"type": "json_object"},
+            )
+            confirmed = json.loads(response.choices[0].message.content or "{}")
+        except Exception:
+            log.warning("violation confirm failed for claim %r; keeping verdict", claims[index], exc_info=True)
+            continue
+        if confirmed.get("asserts") is False:
+            item["original_verdict"] = "violated"
+            item["verdict"] = "ok"
+            item["downgraded"] = "confirm_pass_rejected"
+            item["confirm_reason"] = str(confirmed.get("reason") or "")
+
+
+def _normalize_for_quote(text: str) -> str:
+    # Ignore markdown emphasis, citation markers and whitespace so a faithful
+    # quote still matches even if the judge dropped "**" or "[1]".
+    text = re.sub(r"\[\d+\]", "", text)
+    text = re.sub(r"[*_`#>\-•]", "", text)
+    return re.sub(r"\s+", "", text)
+
+
+def verify_forbidden_evidence(items: list[dict[str, Any]], answer: str) -> None:
+    """Downgrade violated/hedged verdicts whose quoted evidence is not in the
+    answer. The judge tended to flag any answer that merely touched a
+    forbidden claim's topic (09-16 run: ~13 of 25 "violated" were answers
+    saying the opposite or something else); requiring a verbatim quote that
+    actually exists in the answer removes the unfounded ones."""
+    normalized_answer = _normalize_for_quote(answer)
+    for item in items:
+        if item.get("verdict") not in {"violated", "hedged"}:
+            continue
+        evidence = _normalize_for_quote(str(item.get("evidence") or ""))
+        if len(evidence) >= 4 and evidence in normalized_answer:
+            continue
+        item["original_verdict"] = item["verdict"]
+        item["verdict"] = "ok"
+        item["downgraded"] = "evidence_missing" if not evidence else "evidence_not_in_answer"
 
 
 def summarize(graded: list[dict[str, Any]]) -> dict[str, Any]:

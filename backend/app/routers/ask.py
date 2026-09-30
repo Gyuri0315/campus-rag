@@ -15,13 +15,21 @@ from ..generation import generate_answer
 from ..query_rewrite import plan_search_queries
 from ..query_transform import transform_query
 from ..rate_limit import enforce_ask_rate_limit
-from ..retrieval import _dedupe_key, search
+from ..retrieval import _dedupe_key, _rag_self_intro_first_stage_overrides, search
 from ..schemas import AskRequest, AskResponse, Attachment, Source
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 NO_INFO_ANSWER = "관련 정보를 찾을 수 없습니다."
+
+
+def _is_no_info_answer(answer: str) -> bool:
+    """True only for the bare refusal sentence (prompt rule 5 says to reply
+    with exactly that sentence). A partial answer that merely mentions some
+    detail is missing still counts as answerable."""
+    core = answer.strip().strip("\"'“”").rstrip(".").strip()
+    return core == NO_INFO_ANSWER.rstrip(".")
 
 
 def _similarity(row: Dict[str, Any]) -> float:
@@ -119,6 +127,8 @@ def _search_one(state: AppState, search_query: str) -> List[Dict[str, Any]]:
         embedding=embedding,
         top_k=state.settings.rag_top_k,
         first_stage_k=state.settings.rag_first_stage_k,
+        per_rpc_first_stage_k=_rag_self_intro_first_stage_overrides(search_query),
+        rpc_concurrency=state.settings.rag_rpc_concurrency,
         min_similarity=state.settings.rag_min_similarity,
         priority_weight=state.settings.rag_priority_weight,
         dataset_priority_weight=state.settings.rag_dataset_priority_weight,
@@ -247,7 +257,7 @@ def ask(
     )
 
     if not sources:
-        return AskResponse(answer=NO_INFO_ANSWER, sources=[])
+        return AskResponse(answer=NO_INFO_ANSWER, sources=[], answerable=False)
 
     try:
         answer = generate_answer(
@@ -281,4 +291,5 @@ def ask(
         for index, source in enumerate(sources, start=1)
     ]
 
-    return AskResponse(answer=answer or NO_INFO_ANSWER, sources=sources)
+    answer = answer or NO_INFO_ANSWER
+    return AskResponse(answer=answer, sources=sources, answerable=not _is_no_info_answer(answer))

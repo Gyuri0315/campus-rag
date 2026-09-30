@@ -137,7 +137,10 @@ class QueryMcodeAdapter(DepartmentCMSAdapter):
                 "attachments": self.parse_attachments(wrapper, page_url=post_url, base_url=base_url,
                                                       site_prefix=site_prefix), "source_id": source_id}
 
-    def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]:
+    def parse_static(
+        self, soup: BeautifulSoup, *, fallback_title: str,
+        page_url: str = "", base_url: str = "", site_prefix: str = "",
+    ) -> dict[str, Any]:
         title = soup.select_one("#contents h1, #contents h2, .page-title, .subTitle")
         content = soup.select_one("#contents.page-cont, #contents, .page-cont, #container-wrap, main")
         if content:

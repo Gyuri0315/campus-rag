@@ -1163,7 +1163,12 @@ def crawl_static(
     soup = BeautifulSoup(resp.text, "lxml")
 
     # 제목: breadcrumb 마지막 항목 또는 <title>
-    parsed = ACTIVE_ADAPTER.parse_static(soup, fallback_title=name)
+    # Pass the page URL so relative attachment links (e.g. "/upload/x.pdf")
+    # resolve instead of being dropped by resolve_link("", ...).
+    parsed = ACTIVE_ADAPTER.parse_static(
+        soup, fallback_title=name, page_url=page_url, base_url=BASE_URL,
+        site_prefix=ACTIVE_CONFIG.site_prefix if ACTIVE_CONFIG else "",
+    )
     title = parsed["title"]
     content_text = parsed["content"]
     for attachment in parsed.get("attachments", []):

@@ -14,6 +14,11 @@ const { header, hero, search, exampleTags, footer } = homeData.page;
 const NAVY = "#25348B";
 const NAVY_MUTED = "rgba(37,52,139,0.45)";
 
+// 헤더 로고("부경대학교 | 컴퓨터·인공지능공학부")가 356~393px 폭 화면에서
+// Admin/Login 버튼과 함께 있으면 truncate로 잘려 보이는 문제 — 좁은 화면에선
+// " | " 뒤 학부명을 숨기고 대학명만 보여준다(sm: 이상에서는 원래대로 전체 표시).
+const [LOGO_PREFIX, LOGO_SUFFIX] = header.logo.split(" | ");
+
 export default function HomePage() {
   const router = useRouter();
   const { setPendingQuery } = useQueryContext();
@@ -77,11 +82,12 @@ export default function HomePage() {
               className="text-sm sm:text-base font-semibold truncate min-w-0"
               style={{ color: NAVY }}
             >
-              {header.logo}
+              {LOGO_PREFIX}
+              {LOGO_SUFFIX && <span className="hidden sm:inline"> | {LOGO_SUFFIX}</span>}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/*
               Admin 진입 버튼.
               TODO: 인증 도입 후 isAdmin 체크로 가드 — 일반 사용자에게는 미노출.
@@ -96,7 +102,7 @@ export default function HomePage() {
               prefetch
               className="
                 inline-flex items-center justify-center
-                px-3 sm:px-4 py-1 sm:py-1.5
+                px-2.5 sm:px-4 py-1 sm:py-1.5
                 rounded-full text-xs font-medium
                 transition-opacity hover:opacity-75
               "

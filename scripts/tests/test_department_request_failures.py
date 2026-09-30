@@ -130,7 +130,7 @@ class DepartmentRequestFailureTests(unittest.TestCase):
         ]
         diagnostics = engine.CrawlDiagnostics()
 
-        def fake_static(_session, section, diagnostics=None):
+        def fake_static(_session, section, diagnostics=None, no_download_files=False):
             if section["id"] == "one":
                 diagnostics.errors.append({
                     "code": "HTTP_ERROR", "source_id": "one", "url": section["url"],
@@ -213,7 +213,7 @@ class DepartmentRequestFailureTests(unittest.TestCase):
         ]
         diagnostics = engine.CrawlDiagnostics()
 
-        def fake_static(_session, section, diagnostics=None):
+        def fake_static(_session, section, diagnostics=None, no_download_files=False):
             if section["id"] == "one":
                 raise OSError("output directory is not writable")
             diagnostics.sections_initialized += 1

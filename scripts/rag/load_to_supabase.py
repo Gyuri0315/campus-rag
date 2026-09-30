@@ -353,7 +353,7 @@ def deduplicate_sources(
     sources_table: str,
     chunks_table: str,
 ) -> int:
-    """Keep at most one active source row per (url, title), deactivating the rest.
+    """Keep at most one active source row per (url, title), deleting the rest.
 
     Root cause this guards against: each crawler generates a source's `id`
     (slug) independently, and for several crawlers that slug is not fully
@@ -375,6 +375,15 @@ def deduplicate_sources(
     (a proxy for the most complete crawl/extraction), tie-broken by id for
     determinism. This runs after every load() call so the invariant holds
     continuously rather than needing another one-off cleanup later.
+
+    The losers are hard-deleted (their chunks go with them via
+    `on delete cascade`). They used to be kept as status='inactive', which on
+    2026-09-30 had grown to 31-76% of every chunk table: dead rows the
+    lexical/vector RPCs still have to read past (bigger tables -> more disk
+    reads -> the 8s statement timeouts), and no one ever read the history.
+    Rows that were already inactive before this change are not touched here;
+    they are removed by the separate one-off cleanup script
+    (supabase/migrations/014_delete_inactive_sources.sql).
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -396,9 +405,8 @@ def deduplicate_sources(
                     left join chunk_counts cc on cc.source_id = s.id
                     where s.status = 'active' and s.url is not null and s.url <> ''
                 )
-                update {sources_table} t
-                set status = 'inactive'
-                from ranked r
+                delete from {sources_table} t
+                using ranked r
                 where t.id = r.id and r.rn > 1
                 """
             ).format(
@@ -406,14 +414,14 @@ def deduplicate_sources(
                 chunks_table=sql.Identifier("public", chunks_table),
             )
         )
-        deactivated = cur.rowcount
-    if deactivated:
+        deleted = cur.rowcount
+    if deleted:
         log.info(
-            "deduplicate_sources: deactivated %d redundant (url, title) duplicate(s) in %s",
-            deactivated,
+            "deduplicate_sources: deleted %d redundant (url, title) duplicate(s) and their chunks from %s",
+            deleted,
             sources_table,
         )
-    return deactivated
+    return deleted
 
 
 def refresh_priority_scores(dataset: str) -> None:

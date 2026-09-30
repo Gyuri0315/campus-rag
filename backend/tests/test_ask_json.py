@@ -48,6 +48,24 @@ class AskJsonTests(unittest.TestCase):
         self.assertEqual(response.json()["sources"], [])
         self.assertTrue(response.json()["answer"])
 
+    def test_answerable_flag(self):
+        source = Source(title="Guide", uri="", content="text", similarity=1)
+        cases = [
+            ("졸업학점은 130학점입니다 [1].", True),
+            ("관련 정보를 찾을 수 없습니다.", False),
+            (" \"관련 정보를 찾을 수 없습니다\" ", False),
+            ("", False),
+            ("신청 기간은 9월입니다 [1]. 제출 서류는 관련 정보를 찾을 수 없습니다.", True),
+        ]
+        for answer, expected in cases:
+            with self.subTest(answer=answer), patch(
+                "app.routers.ask._retrieve", return_value=([{}], [source])
+            ), patch("app.routers.ask.generate_answer", return_value=answer):
+                response = self.client.post("/ask", json={"question": "Question"})
+                self.assertEqual(response.json()["answerable"], expected)
+        with patch("app.routers.ask._retrieve", return_value=([], [])):
+            self.assertFalse(self.client.post("/ask", json={"question": "Q"}).json()["answerable"])
+
     def test_generation_failure_is_http_error_not_sse_event(self):
         source = Source(title="Guide", uri="", content="text", similarity=1)
         with patch("app.routers.ask._retrieve", return_value=([{}], [source])), patch(

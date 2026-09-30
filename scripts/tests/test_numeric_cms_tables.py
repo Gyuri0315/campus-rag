@@ -78,6 +78,20 @@ class NumericCMSTableTests(unittest.TestCase):
         parsed = NumericCMSAdapter().parse_detail(BeautifulSoup('<div class="bdvTitle">title</div><div class="a_bdCont"><div class="bdvEdit"></div><a href="/download/a.pdf">a.pdf</a></div>', 'lxml'), 'https://example.test/1', {}, base_url='https://example.test', site_prefix='ce')
         self.assertEqual(parsed['content_state'], 'attachment_only')
 
+    def test_static_relative_attachments_are_kept(self):
+        html = ('<div class="container"></div><div id="sbCont"><p>guide</p>'
+                '<a href="/upload/ce/guide.pdf">guide.pdf</a><a href="../files/map.hwp">map.hwp</a>'
+                '<a href="https://ce.pknu.ac.kr/upload/abs.pdf">abs.pdf</a></div>')
+        parsed = NumericCMSAdapter().parse_static(
+            BeautifulSoup(html, 'lxml'), fallback_title='guide',
+            page_url='https://ce.pknu.ac.kr/ce/4945', base_url='https://ce.pknu.ac.kr', site_prefix='ce',
+        )
+        self.assertEqual(
+            ['https://ce.pknu.ac.kr/upload/ce/guide.pdf', 'https://ce.pknu.ac.kr/files/map.hwp',
+             'https://ce.pknu.ac.kr/upload/abs.pdf'],
+            [attachment['url'] for attachment in parsed['attachments']],
+        )
+
 
 if __name__ == '__main__':
     unittest.main()

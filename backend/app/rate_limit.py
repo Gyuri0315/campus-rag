@@ -7,8 +7,10 @@ which breaks FastAPI's body-vs-query inference whenever the route module uses
 `from __future__ import annotations` (postponed evaluation) — as this codebase
 does everywhere. A plain dependency avoids that whole bug class.
 
-Single Render instance (see backend/render.yaml, plan: free) so in-memory
-state is fine — no Redis needed.
+Deployed as a single Hugging Face Space instance, so in-memory state is
+fine — no Redis needed. Revisit this if the backend ever runs as multiple
+replicas (each would keep its own counters). Note the counters also reset
+whenever the Space restarts or wakes from sleep.
 """
 
 from __future__ import annotations

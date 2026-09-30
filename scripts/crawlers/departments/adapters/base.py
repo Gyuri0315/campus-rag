@@ -66,7 +66,10 @@ class DepartmentCMSAdapter(ABC):
     ) -> dict[str, Any] | None: ...
 
     @abstractmethod
-    def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]: ...
+    def parse_static(
+        self, soup: BeautifulSoup, *, fallback_title: str,
+        page_url: str = "", base_url: str = "", site_prefix: str = "",
+    ) -> dict[str, Any]: ...
 
     @abstractmethod
     def parse_attachments(

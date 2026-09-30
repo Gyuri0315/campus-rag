@@ -605,7 +605,7 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 export default function ChatContent() {
   const router = useRouter();
-  const { pendingQuery, setPendingQuery } = useQueryContext();
+  const { takePendingQuery } = useQueryContext();
   const { user, loading: authLoading, signOut } = useAuth();
 
   // 로그인 필수: 세션 없으면 로그인 화면으로 (비회원 채팅 더 이상 허용 안 함)
@@ -708,15 +708,17 @@ export default function ChatContent() {
     };
   }, [user, authLoading]);
 
-  // ── Context 질문 소비: 인증 준비 후 (cleanup 없음 — 빈 pending 시 재실행으로 abort 방지)
+  // ── Context 질문 소비: 인증 준비 후.
+  // takePendingQuery()는 읽음과 동시에 지우는 원자적 연산이라(QueryContext 참고),
+  // 이 effect가 React StrictMode로 두 번 호출되거나 /chat이 두 번 마운트되는
+  // 레이스가 있어도 실제로 값을 가져가는 쪽은 항상 한 번뿐이라 cleanup이 필요 없다.
   useEffect(() => {
     if (authLoading) return;
-    const q = pendingQuery.trim();
+    const q = takePendingQuery().trim();
     if (!q) return;
-    setPendingQuery("");
     startConversation(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, pendingQuery]);
+  }, [authLoading, takePendingQuery]);
 
   useEffect(() => {
     return () => {
@@ -857,6 +859,10 @@ export default function ChatContent() {
 
   // ── NEW_CHAT ──────────────────────────────────────────────────
   const handleNewChat = () => {
+    // 응답 대기 중 다른 채팅으로 전환하는 경우, 늦게 도착한 이전 질문의 답변이
+    // (controller.signal.aborted 체크를 통과해) 지금 화면의 messages에 잘못
+    // append 되는 것을 막기 위해 진행 중인 요청을 여기서 명시적으로 취소한다.
+    if (aiAbortRef.current) aiAbortRef.current.abort();
     setMessages([]);
     setChatState("idle");
     setInputValue("");
@@ -871,6 +877,9 @@ export default function ChatContent() {
 
   // ── LOAD_HISTORY ──────────────────────────────────────────────
   const handleLoadHistory = async (item: HistoryItem) => {
+    // handleNewChat과 동일한 이유: 다른 채팅 기록을 불러오는 도중 이전 요청이
+    // 뒤늦게 응답하면 그 답변이 방금 로드한 대화의 messages에 섞여 들어간다.
+    if (aiAbortRef.current) aiAbortRef.current.abort();
     pendingChatCreateRef.current = null;
     setActiveId(item.id);
     setChatTitle(item.title);

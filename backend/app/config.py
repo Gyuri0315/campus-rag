@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     rag_first_stage_k: int = 30
     rag_min_similarity: float = 0.30
     rag_max_chunks_per_url: int = 2
+    # How many retrieval RPCs (4 vector + 4 lexical) may run at once. Kept at 1
+    # (sequential, the original behavior) on purpose: measured 2026-09-29,
+    # running them concurrently cut latency only ~20% (34s -> 27s) but doubled
+    # lexical statement timeouts (6 -> 12 on the same 15 questions), because the
+    # two heavy lexical queries (notice/rag, ~6-7.5s each vs an 8s role limit)
+    # slow each other down. Raise this only after the lexical SQL is faster.
+    rag_rpc_concurrency: int = Field(default=1, ge=1, le=8)
     # NOTE: tried a tighter per-URL cap (1) specifically for lexical-only
     # hits, on the theory that one broad keyword-rich document (e.g. a
     # 2000+ chunk "student life guide" ebook) was crowding out other

@@ -75,7 +75,8 @@ class EvalSchemaTests(unittest.TestCase):
         self.assertEqual(len(challenge), 5)
         self.assertTrue(all(case.get("id") for case in smoke + challenge))
         self.assertGreaterEqual(len(regression), len(smoke))
-        self.assertEqual(statuses["needs_review"], 100)
+        # Every regression case was reviewed and promoted in ec2f264.
+        self.assertEqual(statuses["ready"], 100)
         self.assertEqual(DEFAULT_QUESTIONS_PATH, Path("eval/cases/smoke.jsonl"))
         self.assertEqual(DEFAULT_OUTPUT_PATH, Path("eval/results/smoke.jsonl"))
 
@@ -94,12 +95,21 @@ class EvalSchemaTests(unittest.TestCase):
         generated = audit(Path("eval/drafts/question_bank_100.jsonl"))
         self.assertEqual(rows, generated)
 
-    def test_regression_template_matches_question_bank(self) -> None:
+    def test_regression_cases_keep_question_bank_structure(self) -> None:
+        # Reviewers fill in the label fields; everything else must still match
+        # the template generated from the question bank.
+        label_fields = {
+            "label_status", "review_notes", "tags", "answerable", "expected_no_info",
+            "expected_source", "required_facts", "forbidden_claims", "expected_behavior",
+        }
         expected = build_template_rows()
         actual, _ = audit_regression(Path("eval/cases/regression.jsonl"))
-        self.assertEqual(expected, actual)
-        self.assertTrue(all(row["answerable"] is None for row in actual))
-        self.assertTrue(all(row["expected_no_info"] is None for row in actual))
+        self.assertEqual(
+            [{k: v for k, v in row.items() if k not in label_fields} for row in expected],
+            [{k: v for k, v in row.items() if k not in label_fields} for row in actual],
+        )
+        self.assertTrue(all(isinstance(row["answerable"], bool) for row in actual))
+        self.assertTrue(all(row["expected_no_info"] is (not row["answerable"]) for row in actual))
 
 
 if __name__ == "__main__":
