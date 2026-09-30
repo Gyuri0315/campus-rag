@@ -128,6 +128,7 @@ def _search_one(state: AppState, search_query: str) -> List[Dict[str, Any]]:
         top_k=state.settings.rag_top_k,
         first_stage_k=state.settings.rag_first_stage_k,
         per_rpc_first_stage_k=_rag_self_intro_first_stage_overrides(search_query),
+        rpc_concurrency=state.settings.rag_rpc_concurrency,
         min_similarity=state.settings.rag_min_similarity,
         priority_weight=state.settings.rag_priority_weight,
         dataset_priority_weight=state.settings.rag_dataset_priority_weight,

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import logging
 import re
 import time
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from supabase import Client, create_client
 
@@ -872,6 +873,46 @@ def _process_candidate_row(
     return copied, ("query_mismatch" if query_flags else "ok")
 
 
+RpcResult = Tuple[Any, float, Optional[BaseException]]
+
+
+def _fetch_rpc_responses(
+    client: Client,
+    rpc_names: List[str],
+    base_payload: Dict[str, Any],
+    candidate_counts: Dict[str, int],
+    lexical_query: Optional[str],
+    max_workers: int = 1,
+) -> Dict[str, RpcResult]:
+    """Call every vector RPC (and its `<name>_lexical` companion when there is
+    a lexical query), at most `max_workers` at a time; with 1 they run in the
+    original order (vector, lexical, next vector, ...). Returns name ->
+    (response, elapsed_ms, error); a failed call carries its exception instead
+    of raising, so the caller keeps its per-RPC "skip on failure" behavior."""
+    calls: Dict[str, Dict[str, Any]] = {}
+    for rpc_name in rpc_names:
+        calls[rpc_name] = {**base_payload, "match_count": candidate_counts[rpc_name]}
+        if lexical_query:
+            calls[f"{rpc_name}_lexical"] = {
+                "query_text": lexical_query,
+                "match_count": candidate_counts[rpc_name],
+            }
+
+    def run(name: str) -> RpcResult:
+        started = time.perf_counter()
+        try:
+            response = client.rpc(name, calls[name]).execute()
+            return response, (time.perf_counter() - started) * 1000, None
+        except Exception as exc:  # reported by the caller, same as before
+            return None, (time.perf_counter() - started) * 1000, exc
+
+    if max_workers <= 1:
+        return {name: run(name) for name in calls}
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(calls))) as pool:
+        futures = {name: pool.submit(run, name) for name in calls}
+        return {name: future.result() for name, future in futures.items()}
+
+
 def search(
     client: Client,
     *,
@@ -880,6 +921,7 @@ def search(
     top_k: int,
     first_stage_k: int,
     per_rpc_first_stage_k: Optional[Dict[str, int]] = None,
+    rpc_concurrency: int = 1,
     min_similarity: float,
     priority_weight: float = 0.30,
     dataset_priority_weight: float = 0.15,
@@ -917,19 +959,24 @@ def search(
         "metadata_filter": metadata_filter or {},
     }
 
+    candidate_counts = {
+        rpc_name: max((per_rpc_first_stage_k or {}).get(rpc_name, first_stage_k), top_k)
+        for rpc_name in rpc_names
+    }
+    # The vector and lexical RPCs are independent round trips; rpc_concurrency
+    # controls how many run at once (1 = one after another, the default -- see
+    # Settings.rag_rpc_concurrency for why). Ranking below is unchanged.
+    fetched = _fetch_rpc_responses(
+        client, rpc_names, payload, candidate_counts, lexical_query, max_workers=rpc_concurrency,
+    )
+
     per_rpc_rows: List[List[Dict[str, Any]]] = []
     merged: List[Dict[str, Any]] = []
     for rpc_name in rpc_names:
-        rpc_candidate_count = max(
-            (per_rpc_first_stage_k or {}).get(rpc_name, first_stage_k), top_k
-        )
-        payload["match_count"] = rpc_candidate_count
-        try:
-            started = time.perf_counter()
-            response = client.rpc(rpc_name, payload).execute()
-            elapsed_ms = (time.perf_counter() - started) * 1000
-        except Exception:
-            logger.warning("retrieval: rpc=%s failed, skipping", rpc_name, exc_info=True)
+        rpc_candidate_count = candidate_counts[rpc_name]
+        response, elapsed_ms, error = fetched[rpc_name]
+        if error is not None:
+            logger.warning("retrieval: rpc=%s failed, skipping", rpc_name, exc_info=error)
             continue
 
         rows: List[Dict[str, Any]] = []
@@ -982,14 +1029,10 @@ def search(
             rows_by_key = {_dedupe_key(row): row for row in rows}
             vector_keys = set(rows_by_key)
             lexical_rpc_name = f"{rpc_name}_lexical"
-            try:
-                lexical_response = client.rpc(
-                    lexical_rpc_name,
-                    {"query_text": lexical_query, "match_count": rpc_candidate_count},
-                ).execute()
-            except Exception:
+            lexical_response, _lexical_ms, lexical_error = fetched[lexical_rpc_name]
+            if lexical_error is not None:
                 logger.warning(
-                    "retrieval: lexical rpc=%s failed, skipping", lexical_rpc_name, exc_info=True
+                    "retrieval: lexical rpc=%s failed, skipping", lexical_rpc_name, exc_info=lexical_error
                 )
                 lexical_response = None
 
