@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -37,6 +37,94 @@ const IconSpinner = () => (
   </svg>
 );
 
+// lucide Eye / EyeOff 와 같은 모양 (앱은 아이콘 라이브러리 없이 인라인 SVG를 쓴다)
+const IconEye = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const IconEyeOff = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" />
+    <path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" />
+    <path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" />
+    <path d="m2 2 20 20" />
+  </svg>
+);
+
+const INPUT_BORDER = "rgba(37,52,139,0.12)";
+const INPUT_BORDER_FOCUS = "rgba(37,52,139,0.4)";
+const INPUT_BORDER_ERROR = "rgba(197,48,48,0.55)";
+const ERROR_RED = "#c53030";
+
+// 비밀번호 입력 + 우측 "보기/숨기기" 토글 (로그인·회원가입 공통)
+function PasswordField({
+  label,
+  value,
+  onChange,
+  autoComplete,
+  placeholder,
+  error,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete: string;
+  placeholder: string;
+  error?: string | null;
+}) {
+  const id = useId();
+  const errorId = `${id}-error`;
+  const [visible, setVisible] = useState(false);
+  const idleBorder = error ? INPUT_BORDER_ERROR : INPUT_BORDER;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-[11px] font-semibold" style={{ color: NAVY_MUTED }}>
+        {label}
+      </label>
+      <div className="relative">
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          autoComplete={autoComplete}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className="w-full rounded-xl py-2.5 pl-3.5 pr-10 text-xs sm:text-sm outline-none transition-colors placeholder:text-gray-400"
+          style={{
+            background: "rgba(255,255,255,0.85)",
+            border: `1.5px solid ${idleBorder}`,
+            color: NAVY,
+            caretColor: NAVY,
+          }}
+          onFocus={(e) => { e.currentTarget.style.borderColor = error ? INPUT_BORDER_ERROR : INPUT_BORDER_FOCUS; }}
+          onBlur={(e) => { e.currentTarget.style.borderColor = idleBorder; }}
+        />
+        <button
+          type="button"
+          onClick={() => setVisible((v) => !v)}
+          aria-label={visible ? "비밀번호 숨기기" : "비밀번호 표시"}
+          aria-pressed={visible}
+          className="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-xl transition-opacity hover:opacity-70"
+          style={{ color: NAVY_MUTED }}
+        >
+          {visible ? <IconEyeOff /> : <IconEye />}
+        </button>
+      </div>
+      {error && (
+        <span id={errorId} role="alert" className="text-[11px] font-medium" style={{ color: ERROR_RED }}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
+
 type Mode = "signin" | "signup";
 
 export default function AuthContent() {
@@ -55,6 +143,8 @@ export default function AuthContent() {
   // ── 폼 상태 ────────────────────────────────────────────────────────────────
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [confirmError, setConfirmError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -78,6 +168,8 @@ export default function AuthContent() {
     setMode(next);
     setError(null);
     setInfo(null);
+    setPasswordConfirm("");
+    setConfirmError(null);
   };
 
   // ── 이메일 폼 제출 ─────────────────────────────────────────────────────────
@@ -86,6 +178,7 @@ export default function AuthContent() {
     if (submitting) return;
     setError(null);
     setInfo(null);
+    setConfirmError(null);
 
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !password) {
@@ -94,6 +187,10 @@ export default function AuthContent() {
     }
     if (mode === "signup" && password.length < 6) {
       setError("비밀번호는 6자 이상이어야 합니다.");
+      return;
+    }
+    if (mode === "signup" && password !== passwordConfirm) {
+      setConfirmError("비밀번호가 일치하지 않습니다.");
       return;
     }
     if (mode === "signup" && !SCHOOL_EMAIL_RE.test(trimmedEmail)) {
@@ -225,27 +322,24 @@ export default function AuthContent() {
               )}
             </label>
 
-            <label className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold" style={{ color: NAVY_MUTED }}>
-                비밀번호
-              </span>
-              <input
-                type="password"
-                autoComplete={isSignup ? "new-password" : "current-password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={isSignup ? "6자 이상" : "비밀번호"}
-                className="rounded-xl px-3.5 py-2.5 text-xs sm:text-sm outline-none transition-colors placeholder:text-gray-400"
-                style={{
-                  background: "rgba(255,255,255,0.85)",
-                  border: "1.5px solid rgba(37,52,139,0.12)",
-                  color: NAVY,
-                  caretColor: NAVY,
-                }}
-                onFocus={(e) => { e.currentTarget.style.borderColor = "rgba(37,52,139,0.4)"; }}
-                onBlur={(e) => { e.currentTarget.style.borderColor = "rgba(37,52,139,0.12)"; }}
+            <PasswordField
+              label="비밀번호"
+              value={password}
+              onChange={(value) => { setPassword(value); setConfirmError(null); }}
+              autoComplete={isSignup ? "new-password" : "current-password"}
+              placeholder={isSignup ? "6자 이상" : "비밀번호"}
+            />
+
+            {isSignup && (
+              <PasswordField
+                label="비밀번호 확인"
+                value={passwordConfirm}
+                onChange={(value) => { setPasswordConfirm(value); setConfirmError(null); }}
+                autoComplete="new-password"
+                placeholder="비밀번호를 한 번 더 입력"
+                error={confirmError}
               />
-            </label>
+            )}
 
             {/* 에러 / 안내 메시지 */}
             {error && (
