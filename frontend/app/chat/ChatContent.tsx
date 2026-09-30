@@ -360,13 +360,15 @@ function SourceCard({ source }: { source: Source }) {
         </a>
       </div>
 
-      {/* Body */}
-      <div className="px-3.5 pb-3 sm:px-4 sm:pb-3.5">
-        <h3 className="mb-2.5 text-sm font-bold leading-snug sm:text-[15px]" style={{ color: "var(--clr-text)" }}>
+      {/* Body — 제목 + 첨부파일만 (원문 발췌 박스는 길어서 제거, 원문은 "원문 보기"로 확인).
+          요소별 margin 대신 gap을 써서 마지막 요소 뒤에 여백이 남지 않게 하고,
+          하단 padding은 헤더 상단 padding(pt-3.5 / sm:pt-4)과 맞춘다. */}
+      <div className="flex flex-col gap-2.5 px-3.5 pb-3.5 sm:px-4 sm:pb-4">
+        <h3 className="text-sm font-bold leading-snug sm:text-[15px]" style={{ color: "var(--clr-text)" }}>
           {source.title}
         </h3>
         {hasAttachments && (
-          <div className="mb-3 flex flex-col items-start gap-1.5">
+          <div className="flex flex-col items-start gap-1.5">
             {source.attachments.map((attachment) => (
               <a
                 key={attachment.url}
@@ -383,24 +385,6 @@ function SourceCard({ source }: { source: Source }) {
               </a>
             ))}
           </div>
-        )}
-        {source.quote && (
-          <blockquote
-            className="rounded-r-md border-l-[3px] py-2.5 pl-3 pr-2.5"
-            style={{
-              borderColor: SOURCE_CARD_NAVY,
-              background: "rgba(37,52,139,0.04)",
-            }}
-          >
-            <p className="text-[11px] sm:text-sm leading-relaxed" style={{ color: "#334155" }}>
-              {source.quote}
-            </p>
-            {source.quoteSource && (
-              <p className="mt-2.5 text-[10px] sm:text-[11px] leading-snug not-italic" style={{ color: "var(--clr-text-muted)" }}>
-                — {source.quoteSource}
-              </p>
-            )}
-          </blockquote>
         )}
       </div>
     </div>
