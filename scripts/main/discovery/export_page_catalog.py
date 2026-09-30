@@ -11,7 +11,7 @@ from pathlib import Path
 import re
 from urllib.parse import parse_qs, urlsplit
 
-from scripts.main.inventory_pages import DEFAULT_OUTPUT, PROJECT_ROOT
+from scripts.main.discovery.inventory_pages import DEFAULT_OUTPUT, PROJECT_ROOT
 
 
 TYPE_KO = {

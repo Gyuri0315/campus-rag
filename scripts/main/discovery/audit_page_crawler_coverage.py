@@ -20,10 +20,12 @@ from unittest.mock import MagicMock
 from urllib.parse import parse_qs, urlsplit
 
 from scripts.crawlers.departments.adapters.numeric_cms import NumericCMSAdapter
-from scripts.crawlers.pknu_main_adapter import MainListParserMismatch, PknuMainAdapter
+from scripts.main.collectors.adapter import MainListParserMismatch, PknuMainAdapter
 from scripts.crawlers.pknu_notice import parse_list_page
 from scripts.crawlers import pknu_student_life
-from scripts.main.inventory_pages import DEFAULT_OUTPUT, inventory_soup
+from scripts.main.discovery.inventory_pages import DEFAULT_OUTPUT, inventory_soup
+from scripts.main.routes import (ACADEMIC_CALENDAR_PAGE_IDS, MAJOR_PROGRAM_PAGE_IDS,
+                                 TUITION_PAGE_IDS, ORG_PAGE_IDS)
 
 
 ISSUE_TEXT = {
@@ -106,6 +108,14 @@ def test_page(catalog: dict, inventory: dict, folder: Path, adapter: NumericCMSA
         configured.append("pknu_student_life.redirect")
     if page_id in pknu_student_life.FILE_PAGE_IDS:
         configured.append("pknu_student_life.file")
+    if page_id in TUITION_PAGE_IDS:
+        configured.append("pknu_student_life.tuition")
+    if page_id in ORG_PAGE_IDS:
+        configured.append("pknu_student_life.organization")
+    if page_id in ACADEMIC_CALENDAR_PAGE_IDS:
+        configured.append("main.academic_calendar")
+    if page_id in MAJOR_PROGRAM_PAGE_IDS:
+        configured.append("main.major_program")
     if page_id == 434:
         configured.append("pknu_student_life.guide")
     result = {

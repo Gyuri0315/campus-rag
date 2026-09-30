@@ -14,7 +14,7 @@ QUESTIONS = [
 ]
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-QUERY_SCRIPT = Path(__file__).resolve().with_name("query_supabase.py")
+QUERY_SCRIPT = PROJECT_ROOT / "scripts" / "rag" / "query_supabase.py"
 
 
 def main() -> None:

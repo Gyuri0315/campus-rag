@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 QUESTION_BANK_PATH = PROJECT_ROOT / "eval" / "drafts" / "question_bank_100.jsonl"
 OUTPUT_PATH = PROJECT_ROOT / "eval" / "cases" / "regression.jsonl"
 

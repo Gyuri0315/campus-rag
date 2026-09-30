@@ -7,7 +7,7 @@ from collections import Counter
 from pathlib import Path
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 OUTPUT_PATH = PROJECT_ROOT / "eval" / "drafts" / "question_bank_100.jsonl"
 
 # 최초 39개 regression 목록과 정확히 일치했던 질문. 현재 regression은 라벨

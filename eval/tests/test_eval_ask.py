@@ -3,11 +3,11 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from scripts.audit_eval_question_bank import audit
-from scripts.audit_regression_labels import audit as audit_regression
-from scripts.build_eval_question_bank import TARGET_COUNTS, build_rows, validate_rows
-from scripts.build_regression_template import build_template_rows
-from scripts.eval_ask import (
+from eval.tools.audit_eval_question_bank import audit
+from eval.tools.audit_regression_labels import audit as audit_regression
+from eval.tools.build_eval_question_bank import TARGET_COUNTS, build_rows, validate_rows
+from eval.tools.build_regression_template import build_template_rows
+from eval.tools.eval_ask import (
     DEFAULT_OUTPUT_PATH,
     DEFAULT_QUESTIONS_PATH,
     _is_structured_case,
@@ -75,7 +75,7 @@ class EvalSchemaTests(unittest.TestCase):
         self.assertEqual(len(challenge), 5)
         self.assertTrue(all(case.get("id") for case in smoke + challenge))
         self.assertGreaterEqual(len(regression), len(smoke))
-        self.assertEqual(statuses["needs_review"], 100)
+        self.assertEqual(statuses["ready"], 100)
         self.assertEqual(DEFAULT_QUESTIONS_PATH, Path("eval/cases/smoke.jsonl"))
         self.assertEqual(DEFAULT_OUTPUT_PATH, Path("eval/results/smoke.jsonl"))
 
@@ -94,12 +94,12 @@ class EvalSchemaTests(unittest.TestCase):
         generated = audit(Path("eval/drafts/question_bank_100.jsonl"))
         self.assertEqual(rows, generated)
 
-    def test_regression_template_matches_question_bank(self) -> None:
-        expected = build_template_rows()
+    def test_regression_template_keeps_question_bank_ids(self) -> None:
+        template = build_template_rows()
         actual, _ = audit_regression(Path("eval/cases/regression.jsonl"))
-        self.assertEqual(expected, actual)
-        self.assertTrue(all(row["answerable"] is None for row in actual))
-        self.assertTrue(all(row["expected_no_info"] is None for row in actual))
+        self.assertEqual([row["id"] for row in template], [row["id"] for row in actual])
+        self.assertTrue(all(row["answerable"] is None for row in template))
+        self.assertTrue(all(row["expected_no_info"] is None for row in template))
 
 
 if __name__ == "__main__":

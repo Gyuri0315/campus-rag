@@ -2,6 +2,9 @@
 
 `scripts` is organized by responsibility. New code should import and execute the canonical paths below.
 
+Evaluation commands and datasets live under `eval/`; see `eval/README.md`.
+Main-site page routes and discovery tools live under `scripts/main/`; see `scripts/main/README.md`.
+
 ```text
 scripts/
 ├─ crawlers/

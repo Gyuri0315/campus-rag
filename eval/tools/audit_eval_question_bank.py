@@ -8,11 +8,11 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.build_eval_question_bank import OUTPUT_PATH, TARGET_COUNTS, validate_rows
+from eval.tools.build_eval_question_bank import OUTPUT_PATH, TARGET_COUNTS, validate_rows
 
 
 def audit(path: Path) -> list[dict]:

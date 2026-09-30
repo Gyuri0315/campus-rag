@@ -496,11 +496,13 @@ def save_attachments(
     source_page_url: str,
     existing_doc: dict[str, Any] | None = None,
     reuse_existing: bool = True,
+    file_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     if not attachments:
         return []
 
-    file_dir = ensure_file_dir(category_folder, slug)
+    file_dir = file_dir or ensure_file_dir(category_folder, slug)
+    file_dir.mkdir(parents=True, exist_ok=True)
     reusable_by_url = reusable_attachments_by_url(existing_doc) if reuse_existing else {}
     results: list[dict[str, Any]] = []
     used_names: set[str] = set()

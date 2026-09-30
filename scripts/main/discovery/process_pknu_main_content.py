@@ -3,8 +3,8 @@
 Uses saved page HTML. Only explicitly discovered image, iframe, AJAX, and
 attachment URLs are requested. Output remains reviewable and is not RAG input.
 
-python -m scripts.main.process_pknu_main_content --page-ids 16 102 472 459 110
-python -m scripts.main.process_pknu_main_content --page-ids 459 --language kor --ocr-psm 11 --restore-ocr-spacing --output files/_discovery/pknu_main/ocr_459_recheck.json
+python -m scripts.main.discovery.process_pknu_main_content --page-ids 16 102 472 459 110
+python -m scripts.main.discovery.process_pknu_main_content --page-ids 459 --language kor --ocr-psm 11 --restore-ocr-spacing --output files/_discovery/pknu_main/ocr_459_recheck.json
 """
 from __future__ import annotations
 
@@ -23,13 +23,13 @@ from bs4 import BeautifulSoup, Tag
 
 from scripts.crawlers.departments.body_images import collect_body_images, save_body_images
 from scripts.crawlers.pknu_student_life import build_session
-from scripts.crawlers.pknu_main_tuition import collect_main_102_tuition
-from scripts.crawlers.pknu_main_org import collect_main_533_org
+from scripts.main.collectors.tuition import collect_main_102_tuition
+from scripts.main.collectors.organization import collect_main_533_org
 from scripts.extractors.image_ocr import VERSION, extract_image, require_ocr_languages
 from scripts.rag.body_image_layout import enrich_entry
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[3]
 DISCOVERY = ROOT / "files/_discovery/pknu_main"
 ALLOWED_HOSTS = {"www.pknu.ac.kr", "irumi.pknu.ac.kr"}
 FILE_EXTENSIONS = (".pdf", ".hwp", ".hwpx", ".doc", ".docx", ".xls", ".xlsx", ".zip")

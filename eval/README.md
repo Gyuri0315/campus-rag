@@ -1,5 +1,8 @@
 # Evaluation datasets
 
+Evaluation commands are in `eval/tools/` and run from the repository root with
+`python -m eval.tools.<command>`.
+
 평가 케이스는 목적에 따라 분리합니다.
 
 - `cases/smoke.jsonl`: 빠른 확인용 핵심 질문 8~15개. 작은 변경 후 실행합니다.
@@ -14,13 +17,13 @@
 
 ```powershell
 # 빠른 확인
-.\.venv\Scripts\python.exe scripts\eval_ask.py --questions eval\cases\smoke.jsonl --output eval\results\smoke.jsonl
+.\.venv\Scripts\python.exe -m eval.tools.eval_ask --questions eval\cases\smoke.jsonl --output eval\results\smoke.jsonl
 
 # 빠른 smoke 평가 (기본값)
-.\.venv\Scripts\python.exe scripts\eval_ask.py
+.\.venv\Scripts\python.exe -m eval.tools.eval_ask
 
 # 실패 경계 집중 평가
-.\.venv\Scripts\python.exe scripts\eval_ask.py --questions eval\cases\challenge.jsonl --output eval\results\challenge.jsonl
+.\.venv\Scripts\python.exe -m eval.tools.eval_ask --questions eval\cases\challenge.jsonl --output eval\results\challenge.jsonl
 ```
 
 `regression.jsonl`의 빈칸을 채우는 동안 기본 평가 입력은 `smoke.jsonl`입니다.
@@ -35,10 +38,10 @@
 
 ```powershell
 # 원본 정의로 질문 뱅크 재생성
-.\.venv\Scripts\python.exe scripts\build_eval_question_bank.py
+.\.venv\Scripts\python.exe -m eval.tools.build_eval_question_bank
 
 # 수량, 유형 분포, 중복, 필수 시나리오 검사
-.\.venv\Scripts\python.exe scripts\audit_eval_question_bank.py
+.\.venv\Scripts\python.exe -m eval.tools.audit_eval_question_bank
 ```
 
 라벨 검수 시 각 행을 `eval_case.schema.json` 형식으로 확장한 뒤
@@ -63,10 +66,10 @@
 
 ```powershell
 # 현재 라벨 검수 진행률과 ready 행의 유효성 확인
-.\.venv\Scripts\python.exe scripts\audit_regression_labels.py
+.\.venv\Scripts\python.exe -m eval.tools.audit_regression_labels
 
 # 질문 뱅크로부터 빈 서식을 다시 만들기(기존 입력 내용이 사라짐)
-.\.venv\Scripts\python.exe scripts\build_regression_template.py
+.\.venv\Scripts\python.exe -m eval.tools.build_regression_template
 ```
 
 두 번째 명령은 `regression.jsonl`을 초기화하므로 최초 생성 또는 명시적인

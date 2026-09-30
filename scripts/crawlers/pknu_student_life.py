@@ -29,7 +29,7 @@ from urllib.parse import unquote, urljoin, urlparse
 
 import requests
 import urllib3
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from requests.adapters import HTTPAdapter
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -61,11 +61,17 @@ from scripts.crawlers.common.storage import (  # noqa: E402
     save_state_atomic, write_document,
 )
 from scripts.crawlers.common.reader import remove_redundant_legacy_fields  # noqa: E402
+from scripts.crawlers.common.main_static import extract_structure, linked_file_ids  # noqa: E402
 from scripts.crawlers import pknu_notice  # noqa: E402
-from scripts.crawlers.pknu_main_tuition import (  # noqa: E402
+from scripts.main.collectors.tuition import (  # noqa: E402
     IFRAME_URL as TUITION_IFRAME_URL, collect_main_102_tuition,
 )
-from scripts.crawlers.pknu_main_org import collect_main_533_org  # noqa: E402
+from scripts.main.collectors.organization import collect_main_533_org  # noqa: E402
+from scripts.main.routes import (  # noqa: E402
+    STATIC_PAGE_IDS, BOARD_PAGE_IDS, LINK_HUB_PAGE_IDS, TUITION_PAGE_IDS,
+    ORG_PAGE_IDS, REDIRECT_PAGE_TARGETS, FILE_PAGE_IDS,
+    STUDENT_LIFE_PAGE_IDS as CONFIGURED_PAGE_IDS,
+)
 
 log, log_context = configure_crawler_logging("pknu_student_life", PROJECT_ROOT)
 
@@ -85,6 +91,7 @@ LEGACY_STATE_FILES = (PROJECT_ROOT / "state_pknu_student_life.json",)
 REQUEST_DELAY = 1.0
 REQUEST_TIMEOUT = 60
 MIN_PDF_TEXT_CHARS = 80
+MAX_FILE_PAGE_BYTES = 25 * 1024 * 1024
 
 CATEGORY = "대학생활"
 DOC_TYPE = "guide"
@@ -707,45 +714,9 @@ def crawl_ebook(session: requests.Session, state: dict[str, Any], full_resync: b
 # parsing, so they were never collected at all. Real content lives inside
 # div#subCont (confirmed by inspecting the rendered page); everything
 # outside it is shared site nav/header/footer.
-STATIC_PAGE_IDS: tuple[int, ...] = (
-    17,   # 캠퍼스안내 (대연/용당 캠퍼스별 연락처)
-    92,   # 학적변동 (휴학/복학)
-    93,   # 전공제도 (복수전공/부전공/전과)
-    94,   # 졸업 (조기졸업/학사학위취득유예/졸업사정)
-    96,   # 성적관리
-    97,   # 강의평가 및 성적확인
-    98,   # 학·석사연계과정
-    99,   # 학적부기재사항정정
-    101,  # 현장실습
-    103,  # 장학제도
-    104,  # 학자금융자
-    114,  # 학생증발급
-    115,  # 국제학생증발급
-    117,  # 국외여행 및 어학연수
-    118,  # 복지시설
-    119,  # 학생자치기구
-    237,  # 졸업안내
-    244,  # 성적자율삭제(학점포기)
-    262,  # 학생생활관
-    449,  # 제증명발급 안내
-    481,  # 주차요금
-)
-
-BOARD_PAGE_IDS = (95,)
-LINK_HUB_PAGE_IDS = (100, 110)
-TUITION_PAGE_IDS = (102,)
-ORG_PAGE_IDS = (533,)
-REDIRECT_PAGE_TARGETS = {
-    112: "https://irumi.pknu.ac.kr/link.jsp?menuId=U020913",
-    528: "https://yebigun.pknu.ac.kr/",
-}
-FILE_PAGE_IDS = (238,)
-CONFIGURED_PAGE_IDS = frozenset(
-    (*STATIC_PAGE_IDS, *BOARD_PAGE_IDS, *LINK_HUB_PAGE_IDS, *TUITION_PAGE_IDS, *ORG_PAGE_IDS,
-     *REDIRECT_PAGE_TARGETS, *FILE_PAGE_IDS)
-)
-
 SUBCATEGORY_STATIC_PAGE = "학사안내_페이지"
+SUBCATEGORY_BOARD_POST = "학점교류_게시판"
+STATIC_PARSER_VERSION = 3
 
 
 @dataclass(frozen=True)
@@ -755,10 +726,12 @@ class StaticPageExtraction:
     status: str
     reason: str = ""
     warnings: tuple[str, ...] = ()
+    structure: dict[str, Any] | None = None
+    linked_file_page_ids: tuple[int, ...] = ()
 
 
 _STATIC_REMOVE = (
-    "script, style, noscript, .subMenu, .subTitle, .edtDay, .paging, "
+    "script, style, noscript, .subMenu, .subTab, .subTitle, .edtDay, .paging, "
     ".brdSch, .brdAll, .brdBtn, .bdvNav, .c_bdvNav, .share, .sns"
 )
 _STATIC_BOARD = ".brdList, .board_list, .board-list, .board-w, #tbl_contents, input[name=bbsId], input[name=bbs_id]"
@@ -766,7 +739,7 @@ _STATIC_DYNAMIC = ".getOrgMngList, .uploadPdf[data-id], #calendar, #loadArea, #d
 
 
 def parse_static_page_html(html: str, page_id: int) -> StaticPageExtraction:
-    """Accept only verified prose from a main-site static page."""
+    """Extract static prose, tables, and CMS process diagrams together."""
     soup = BeautifulSoup(html, "lxml")
     title = normalize_title(soup.title.get_text(strip=True)) if soup.title else f"main-{page_id}"
     container = soup.select_one("#subCont")
@@ -774,34 +747,39 @@ def parse_static_page_html(html: str, page_id: int) -> StaticPageExtraction:
         return StaticPageExtraction(title, "", "needs_review", "no_subcont")
     if container.select_one(_STATIC_BOARD):
         return StaticPageExtraction(title, "", "needs_review", "board_list_not_static")
+    file_ids = linked_file_ids(container, f"{BASE_URL}/main/{page_id}", set(FILE_PAGE_IDS))
     body = BeautifulSoup(str(container), "lxml")
     for element in body.select(_STATIC_REMOVE):
         element.decompose()
-    content = re.sub(r"\n{2,}", "\n", body.get_text("\n", strip=True)).strip()
+    try:
+        structure = extract_structure(body.select_one("#subCont") or body)
+        content = structure["content"]
+    except ValueError as exc:
+        fallback = re.sub(r"\n{2,}", "\n", body.get_text("\n", strip=True)).strip()
+        return StaticPageExtraction(title, fallback, "needs_review",
+                                    f"structure_unverified: {exc}")
     if body.select_one(_STATIC_DYNAMIC):
-        return StaticPageExtraction(title, content, "needs_review", "dynamic_content_requires_adapter")
+        return StaticPageExtraction(title, content, "needs_review", "dynamic_content_requires_adapter",
+                                    structure=structure, linked_file_page_ids=file_ids)
     if body.select_one("img[src], img[data-src]") and not content:
-        return StaticPageExtraction(title, content, "needs_review", "image_only_requires_ocr")
+        return StaticPageExtraction(title, content, "needs_review", "image_only_requires_ocr",
+                                    structure=structure, linked_file_page_ids=file_ids)
     attachment = body.select_one('.uploadPdf[data-id], a[download], a[href$=".pdf" i], a[href$=".hwp" i], a[href$=".hwpx" i]')
     if attachment and len(content) < MIN_PDF_TEXT_CHARS:
-        return StaticPageExtraction(title, content, "needs_review", "attachment_only_requires_extractor")
+        return StaticPageExtraction(title, content, "needs_review", "attachment_only_requires_extractor",
+                                    structure=structure, linked_file_page_ids=file_ids)
     without_links = BeautifulSoup(str(body), "lxml")
     for anchor in without_links.select("a"):
         anchor.decompose()
     prose_length = len(without_links.get_text(" ", strip=True))
     if body.select_one("a[href]") and prose_length < MIN_PDF_TEXT_CHARS:
-        return StaticPageExtraction(title, content, "needs_review", "link_hub_not_static")
+        return StaticPageExtraction(title, content, "needs_review", "link_hub_not_static",
+                                    structure=structure, linked_file_page_ids=file_ids)
     if len(content) < MIN_PDF_TEXT_CHARS:
-        return StaticPageExtraction(title, content, "needs_review", "content_too_short")
-    tables = body.select("table")
-    if tables:
-        without_tables = BeautifulSoup(str(body), "lxml")
-        for table in without_tables.select("table"):
-            table.decompose()
-        if len(without_tables.get_text(" ", strip=True)) < MIN_PDF_TEXT_CHARS:
-            return StaticPageExtraction(title, content, "needs_review", "table_requires_structured_extraction")
-    warnings = ("TABLE_STRUCTURE_UNVERIFIED",) if tables else ()
-    return StaticPageExtraction(title, content, "ready", warnings=warnings)
+        return StaticPageExtraction(title, content, "needs_review", "content_too_short",
+                                    structure=structure, linked_file_page_ids=file_ids)
+    return StaticPageExtraction(title, content, "ready", structure=structure,
+                                linked_file_page_ids=file_ids)
 
 
 def fetch_static_page(session: requests.Session, page_id: int) -> StaticPageExtraction:
@@ -821,6 +799,8 @@ def fetch_static_page(session: requests.Session, page_id: int) -> StaticPageExtr
 def crawl_static_pages(
     session: requests.Session, state: dict[str, Any], full_resync: bool,
     page_ids: tuple[int, ...] | None = None,
+    route_results: list[dict[str, Any]] | None = None,
+    prepared: dict[int, StaticPageExtraction] | None = None,
 ) -> CrawlStats:
     selected = STATIC_PAGE_IDS if page_ids is None else page_ids
     stats = CrawlStats(discovered=len(selected))
@@ -831,15 +811,21 @@ def crawl_static_pages(
         log_event(log, logging.DEBUG, "document_discovered", source_id=f"page:{page_id}", url=url)
         stats.requested += 1
         try:
-            fetched = fetch_static_page(session, page_id)
+            fetched = prepared[page_id] if prepared and page_id in prepared else fetch_static_page(session, page_id)
         except Exception as exc:
             stats.failed += 1
+            if route_results is not None:
+                route_results.append({"page_id": page_id, "route": "static", "url": url,
+                                      "status": "failed", "reason": f"{type(exc).__name__}: {exc}"})
             log.error("[PAGE] %s 실패: %s", url, exc)
             log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, error=exc)
             continue
 
         if fetched.status != "ready":
             stats.failed += 1
+            if route_results is not None:
+                route_results.append({"page_id": page_id, "route": "static", "url": url,
+                                      "status": "needs_review", "reason": fetched.reason})
             log.warning("[PAGE] %s: %s, 스킵", url, fetched.reason)
             log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, reason=fetched.reason)
             continue
@@ -847,6 +833,9 @@ def crawl_static_pages(
         title, content = fetched.title, fetched.content
         if len(content) < MIN_PDF_TEXT_CHARS:
             stats.failed += 1
+            if route_results is not None:
+                route_results.append({"page_id": page_id, "route": "static", "url": url,
+                                      "status": "needs_review", "reason": "content_too_short"})
             log.warning("[PAGE] %s: 본문 %d자 (너무 짧음), 스킵", url, len(content))
             log_event(log, logging.ERROR, "document_failed", source_id=f"page:{page_id}", url=url, reason="content_too_short")
             continue
@@ -854,9 +843,18 @@ def crawl_static_pages(
         slug = make_slug(url, title)
         c_hash = content_hash(content)
         prev = items_state.get(slug, {})
-        if prev and not full_resync and prev.get("content_hash") == c_hash:
+        output_path = PATHS.document_json(SUBCATEGORY_STATIC_PAGE, slug)
+        if (prev and not full_resync and prev.get("content_hash") == c_hash
+                and prev.get("parser_version") == STATIC_PARSER_VERSION and output_path.is_file()):
             log.info("[PAGE] %s (unchanged)", title)
             stats.unchanged += 1
+            if route_results is not None:
+                route_results.append({"page_id": page_id, "route": "static", "url": url,
+                                      "status": "unchanged",
+                                      "output": output_path.relative_to(PROJECT_ROOT).as_posix(),
+                                      "table_count": fetched.structure["table_count"],
+                                      "flow_count": fetched.structure["flow_count"],
+                                      "linked_file_page_ids": list(fetched.linked_file_page_ids)})
             continue
 
         doc: dict[str, Any] = {
@@ -864,7 +862,8 @@ def crawl_static_pages(
             "title": title,
             "date": datetime.now().strftime("%Y-%m-%d"),
             "url": url,
-            "pdf_url": None,
+            "pdf_url": (f"{BASE_URL}/main/{fetched.linked_file_page_ids[0]}"
+                        if fetched.linked_file_page_ids else None),
             "category": CATEGORY,
             "subcategory": SUBCATEGORY_STATIC_PAGE,
             "type": "page",
@@ -872,19 +871,31 @@ def crawl_static_pages(
             "content": content,
             "content_hash": c_hash,
             "attachments": [],
+            "linked_files": [{"page_id": file_id, "url": f"{BASE_URL}/main/{file_id}"}
+                             for file_id in fetched.linked_file_page_ids],
+            "structured_content": fetched.structure,
+            "parser_version": STATIC_PARSER_VERSION,
             "extraction_warnings": list(fetched.warnings),
             "source_site": BASE_URL,
             "crawled_at": datetime.now().isoformat(),
         }
-        save_json(doc, SUBCATEGORY_STATIC_PAGE, slug)
+        saved_path = save_json(doc, SUBCATEGORY_STATIC_PAGE, slug)
         items_state[slug] = {
             "slug": slug,
             "content_hash": c_hash,
             "url": url,
             "last_seen_at": datetime.now().isoformat(),
+            "parser_version": STATIC_PARSER_VERSION,
         }
         outcome = "new" if not prev else "updated"
         setattr(stats, outcome, getattr(stats, outcome) + 1)
+        if route_results is not None:
+            route_results.append({"page_id": page_id, "route": "static", "url": url,
+                                  "status": outcome,
+                                  "output": saved_path.relative_to(PROJECT_ROOT).as_posix(),
+                                  "table_count": fetched.structure["table_count"],
+                                  "flow_count": fetched.structure["flow_count"],
+                                  "linked_file_page_ids": list(fetched.linked_file_page_ids)})
         log_event(log, logging.INFO, "document_saved", source_id=f"page:{page_id}", url=url, status=outcome)
         log.info("[PAGE] %s: %s", outcome, title)
 
@@ -897,11 +908,25 @@ def _html_response(resp: requests.Response, expected_url: str) -> bool:
             and ("text/html" in mime or "application/xhtml+xml" in mime))
 
 
+def parse_board_intro_html(html: str, page_id: int) -> StaticPageExtraction:
+    """Parse the fixed introduction above a board with the shared static parser."""
+    soup = BeautifulSoup(html, "lxml")
+    body = soup.select_one("#subCont")
+    if body is None or body.select_one("table.brdList") is None:
+        return StaticPageExtraction(f"main-{page_id}", "", "needs_review", "board_intro_missing")
+    for element in body.select("#frmPost, .bdCont, table.brdList, .paging, .brdBtn"):
+        element.decompose()
+    for child in list(body.children):
+        if isinstance(child, NavigableString) and child.strip() in {"subMenu", "bdCont"}:
+            child.extract()
+    return parse_static_page_html(str(soup), page_id)
+
+
 def crawl_board_page(
     session: requests.Session, state: dict[str, Any], page_id: int,
     full_resync: bool, max_pages: int = 1,
 ) -> tuple[CrawlStats, dict[str, Any]]:
-    """Collect recent posts from a configured main-site board, never its list as prose."""
+    """Collect a board's fixed introduction and its linked detail posts."""
     url = f"{BASE_URL}/main/{page_id}"
     stats = CrawlStats()
     result: dict[str, Any] = {"page_id": page_id, "route": "board", "url": url}
@@ -934,6 +959,14 @@ def crawl_board_page(
         log_event(log, logging.ERROR, "section_finished", section=f"main:{page_id}", status="failed", error=exc)
         return stats, result
 
+    intro_details: list[dict[str, Any]] = []
+    intro_stats = crawl_static_pages(
+        session, state, full_resync, (page_id,), route_results=intro_details,
+        prepared={page_id: parse_board_intro_html(first.text, page_id)},
+    )
+    stats.add(intro_stats)
+    result["intro"] = intro_details[0]
+
     for post_no, item in items.items():
         post_url = f"{url}?action=view&no={post_no}"
         stats.requested += 1
@@ -941,8 +974,14 @@ def crawl_board_page(
             response = fetch(session, post_url)
             if not _html_response(response, post_url):
                 raise ValueError(f"detail_response_unverified: HTTP {response.status_code}, {response.url}")
+            detail_soup = BeautifulSoup(response.text, "lxml")
+            board_input = detail_soup.select_one('#frmPost input[name="bbsId"]')
+            post_input = detail_soup.select_one('#frmPost input[name="chkNo"]')
+            if (board_input is None or board_input.get("value") != bbs_id
+                    or post_input is None or post_input.get("value") != post_no):
+                raise ValueError("detail_identity_unverified")
             detail = pknu_notice.parse_detail_page(response.text, item)
-            if not detail or not detail["content"].strip():
+            if not detail or (not detail["content"].strip() and not detail["attachments"]):
                 raise ValueError("detail_body_missing")
             source_id = f"main:{page_id}:{post_no}"
             attachments = [build_attachment(
@@ -950,36 +989,42 @@ def crawl_board_page(
             ) for index, entry in enumerate(detail["attachments"], start=1)]
             doc = apply_common_schema(
                 {"url": post_url, "title": detail["title"], "category": CATEGORY,
-                 "subcategory": "학점교류_게시판", "content": detail["content"],
+                 "subcategory": SUBCATEGORY_BOARD_POST, "content": detail["content"],
                  "attachments": attachments},
                 source_dataset="pknu_student_life", source_id=source_id,
                 source_site=BASE_URL, document_type="notice", content_source="pknu_main_board_html",
                 published_at=detail["date"], author=detail["author"],
                 metadata={"page_id": page_id, "bbs_id": result["bbs_id"], "post_no": post_no},
             )
-            if attachments:
-                doc["crawl"]["warnings"].append("ATTACHMENTS_NOT_DOWNLOADED")
             slug = doc["slug"]
-            previous = state.setdefault("items", {}).get(source_id, {})
-            if not previous:
-                saved_doc = PATHS.document_json("학점교류_게시판", slug)
-                if saved_doc.is_file():
-                    try:
-                        previous = json.loads(saved_doc.read_text(encoding="utf-8"))
-                    except (OSError, json.JSONDecodeError):
-                        previous = {}
-            if previous.get("content_hash") == doc["content_hash"] and not full_resync:
+            saved_doc = PATHS.document_json(SUBCATEGORY_BOARD_POST, slug)
+            existing_doc = None
+            if saved_doc.is_file():
+                try:
+                    existing_doc = json.loads(saved_doc.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    pass
+            doc["attachments"] = pknu_notice.save_attachments(
+                session, detail["attachments"], SUBCATEGORY_BOARD_POST, slug, post_url,
+                existing_doc=existing_doc, reuse_existing=not full_resync,
+                file_dir=PATHS.attachment_dir(SUBCATEGORY_BOARD_POST, slug),
+            )
+            if (existing_doc and existing_doc.get("content_hash") == doc["content_hash"]
+                    and existing_doc.get("attachments") == doc["attachments"]
+                    and not full_resync):
                 stats.unchanged += 1
                 outcome = "unchanged"
             else:
-                save_json(doc, "학점교류_게시판", slug)
-                outcome = "updated" if previous else "new"
+                save_json(doc, SUBCATEGORY_BOARD_POST, slug)
+                outcome = "updated" if existing_doc else "new"
                 setattr(stats, outcome, getattr(stats, outcome) + 1)
             state["items"][source_id] = {"slug": slug, "content_hash": doc["content_hash"],
                                          "url": post_url, "last_seen_at": now_kst()}
-            stats.count_attachments(attachments)
+            stats.count_attachments(doc["attachments"])
             result["documents"].append({"post_no": post_no, "status": outcome,
-                                         "slug": slug, "attachments_pending": len(attachments)})
+                                         "slug": slug,
+                                         "output": saved_doc.relative_to(PROJECT_ROOT).as_posix(),
+                                         "attachments": len(doc["attachments"])})
             log_event(log, logging.INFO, "document_saved" if outcome != "unchanged" else "document_unchanged",
                       source_id=source_id, url=post_url, status=outcome)
         except (requests.RequestException, ValueError, OSError) as exc:
@@ -1159,22 +1204,28 @@ def crawl_file_page(
             raise ValueError("file_signature_or_mime_unverified")
         slug = document_slug("pknu_student_life", f"main:{page_id}:file")
         dest = PATHS.attachment_dir("학사안내_파일", slug) / filename
-        reusable = False
-        if dest.is_file() and not full_resync:
-            with dest.open("rb") as existing:
-                reusable = existing.read(5) == b"%PDF-"
-        if not reusable:
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            temporary = dest.with_name(dest.name + ".part")
-            try:
-                with temporary.open("wb") as handle:
-                    handle.write(first)
-                    for chunk in chunks:
-                        if chunk:
-                            handle.write(chunk)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        temporary = dest.with_name(dest.name + ".part")
+        try:
+            size = len(first)
+            if size > MAX_FILE_PAGE_BYTES:
+                raise ValueError("file response exceeds size limit")
+            digest = hashlib.sha256()
+            with temporary.open("wb") as handle:
+                handle.write(first)
+                digest.update(first)
+                for chunk in chunks:
+                    if chunk:
+                        size += len(chunk)
+                        if size > MAX_FILE_PAGE_BYTES:
+                            raise ValueError("file response exceeds size limit")
+                        handle.write(chunk)
+                        digest.update(chunk)
+            current_hash = hashlib.sha256(dest.read_bytes()).hexdigest() if dest.is_file() else None
+            if current_hash != digest.hexdigest():
                 temporary.replace(dest)
-            finally:
-                temporary.unlink(missing_ok=True)
+        finally:
+            temporary.unlink(missing_ok=True)
         attachment = build_attachment(index=1, name=filename, url=url, final_url=resp.url,
                                       saved_path=dest, downloaded=True, content_type=mime,
                                       project_root=PROJECT_ROOT)
@@ -1215,7 +1266,8 @@ def retire_legacy_static_route(state: dict[str, Any], page_id: int) -> int:
     items = state.setdefault("items", {})
     retired = 0
     for key, record in list(items.items()):
-        if not isinstance(record, dict) or record.get("url") != url or key == f"file:{page_id}":
+        if (not isinstance(record, dict) or record.get("url") != url
+                or key == f"file:{page_id}" or record.get("parser_version", 0) >= 2):
             continue
         slug = record.get("slug") or key
         if PATHS.document_json(SUBCATEGORY_STATIC_PAGE, slug).is_file():
@@ -1280,10 +1332,13 @@ def run(
 
     if mode in ("pages", "all"):
         log_event(log, logging.INFO, "section_started", section="pages")
-        selected = CONFIGURED_PAGE_IDS if page_ids is None else frozenset(page_ids)
+        selected = set(CONFIGURED_PAGE_IDS if page_ids is None else page_ids)
         static_ids = tuple(page_id for page_id in STATIC_PAGE_IDS if page_id in selected)
-        stats = crawl_static_pages(session, state, full_resync, static_ids)
         route_results: list[dict[str, Any]] = []
+        stats = crawl_static_pages(session, state, full_resync, static_ids,
+                                   route_results=route_results)
+        selected.update(file_id for detail in route_results
+                        for file_id in detail.get("linked_file_page_ids", []))
         for page_id in sorted(selected - set(static_ids)):
             if page_id in BOARD_PAGE_IDS:
                 route_stats, detail = crawl_board_page(session, state, page_id, full_resync, board_pages)
@@ -1323,6 +1378,34 @@ def run(
             log_event(log, logging.INFO if detail["status"] not in {"failed", "access_restricted"} else logging.ERROR,
                       "section_finished", section=f"main:{page_id}", route=detail["route"],
                       status=detail["status"], reason=detail.get("reason"))
+        file_results = {detail["page_id"]: detail for detail in route_results
+                        if detail.get("route") == "file"}
+        for detail in route_results:
+            if detail.get("route") != "static" or not detail.get("output"):
+                continue
+            linked = [file_results[file_id] for file_id in detail.get("linked_file_page_ids", [])
+                      if file_id in file_results]
+            if not linked:
+                continue
+            detail["linked_files"] = linked
+            attachments = []
+            for file_detail in linked:
+                saved_path = file_detail.get("saved_path")
+                if not saved_path or file_detail.get("status") not in {"new", "updated", "unchanged"}:
+                    continue
+                attachments.append(build_attachment(
+                    index=len(attachments) + 1, name=file_detail["filename"],
+                    url=file_detail["url"], final_url=file_detail["url"],
+                    saved_path=PROJECT_ROOT / saved_path, downloaded=True,
+                    content_type="application/pdf", project_root=PROJECT_ROOT))
+            if attachments:
+                path = PROJECT_ROOT / detail["output"]
+                doc = json.loads(path.read_text(encoding="utf-8"))
+                doc["attachments"] = attachments
+                temporary = path.with_suffix(path.suffix + ".tmp")
+                temporary.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
+                                     encoding="utf-8")
+                temporary.replace(path)
         report_path = route_report or PATHS.output / "route_inventory.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps({
@@ -1369,7 +1452,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--page-ids", help="pages 모드에서 수집할 /main/ 번호 (쉼표 구분)")
     parser.add_argument("--board-pages", type=int, default=1,
-                        help="게시판의 최신 목록 페이지 수 (기본 1)")
+                        help="게시판에서 수집할 최신 목록 페이지 수 (기본 1)")
     parser.add_argument("--route-report", type=Path,
                         help="경로 검사 결과 JSON 경로 (기본: output/route_inventory.json)")
     return parser.parse_args()

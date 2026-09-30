@@ -23,7 +23,7 @@ from lxml import etree, html as lxml_html
 
 from scripts.crawlers.departments.urls import resolve_url
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://www.pknu.ac.kr"
 USER_AGENT = "campus-rag-page-inventory/1.0"
 DEFAULT_OUTPUT = PROJECT_ROOT / "files/_discovery/pknu_main"
@@ -429,7 +429,7 @@ def render_reports(output: Path, metadata: dict, captures: dict[int, dict]) -> d
                    if (m := re.fullmatch(r"/main/(\d+)/?", urlsplit(link["url"]).path)) and int(m.group(1)) > metadata["max_id"]
                    and urlsplit(link["url"]).hostname == "www.pknu.ac.kr"})}
     write_json(output / "page_inventory.summary.json", summary)
-    from scripts.main.export_page_catalog import build_catalog
+    from scripts.main.discovery.export_page_catalog import build_catalog
     write_json(output / "page_catalog.json", build_catalog(rows, summary, output))
     return summary
 
