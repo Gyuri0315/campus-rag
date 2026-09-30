@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
 import { displayNameOf, useAuth } from "@/app/context/AuthContext";
@@ -404,63 +407,81 @@ function SourceCard({ source }: { source: Source }) {
   );
 }
 
-// 완성된 JSON 답변 표시
+// 답변 마크다운 → 기존 답변 카드 스타일에 맞춘 요소
+// (react-markdown은 원시 HTML을 렌더링하지 않고 javascript: 같은 위험한 링크를 걸러낸다)
+const answerMarkdownComponents: Components = {
+  h1: ({ children }) => <h4 className="mt-1 font-bold leading-relaxed first:mt-0">{children}</h4>,
+  h2: ({ children }) => <h4 className="mt-1 font-bold leading-relaxed first:mt-0">{children}</h4>,
+  h3: ({ children }) => <h4 className="mt-1 font-bold leading-relaxed first:mt-0">{children}</h4>,
+  p: ({ children }) => <p className="break-words">{children}</p>,
+  strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+  // 위험한 링크(javascript: 등)는 react-markdown이 href를 비워 주므로 일반 텍스트로 표시
+  a: ({ href, children }) => !href ? <span>{children}</span> : (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="break-all font-semibold underline decoration-1 underline-offset-2 hover:opacity-70"
+      style={{ color: "var(--clr-navy)" }}
+    >
+      {children}
+    </a>
+  ),
+  ul: ({ children }) => <ul className="flex list-disc flex-col gap-1 pl-5 marker:font-bold">{children}</ul>,
+  ol: ({ children }) => (
+    <ol className="flex list-decimal flex-col gap-1 pl-5 marker:font-semibold marker:tabular-nums">{children}</ol>
+  ),
+  li: ({ children }) => <li className="break-words pl-0.5">{children}</li>,
+  code: ({ children }) => (
+    <code className="rounded px-1 py-0.5 text-[0.9em]" style={{ background: "rgba(37,52,139,0.08)" }}>
+      {children}
+    </code>
+  ),
+  table: ({ children }) => (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-left">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="border px-2 py-1 font-semibold" style={{ borderColor: "rgba(37,52,139,0.15)" }}>
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="border px-2 py-1" style={{ borderColor: "rgba(37,52,139,0.15)" }}>
+      {children}
+    </td>
+  ),
+};
+
+const LIST_ITEM_RE = /^\s*(?:[-*+•]|\d+[.)])\s+/;
+
+// GPT 답변을 마크다운 규칙에 맞게 다듬는다.
+// - "• 항목" 은 마크다운 목록이 아니므로 "- 항목" 으로 바꾼다.
+// - 목록 바로 다음에 빈 줄 없이 이어지는 일반 문장은 마크다운에서 마지막 항목에
+//   붙어버리므로(lazy continuation) 사이에 빈 줄을 넣어 별도 문단으로 만든다.
+function normalizeAnswerMarkdown(content: string): string {
+  const lines = content.replace(/\r\n?/g, "\n").split("\n").map((line) => line.replace(/^(\s*)•\s+/, "$1- "));
+  const output: string[] = [];
+  lines.forEach((line, index) => {
+    const previous = index > 0 ? lines[index - 1] : "";
+    const continuesList = LIST_ITEM_RE.test(previous) && line.trim() !== "" && !LIST_ITEM_RE.test(line) && !/^\s/.test(line);
+    if (continuesList) output.push("");
+    output.push(line);
+  });
+  return output.join("\n");
+}
+
+// 완성된 JSON 답변 표시 (마크다운: 굵게·링크·목록·표, 줄바꿈 유지)
 function AnswerContent({ content }: { content: string }) {
-  const lines = content.replace(/\r\n?/g, "\n").split("\n");
   return (
     <div
       className="flex flex-col gap-2.5 text-xs leading-7 sm:text-sm sm:leading-7"
       style={{ color: "var(--clr-text)" }}
     >
-      {lines.map((rawLine, index) => {
-        const line = rawLine.trim();
-        if (!line) return null;
-
-        const heading = line.match(/^#{1,3}\s+(.+)$/);
-        if (heading) {
-          return (
-            <h4 key={index} className="mt-1 font-bold leading-relaxed first:mt-0">
-              {heading[1]}
-
-            </h4>
-          );
-        }
-
-        const unordered = line.match(/^[-*•]\s+(.+)$/);
-        if (unordered) {
-          return (
-            <div key={index} className="flex items-start gap-2 pl-1">
-              <span className="mt-[0.05em] shrink-0 font-bold" aria-hidden="true">•</span>
-              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-                {unordered[1]}
-
-              </p>
-            </div>
-          );
-        }
-
-        const ordered = line.match(/^(\d+)[.)]\s+(.+)$/);
-        if (ordered) {
-          return (
-            <div key={index} className="flex items-start gap-2 pl-1">
-              <span className="min-w-[1.25rem] shrink-0 font-semibold tabular-nums">
-                {ordered[1]}.
-              </span>
-              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-                {ordered[2]}
-
-              </p>
-            </div>
-          );
-        }
-
-        return (
-          <p key={index} className="whitespace-pre-wrap break-words">
-            {line}
-
-          </p>
-        );
-      })}
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={answerMarkdownComponents}>
+        {normalizeAnswerMarkdown(content)}
+      </ReactMarkdown>
     </div>
   );
 }
