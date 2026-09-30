@@ -610,7 +610,9 @@ function AssistantMessage({
             </div>
 
             {hasSources && (
-              <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
+              /* 출처가 많으면(①~⑩) 모바일에서 한 줄로 안 들어가 오른쪽이 잘리던 문제:
+                 flex-shrink-0 + 줄바꿈 없음 → 묶음 안에서 줄바꿈되도록 flex-wrap, 오른쪽 정렬 유지 */
+              <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5">
                 {msg.sources!.map((src) => {
                   const active = activeSourceId === src.id;
                   return (
