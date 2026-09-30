@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Fragment, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -120,11 +120,23 @@ export default function HomePage() {
 
           {/* Hero */}
           <div className="text-center flex flex-col gap-2 sm:gap-2.5">
+            {/* break-keep: 한글 단어 중간("찾아|보세요")에서 줄이 끊기지 않게.
+                title의 "\n" 은 모바일(sm 미만)에서만 줄바꿈되고, 그 이상에선 띄어쓰기로 이어진다. */}
             <h1
-              className="text-2xl sm:text-3xl lg:text-[2.35rem] font-bold leading-tight tracking-tight"
+              className="break-keep text-2xl sm:text-3xl lg:text-[2.35rem] font-bold leading-tight tracking-tight"
               style={{ color: NAVY }}
             >
-              {hero.title}
+              {hero.title.split("\n").map((line, index) => (
+                <Fragment key={index}>
+                  {index > 0 && (
+                    <>
+                      {" "}
+                      <br className="sm:hidden" />
+                    </>
+                  )}
+                  {line}
+                </Fragment>
+              ))}
             </h1>
             <p
               className="text-xs sm:text-sm lg:text-base"
