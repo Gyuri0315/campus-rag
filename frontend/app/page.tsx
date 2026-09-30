@@ -41,19 +41,19 @@ export default function HomePage() {
 
   return (
     /* ── 그라데이션 배경 ── */
-    <div className="bg-app min-h-screen flex items-center justify-center p-3 sm:p-4 lg:p-5">
+    <div className="bg-app min-h-[100dvh] flex items-center justify-center p-3 sm:p-4 lg:p-5">
 
       {/* ── 흰색 반투명 카드 ──
-          padding 별 minHeight:
-            mobile  (p-3): 12px×2 = 24px → calc(100vh - 24px)
-            tablet  (p-4): 16px×2 = 32px → calc(100vh - 32px)
-            desktop (p-5): 20px×2 = 40px → calc(100vh - 40px)
+          padding 별 minHeight (dvh = 모바일 브라우저 UI를 뺀 실제 보이는 높이):
+            mobile  (p-3): 12px×2 = 24px → calc(100dvh - 24px)
+            tablet  (p-4): 16px×2 = 32px → calc(100dvh - 32px)
+            desktop (p-5): 20px×2 = 40px → calc(100dvh - 40px)
       ── */}
       <div
         className="
           home-card w-full flex flex-col
           rounded-2xl sm:rounded-[24px]
-          min-h-[calc(100vh-24px)] sm:min-h-[calc(100vh-32px)] lg:min-h-[calc(100vh-40px)]
+          min-h-[calc(100dvh-24px)] sm:min-h-[calc(100dvh-32px)] lg:min-h-[calc(100dvh-40px)]
         "
         style={{ maxWidth: "860px" }}
       >

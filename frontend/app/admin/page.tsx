@@ -573,7 +573,7 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="bg-app min-h-screen flex flex-col">
+    <div className="bg-app min-h-[100dvh] flex flex-col">
       {/* ── 헤더 ── */}
       <header
         className="flex items-center justify-between px-4 py-3 sm:px-6 sm:py-4 lg:px-8 lg:py-5 flex-shrink-0"

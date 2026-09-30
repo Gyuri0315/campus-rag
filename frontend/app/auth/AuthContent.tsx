@@ -130,7 +130,7 @@ export default function AuthContent() {
   const isSignup = mode === "signup";
 
   return (
-    <div className="bg-app min-h-screen flex items-center justify-center p-3 sm:p-4 lg:p-5">
+    <div className="bg-app min-h-[100dvh] flex items-center justify-center p-3 sm:p-4 lg:p-5">
       <div
         className="
           home-card w-full flex flex-col

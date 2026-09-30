@@ -1031,7 +1031,7 @@ export default function ChatContent() {
   };
 
   return (
-    <div className="bg-app flex h-screen overflow-hidden relative">
+    <div className="bg-app flex h-[100dvh] overflow-hidden relative">
 
       {/* ── 모바일 백드롭 (사이드바 오버레이 시 배경 어둡게) ── */}
       {isMobile && sidebarOpen && (
