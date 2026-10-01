@@ -136,6 +136,27 @@ def execute(page_ids: list[int], *, year: int, months: list[int], full_resync: b
         report["collectors"]["major_program"] = {
             "status": "failed" if any(item["status"] == "failed" for item in major_items)
             else "needs_review", "page_ids": [item["page_id"] for item in major_items]}
+    curriculum_items = [item for item in routes if item["handler"] == "curriculum_files"]
+    if curriculum_items:
+        from scripts.main.collectors.curriculum_files import collect_curriculum_files
+
+        with pknu_student_life.build_session(curriculum_items[0]["url"]) as session:
+            for item in curriculum_items:
+                try:
+                    data = collect_curriculum_files(
+                        session, item["page_id"], full_resync=full_resync,
+                    )
+                    item.update(status=data["status"], output=data["output"],
+                                attachment_count=data["attachment_count"],
+                                attachments=[{key: value for key, value in attachment.items()
+                                              if key != "text_preview"}
+                                             for attachment in data["attachments"]])
+                except Exception as exc:
+                    item.update(status="failed", error=f"{type(exc).__name__}: {exc}")
+        report["collectors"]["curriculum_files"] = {
+            "status": "failed" if any(item["status"] == "failed" for item in curriculum_items)
+            else "needs_review" if any(item["status"] == "needs_review" for item in curriculum_items)
+            else "completed", "page_ids": [item["page_id"] for item in curriculum_items]}
     report["status"] = ("failed" if any(item["status"] == "failed" for item in routes)
                         or any(item["status"] == "failed" for item in report["collectors"].values())
                         else "needs_review" if any(item["status"] == "needs_review" for item in routes)

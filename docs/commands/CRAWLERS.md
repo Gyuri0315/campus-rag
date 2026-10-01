@@ -71,7 +71,7 @@ Get-Content logs\main_student_life_crawler.log -Wait -Tail 30
 
 ### `scripts/crawlers/pknu_student_life.py`
 
-부경대학교 대학생활 가이드(`/main/434`)와 E-하나로 eBook을 수집합니다.
+부경대학교 대학생활 가이드(`/main/434`)와 E-하나로 eBook을 수집합니다. E-하나로는 `output/json/학사정보/`에 저장하며, 원본 PDF가 없으면 뷰어의 페이지별 `basic-html` 본문을 수집합니다. 각 `pages[]` 항목의 `content`에서 정리된 쪽별 텍스트를 확인할 수 있으며, 전체 `content`는 이를 쪽 번호와 함께 이어 붙인 값입니다. 텍스트를 읽을 수 없는 쪽은 `text_status`와 `crawl.warnings`에 표시합니다.
 
 출력:
 
@@ -104,6 +104,7 @@ Get-Content logs\main_student_life_crawler.log -Wait -Tail 30
 .\.venv\Scripts\python.exe -m scripts.main.run --page-ids 92 230 231 232
 .\.venv\Scripts\python.exe -m scripts.main.run --page-ids 233 234 235
 .\.venv\Scripts\python.exe -m scripts.main.run --page-ids 94
+.\.venv\Scripts\python.exe -m scripts.main.run --page-ids 101 104 247
 .\.venv\Scripts\python.exe -m scripts.main.run --page-ids 242 243 244
 .\.venv\Scripts\python.exe -m scripts.main.run --page-ids 245 246
 .\.venv\Scripts\python.exe -m scripts.main.run --page-ids 95

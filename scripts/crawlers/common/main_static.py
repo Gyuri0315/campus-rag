@@ -8,7 +8,8 @@ from urllib.parse import urljoin, urlsplit
 from bs4 import NavigableString, Tag
 
 
-FLOW_CLASSES = {"daStep": ".dasCont", "stFlw_B": ".stfCont_B"}
+FLOW_CLASSES = {"daStep": ".dasCont", "stFlw_B": ".stfCont_B",
+                "stFlw": ".stfCont"}
 
 
 def clean_text(tag: Tag) -> str:
@@ -60,11 +61,14 @@ def parse_flow(flow: Tag) -> dict:
     for index, card in enumerate(flow.select(FLOW_CLASSES[kind]), 1):
         heading = card.select_one("h5")
         paragraphs = [clean_text(p) for p in card.select("p")]
-        if heading is None or not clean_text(heading) or not paragraphs or not all(paragraphs):
+        if (not paragraphs or not all(paragraphs)
+                or (kind != "stFlw" and (heading is None or not clean_text(heading)))):
             raise ValueError("process card changed")
         number = card.select_one("em")
+        step_heading = clean_text(heading) if heading else paragraphs[0]
+        description = " / ".join(paragraphs if heading else paragraphs[1:])
         steps.append({"order": index, "display_number": clean_text(number) if number else None,
-                      "heading": clean_text(heading), "description": " / ".join(paragraphs)})
+                      "heading": step_heading, "description": description})
     if not steps:
         raise ValueError("empty process diagram")
     return {"type": "flow", "layout": kind, "steps": steps,
@@ -72,9 +76,66 @@ def parse_flow(flow: Tag) -> dict:
                             for index in range(1, len(steps))]}
 
 
+def parse_organization_chart(chart: Tag) -> dict:
+    """Keep the reporting hierarchy encoded by the CMS org chart headings."""
+    nodes: list[dict] = []
+    parents: list[tuple[int, int]] = []
+    for child in chart.children:
+        if not isinstance(child, Tag):
+            continue
+        if child.name in {"h3", "h4", "h5", "h6"}:
+            level = int(child.name[1]) - 3
+            while parents and parents[-1][0] >= level:
+                parents.pop()
+            if level and not parents:
+                raise ValueError("organization chart parent missing")
+            label = clean_text(child)
+            if not label:
+                raise ValueError("empty organization chart node")
+            order = len(nodes) + 1
+            nodes.append({"order": order, "level": level, "text": label,
+                          "parent_order": parents[-1][1] if parents else None})
+            parents.append((level, order))
+        elif child.name in {"ul", "ol"}:
+            if not parents:
+                raise ValueError("organization chart branch has no parent")
+            for item in child.find_all("li", recursive=False):
+                label = clean_text(item)
+                if not label:
+                    raise ValueError("empty organization chart branch")
+                nodes.append({"order": len(nodes) + 1, "level": parents[-1][0] + 1,
+                              "text": label, "parent_order": parents[-1][1]})
+    if not nodes or nodes[0]["level"] != 0:
+        raise ValueError("empty organization chart")
+    return {"type": "organization_chart", "layout": "orgCont", "nodes": nodes}
+
+
+def table_reference_links(container: Tag, page_url: str) -> tuple[dict, ...]:
+    """Record table link targets and row labels without visiting the targets."""
+    links = []
+    for table in container.select("table"):
+        for row in table.select("tr"):
+            if row.find_parent("table") is not table:
+                continue
+            cells = row.find_all(["th", "td"], recursive=False)
+            for cell in cells:
+                for anchor in cell.select("a[href]"):
+                    target = urljoin(page_url, anchor["href"].strip())
+                    parsed = urlsplit(target)
+                    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                        continue
+                    links.append({"label": clean_text(anchor), "url": target,
+                                  "context": [clean_text(other) for other in cells
+                                              if other is not cell and clean_text(other)]})
+    return tuple(links)
+
+
 def _blocks(element: Tag) -> list[dict]:
     if element.name in {"script", "style", "noscript"}:
         return []
+    if element.name == "img":
+        src = element.get("data-src") or element.get("src")
+        return [{"type": "image", "src": src, "alt": element.get("alt") or ""}] if src else []
     if element.name == "table":
         if element.select_one("table"):
             blocks = []
@@ -86,16 +147,33 @@ def _blocks(element: Tag) -> list[dict]:
         return [parse_table(element)]
     if any(name in element.get("class", []) for name in FLOW_CLASSES):
         return [parse_flow(element)]
+    if "orgCont" in element.get("class", []):
+        return [parse_organization_chart(element)]
     if element.name in {"ul", "ol"} and element.find("li", recursive=False):
         items = []
-        for li in element.find_all("li", recursive=False):
-            if li.select_one("table, ul, ol, .daStep, .stFlw_B"):
-                items.append({"blocks": _blocks(li)})
-            else:
-                items.append(clean_text(li))
+        for child in element.children:
+            if not isinstance(child, Tag):
+                continue
+            if child.name == "li":
+                if child.select_one("table, ul, ol, .daStep, .stFlw_B, .stFlw, img[src], img[data-src]"):
+                    items.append({"blocks": _blocks(child)})
+                else:
+                    items.append(clean_text(child))
+            elif child.name in {"ul", "ol"}:
+                # This CMS sometimes places a nested list directly in a list,
+                # after its parent li rather than inside it.
+                nested = _blocks(child)
+                if items:
+                    previous = items[-1]
+                    if isinstance(previous, str):
+                        items[-1] = {"blocks": [{"type": "paragraph", "text": previous}, *nested]}
+                    else:
+                        previous["blocks"].extend(nested)
+                else:
+                    items.append({"blocks": nested})
         return [{"type": "list", "items": items}]
     children = list(element.children)
-    if element.select_one("table, ul, ol, p, dl, .daStep, .stFlw_B"):
+    if element.select_one("table, ul, ol, p, dl, .daStep, .stFlw_B, .stFlw, img[src], img[data-src]"):
         blocks = []
         for child in children:
             if isinstance(child, Tag):
@@ -127,8 +205,14 @@ def _render_blocks(blocks: list[dict]) -> list[str]:
             lines.extend(" / ".join(cell["text"] for cell in row)
                          for row in block["rows"])
         elif block["type"] == "flow":
-            lines.extend(f'{step["order"]}. {step["heading"]}: {step["description"]}'
+            lines.extend(f'{step["order"]}. {step["heading"]}'
+                         + (f': {step["description"]}' if step["description"] else '')
                          for step in block["steps"])
+        elif block["type"] == "organization_chart":
+            lines.extend("  " * node["level"] + "- " + node["text"]
+                         for node in block["nodes"])
+        elif block["type"] == "image":
+            lines.append("[이미지]" + (f' {block["alt"]}' if block["alt"] else ""))
     return lines
 
 
@@ -183,8 +267,11 @@ def extract_structure(container: Tag) -> dict:
         raise ValueError("static content has no sections")
     table_count = sum(_count_blocks(section["blocks"], "table") for section in sections)
     flow_count = sum(_count_blocks(section["blocks"], "flow") for section in sections)
+    organization_chart_count = sum(_count_blocks(section["blocks"], "organization_chart")
+                                   for section in sections)
     return {"sections": sections, "table_count": table_count,
-            "flow_count": flow_count, "content": render_sections(sections)}
+            "flow_count": flow_count, "organization_chart_count": organization_chart_count,
+            "content": render_sections(sections)}
 
 
 def linked_file_ids(container: Tag, page_url: str, known_file_ids: set[int]) -> tuple[int, ...]:

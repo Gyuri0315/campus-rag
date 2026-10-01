@@ -8,11 +8,13 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.crawlers.common.reader import read_document
 root = PROJECT_ROOT / "files" / "pknu_student_life" / "output" / "json"
-guide_dirs = [d for d in root.iterdir() if d.is_dir() and d.name != "E-하나로"]
+guide_dirs = [d for d in root.iterdir() if d.is_dir()]
+ebook_url = "https://www.pknu.ac.kr/ebook/col_life/kor/index.html"
 
 text_pdfs = []
 image_pdfs = []
 total_chars = 0
+ebook = None
 
 for d in guide_dirs:
     for p in d.glob("*.json"):
@@ -20,6 +22,9 @@ for d in guide_dirs:
             json.loads(p.read_text(encoding="utf-8")),
             dataset="pknu_student_life", project_root=PROJECT_ROOT,
         )
+        if doc.get("url") == ebook_url:
+            ebook = doc
+            continue
         n = len(doc.get("content") or "")
         total_chars += n
         entry = {
@@ -34,15 +39,6 @@ for d in guide_dirs:
             image_pdfs.append(entry)
         else:
             text_pdfs.append(entry)
-
-ebook = None
-eb = root / "E-하나로"
-if eb.exists():
-    for p in eb.glob("*.json"):
-        ebook = read_document(
-            json.loads(p.read_text(encoding="utf-8")),
-            dataset="pknu_student_life", project_root=PROJECT_ROOT,
-        )
 
 n_guide = len(text_pdfs) + len(image_pdfs)
 pct = (len(image_pdfs) / n_guide * 100) if n_guide else 0
