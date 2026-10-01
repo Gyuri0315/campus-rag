@@ -1,15 +1,4 @@
 {
-  "section_count": 17,
-  "board_count": 5,
-  "static_page_count": 12,
-  "first_section": {
-    "name": "학부공지",
-    "category": "공지사항",
-    "url": "https://ce.pknu.ac.kr/ce/1814",
-    "bbs_id": "2400536",
-    "type": "notice",
-    "is_board": true
-  },
   "list_item": {
     "post_url": "https://ce.pknu.ac.kr/ce/1814?action=view&no=123",
     "num": "123",

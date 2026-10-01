@@ -33,6 +33,24 @@ scripts/
 └─ tests/
 ```
 
+Tests are grouped by the feature they verify:
+
+```text
+scripts/tests/
+  core/          # shared crawler contracts, storage, logging, repository layout
+  departments/   # department discovery, CMS adapters, registry and transport
+  main/          # main-site routes and student-life page collectors
+  media/         # body images, OCR, layout classification and review
+  fixtures/      # shared offline test inputs
+  _paths.py      # stable project and fixture paths
+```
+
+Run all tests from the repository root with:
+
+```powershell
+python -m unittest discover -s scripts/tests -t . -p "test_*.py"
+```
+
 Canonical crawler commands:
 
 ```powershell

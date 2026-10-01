@@ -78,6 +78,12 @@ def _build_routes() -> dict[int, MainRoute]:
             if page_id in routes:
                 raise ValueError(f"/main/{page_id} has multiple handlers")
             routes[page_id] = MainRoute(page_id, handler)
+    excluded_routes = routes.keys() & EXCLUDED_PAGE_IDS
+    if excluded_routes:
+        raise ValueError(f"excluded main pages have handlers: {sorted(excluded_routes)}")
+    invalid_no_follow = NO_FOLLOW_LINK_PAGE_IDS - set(STATIC_PAGE_IDS)
+    if invalid_no_follow:
+        raise ValueError(f"no-follow pages must be static: {sorted(invalid_no_follow)}")
     return routes
 
 
