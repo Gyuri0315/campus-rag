@@ -85,6 +85,18 @@ def make_slug(rel_path: str) -> str:
     return hashlib.md5(rel_path.encode("utf-8")).hexdigest()[:12]
 
 
+def preserved_source_slug(source_path: str, output_path: Path) -> str:
+    """Keep chunk identity when a migrated source is preprocessed again."""
+    if output_path.is_file():
+        try:
+            previous = json.loads(output_path.read_text(encoding="utf-8"))
+            if previous.get("source_path") == source_path and previous.get("slug"):
+                return str(previous["slug"])
+        except (OSError, ValueError, AttributeError):
+            pass
+    return make_slug(source_path)
+
+
 def ensure_output_path(
     input_file: Path,
     input_root: Path,
@@ -418,7 +430,7 @@ def save_preprocessed_file(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     result = {
-        "slug": make_slug(rel),
+        "slug": preserved_source_slug(rel, out_path),
         "source_file": input_file.name,
         "source_path": rel,
         "source_relative_to_input": rel_in_input,
@@ -497,7 +509,7 @@ def save_preprocessed_archive_member(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     result = {
-        "slug": make_slug(member_source),
+        "slug": preserved_source_slug(member_source, out_path),
         "source_file": PurePosixPath(member_name.replace("\\", "/")).name,
         "source_path": member_source,
         "source_relative_to_input": member_source_in_input,

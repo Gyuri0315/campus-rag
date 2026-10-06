@@ -58,12 +58,12 @@ DATASET_PATHS = {
         "output_root": PROJECT_ROOT / "files" / "ce" / "vectorized",
     },
     "pknu_notice": {
-        "input_root": PROJECT_ROOT / "files" / "pknu_notice" / "preprocessed",
-        "output_root": PROJECT_ROOT / "files" / "pknu_notice" / "vectorized",
+        "input_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "preprocessed",
+        "output_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized",
     },
     "pknu_student_life": {
-        "input_root": PROJECT_ROOT / "files" / "pknu_student_life" / "preprocessed",
-        "output_root": PROJECT_ROOT / "files" / "pknu_student_life" / "vectorized",
+        "input_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "preprocessed",
+        "output_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "vectorized",
     },
     "rule": {
         "input_root": PROJECT_ROOT / "files" / "rule" / "preprocessed",
@@ -683,7 +683,7 @@ def main() -> None:
         help=(
             "Dataset path preset to vectorize. "
             "Use ce for files/ce/preprocessed -> files/ce/vectorized, "
-            "pknu_notice for files/pknu_notice/preprocessed -> files/pknu_notice/vectorized, "
+            "pknu_notice for files/pknu_main/_derived/pknu_notice/{preprocessed,vectorized}, "
             "or rule for files/rule/preprocessed -> files/rule/vectorized."
         ),
     )

@@ -7,8 +7,8 @@
   - all: 둘 다
 
 저장:
-  - files/pknu_student_life/output/json/<subcategory>/<slug>.json
-  - files/pknu_student_life/output/files/<subcategory>/<slug>/*.pdf
+  - files/pknu_main/대학생활/<category>/json/<kind>/<slug>.json
+  - files/pknu_main/대학생활/<category>/files/<slug>/pdf/*.pdf
 """
 
 from __future__ import annotations
@@ -39,6 +39,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.main.paths import page_json, main_root
 
 from scripts.crawlers.common.schema import (  # noqa: E402
     CrawlStats,
@@ -467,7 +469,7 @@ def process_guide_item(
 
     filename = sanitize_attachment_filename(Path(urlparse(item.pdf_url).path).name or f"{slug}.pdf")
     file_dir = PATHS.attachment_dir(subcategory, slug)
-    pdf_path = file_dir / filename
+    pdf_path = PATHS.attachment_file(subcategory, slug, filename)
 
     old_hash = ""
     items_state: dict[str, Any] = state.setdefault("items", {})
@@ -491,7 +493,7 @@ def process_guide_item(
             log.warning("[PDF-TEXT-FAILED] %s: %s", item.title, exc)
     c_hash = content_sha256(content)
 
-    current_json_path = PATHS.document_json(subcategory, slug)
+    current_json_path = PATHS.document_json(subcategory, slug, kind="attachments")
     current_schema_exists = False
     if current_json_path.exists():
         try:
@@ -772,7 +774,7 @@ def crawl_ebook_html(session: requests.Session, state: dict[str, Any], full_resy
 
     content = "\n\n".join(f"[Page {page['page_number']}]\n{page['content']}" for page in readable)
     old = state.setdefault("items", {}).get(slug, {})
-    saved_path = PATHS.document_json(SUBCATEGORY_EBOOK, slug)
+    saved_path = PATHS.document_json(SUBCATEGORY_EBOOK, slug, kind="attachments")
     if failed_pages and saved_path.is_file():
         try:
             previous_content = json.loads(saved_path.read_text(encoding="utf-8")).get("content")
@@ -889,12 +891,16 @@ STATIC_PARSER_VERSION = 12
 
 
 def static_page_subcategory(page_id: int) -> str:
-    """Route verified pages to their site category without moving older results."""
-    if page_id in ACADEMIC_GUIDE_STATIC_PAGE_IDS:
+    """Route verified pages to their configured site category."""
+    from scripts.main.routes import ROUTES
+    route = ROUTES.get(page_id)
+    if route is None:
         return SUBCATEGORY_STATIC_PAGE
-    if page_id in ACADEMIC_INFO_STATIC_PAGE_IDS:
+    if route.category_path == ("대학생활", "학사안내"):
+        return SUBCATEGORY_STATIC_PAGE
+    if route.category_path == ("대학생활", "학사정보"):
         return SUBCATEGORY_ACADEMIC_INFO
-    return "학생생활"
+    return route.category_path[-1]
 
 
 def board_post_subcategory(page_id: int) -> str:
@@ -1060,7 +1066,7 @@ def download_static_body_images(
         return []
     records = save_body_images(
         list(candidates), session=session, page_url=page_url,
-        output_dir=PATHS.files / subcategory / slug / "images",
+        output_dir=PATHS.attachment_dir(subcategory, slug) / "images",
         project_root=PROJECT_ROOT,
     )
     failed = [record for record in records if record["status"] != "saved"]
@@ -1218,8 +1224,10 @@ def crawl_static_pages(
                                       "status": "needs_review", "reason": str(exc)})
             log.warning("[PAGE] %s: %s, 스킵", url, exc)
             continue
+        from scripts.main.routes import ROUTES
+        attachment_sources = [*fetched.attachments, *media_attachments] if ROUTES[page_id].download_attachments else []
         attachments = pknu_notice.save_attachments(
-            session, [*fetched.attachments, *media_attachments], subcategory, slug, url,
+            session, attachment_sources, subcategory, slug, url,
             existing_doc=existing_doc, reuse_existing=not full_resync,
             file_dir=PATHS.attachment_dir(subcategory, slug),
         )
@@ -1564,7 +1572,7 @@ def collect_tuition_faq(
 
         source_id = f"main:250:{post_no}"
         slug = document_slug("pknu_student_life", source_id)
-        output = PATHS.document_json(SUBCATEGORY_ACADEMIC_INFO, slug)
+        output = PATHS.document_json(SUBCATEGORY_ACADEMIC_INFO, slug, kind="posts")
         existing_doc = None
         if output.is_file():
             try:
@@ -1622,7 +1630,7 @@ def crawl_tuition_page(session: requests.Session) -> tuple[CrawlStats, dict[str,
     """Store #102 tuition data and the FAQ linked from its own tab."""
     page_id = 102
     url = f"{BASE_URL}/main/{page_id}"
-    target = PATHS.output / SUBCATEGORY_ACADEMIC_INFO / "등록금_안내" / "main_102.json"
+    target = page_json(PROJECT_ROOT, 102)
     stats = CrawlStats(discovered=1, requested=1)
     detail: dict[str, Any] = {"page_id": page_id, "route": "tuition", "url": url,
                               "data_path": target.relative_to(PROJECT_ROOT).as_posix()}
@@ -1649,7 +1657,7 @@ def crawl_tuition_page(session: requests.Session) -> tuple[CrawlStats, dict[str,
         faq, faq_docs = collect_tuition_faq(session, faq_url)
         data["faq"] = faq
         for doc in faq_docs:
-            output = PATHS.document_json(SUBCATEGORY_ACADEMIC_INFO, doc["slug"])
+            output = PATHS.document_json(SUBCATEGORY_ACADEMIC_INFO, doc["slug"], kind="posts")
             existing_doc = None
             if output.is_file():
                 try:
@@ -1690,7 +1698,7 @@ def crawl_org_page(session: requests.Session) -> tuple[CrawlStats, dict[str, Any
     """Collect /main/533's intro and the 249 organization widget."""
     page_id = 533
     url = f"{BASE_URL}/main/{page_id}"
-    target = PATHS.output / "organization" / "main_533.json"
+    target = page_json(PROJECT_ROOT, 533)
     stats = CrawlStats(discovered=1, requested=1)
     detail: dict[str, Any] = {"page_id": page_id, "route": "organization", "url": url,
                               "data_path": target.relative_to(PROJECT_ROOT).as_posix()}
@@ -1774,7 +1782,7 @@ def crawl_file_page(
         if mime not in {"application/pdf", "application/octet-stream"} or not first.startswith(b"%PDF-"):
             raise ValueError("file_signature_or_mime_unverified")
         slug = document_slug("pknu_student_life", f"main:{page_id}:file")
-        dest = PATHS.attachment_dir("학사안내_파일", slug) / filename
+        dest = PATHS.attachment_file("학사안내_파일", slug, filename)
         dest.parent.mkdir(parents=True, exist_ok=True)
         temporary = dest.with_name(dest.name + ".part")
         try:
@@ -1851,7 +1859,7 @@ def retire_legacy_static_route(state: dict[str, Any], page_id: int) -> int:
 def existing_guide_pdf_urls() -> set[str]:
     """Recognize saved legacy guide results without creating duplicate documents."""
     urls: set[str] = set()
-    for path in PATHS.json.rglob("*.json"):
+    for path in PATHS.iter_document_json():
         try:
             doc = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
@@ -2007,7 +2015,7 @@ def run(
                 temporary.write_text(json.dumps(doc, ensure_ascii=False, indent=2) + "\n",
                                      encoding="utf-8")
                 temporary.replace(path)
-        report_path = route_report or PATHS.output / "route_inventory.json"
+        report_path = route_report or main_root(PROJECT_ROOT) / "_runs" / "student_life_route_inventory.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(json.dumps({
                 "selected_page_ids": sorted(selected), "static_page_ids": list(static_ids),
@@ -2044,7 +2052,7 @@ def parse_args() -> argparse.Namespace:
         help="guide=/main/434, pages=형제 안내페이지, ebook=col_life, all=전부",
     )
     parser.add_argument("--full-resync", action="store_true", help="content_hash 무시하고 재수집")
-    parser.add_argument("--reset-state", action="store_true", help="files/pknu_student_life/state.json 초기화")
+    parser.add_argument("--reset-state", action="store_true", help="files/pknu_main/_state/pknu_student_life.json 초기화")
     parser.add_argument(
         "--limit",
         type=int,
@@ -2055,7 +2063,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--board-pages", type=int, default=1,
                         help="게시판에서 수집할 최신 목록 페이지 수 (기본 1)")
     parser.add_argument("--route-report", type=Path,
-                        help="경로 검사 결과 JSON 경로 (기본: output/route_inventory.json)")
+                        help="경로 검사 결과 JSON 경로 (기본: files/pknu_main/_runs/student_life_route_inventory.json)")
     return parser.parse_args()
 
 

@@ -4,7 +4,7 @@ Uses saved page HTML. Only explicitly discovered image, iframe, AJAX, and
 attachment URLs are requested. Output remains reviewable and is not RAG input.
 
 python -m scripts.main.discovery.process_pknu_main_content --page-ids 16 102 472 459 110
-python -m scripts.main.discovery.process_pknu_main_content --page-ids 459 --language kor --ocr-psm 11 --restore-ocr-spacing --output files/_discovery/pknu_main/ocr_459_recheck.json
+python -m scripts.main.discovery.process_pknu_main_content --page-ids 459 --language kor --ocr-psm 11 --restore-ocr-spacing --output files/pknu_main/_discovery/ocr_459_recheck.json
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from scripts.rag.body_image_layout import enrich_entry
 
 
 ROOT = Path(__file__).resolve().parents[3]
-DISCOVERY = ROOT / "files/_discovery/pknu_main"
+DISCOVERY = ROOT / "files/pknu_main/_discovery"
 ALLOWED_HOSTS = {"www.pknu.ac.kr", "irumi.pknu.ac.kr"}
 FILE_EXTENSIONS = (".pdf", ".hwp", ".hwpx", ".doc", ".docx", ".xls", ".xlsx", ".zip")
 MAX_PROBE_BYTES = 64 * 1024
@@ -316,8 +316,8 @@ def inspect_images(root: Tag | None, page_id: int, page_url: str, session,
     wrapped = BeautifulSoup('<div class="sub-content"></div>', "lxml")
     wrapped.select_one(".sub-content").append(BeautifulSoup(str(root), "lxml"))
     candidates = collect_body_images(wrapped)
-    output = ROOT / "files/pknu_main/output"
-    target = ROOT / f"files/pknu_main/preprocessed/body_images/main_{page_id}.json"
+    output = ROOT / "files/pknu_main/_discovery"
+    target = ROOT / f"files/pknu_main/_derived/pknu_main/preprocessed/body_images/main_{page_id}.json"
     old = json.loads(target.read_text(encoding="utf-8")) if target.exists() else {}
     prior = old.get("images", [])
     storage_fields = {"order", "alt", "source_kind", "source_url", "source_page_url",
@@ -341,7 +341,7 @@ def inspect_images(root: Tag | None, page_id: int, page_url: str, session,
                 for record in prior] if reusable else
                save_body_images(candidates, session=session, page_url=page_url,
                                 output_dir=output / "images", project_root=ROOT))
-    entry = {"source_path": f"files/_discovery/pknu_main/raw/{page_id:04}.txt",
+    entry = {"source_path": f"files/pknu_main/_discovery/raw/{page_id:04}.txt",
              "url": page_url, "images": [], "processed_at": datetime.now(timezone.utc).isoformat(),
              "ocr_version": VERSION, "language": language, "ocr_psm": ocr_psm,
              "restore_ocr_spacing": restore_ocr_spacing,

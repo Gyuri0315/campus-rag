@@ -176,7 +176,8 @@ def main() -> int:
         parser.error("year must be 2000-2100 and months must be 1-12")
     suffix = "" if set(months) == set(range(1, 13)) else "_m" + "-".join(
         f"{month:02d}" for month in sorted(set(months)))
-    target = args.output or ROOT / "files" / "pknu_main" / "output" / "academic_calendar" / f"main_31_{args.year}{suffix}.json"
+    from scripts.main.paths import page_json
+    target = args.output or page_json(ROOT, 31, f"main_31_{args.year}{suffix}.json")
     target = target.resolve()
     try:
         target.relative_to(ROOT)

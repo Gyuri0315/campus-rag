@@ -1,147 +1,124 @@
-# Main website page collection
+# Main website collection
 
-`scripts/main` keeps the verified `/main/<id>` routes separate from the broad
-page inventory. Run commands from the repository root.
+Run commands from the repository root. `pages.json` lists the verified main-site
+page IDs, handlers, category paths, link-following rules and attachment options.
+`routes.py` validates that configuration; `paths.py` defines the storage layout.
+Pages excluded from collection remain in the configuration with `enabled: false`.
 
-The current `대학생활 > 학사정보` results are stored separately from older
-`학사안내_페이지` documents:
+## Storage
 
-- `files/pknu_student_life/output/json/학사정보/`: E-하나로, `/main/101`,
-  `/main/104`, `/main/247`, and future static pages until a new site category
-  is specified.
-- `files/pknu_student_life/output/files/학사정보/`: original images and files
-  referenced by those documents.
-- `files/pknu_student_life/output/학사정보/등록금_안내/`: the specialized `/main/102`
-  tuition data and its route report. `main_102.json` also contains `faq.items[]`
-  from the linked `/main/250` board, including attachment text. Each FAQ post
-  is saved as a separate document under `output/json/학사정보/`. The
-  "등록금납부" tab at `/main/251` is not crawled.
-
-Existing academic guidance pages stay in `output/json/학사안내_페이지/`.
-
-The `대학생활 > 교육과정` category has separate folders:
-
-- `files/pknu_student_life/output/교육과정/main_106.json` and `main_362.json`
-  list the downloaded PDF attachments, extraction counts, and short text
-  previews. Each item links to its full document JSON.
-- `files/pknu_student_life/output/json/교육과정/` stores one document per PDF,
-  with cleaned text grouped by page. `pages[]` records whether each page came
-  from the PDF text layer or Korean/English OCR, alongside the raw OCR text.
-- `files/pknu_student_life/output/files/교육과정/` stores the original PDFs.
-
-The collector reads only PDF attachment links on `/main/106` and `/main/362`.
-Their eBook and external service links are not followed. `/main/472` is
-explicitly excluded from the route registry.
-The two current `/main/362` PDFs contain page images but no text layer. The
-collector runs OCR on those pages and marks the results `needs_review` because
-small labels and multi-column layouts can be misread. The original PDFs remain
-available beside the JSON. Pages with no visible content are marked blank.
-Run `python -m scripts.main.migrate_academic_info --dry-run` to inspect the
-one-time move of existing results.
+All main-website results live under `files/pknu_main/`:
 
 ```text
-scripts/main/
-  routes.py                 # one registry of page IDs and collection handlers
-  run.py                    # one entry point for registered routes
-  collectors/               # distinct sources: calendar API, image OCR, tuition, organization
-  discovery/                # inventory, catalog, coverage, content-type inspection
-  student_life_stats.py     # existing output diagnostics
-  update_priorities.py      # existing RAG priority maintenance job
+files/pknu_main/
+  대학소개/
+    조직도/
+  대학생활/
+    학사안내/                 # includes 학사일정, 전공제도, 학점교류
+    학사정보/                 # includes E-하나로 and 등록금_안내
+    교육과정/                 # includes 이수_로드맵
+    수강신청/
+    학생생활/                 # includes 교내_식당_주간식단표, 대학생활_가이드
+  커뮤니티/
+    공지사항/                 # subfolders for each notice category
+    부경투데이/
+    교수동정/
+    부경나우/
+  _runs/                      # run results and collection manifests
+  _state/                     # incremental crawler state and backups
+  _derived/<dataset>/
+    preprocessed/             # RAG extraction and chunks
+    vectorized/               # embeddings and indexes
+  _archive/<dataset>/         # retired, deleted and interrupted results
+  _discovery/                 # inventory and page compatibility evidence
 ```
 
-The existing student-life static crawler now uses
-`scripts/crawlers/common/main_static.py` to preserve paragraphs, list items,
-table cells and spans, and both CMS process diagram layouts. It handles
-`/main/92`, `/main/94`, and `/main/230`–`232`. A new page with the same
-structure needs only a reviewed ID in `routes.py`.
+Each category uses the same format folders, created when needed:
 
-The same parser collects grade-management pages `/main/242`–`244` and
-lecture-evaluation pages `/main/245`–`246`. It keeps tables nested inside
-list items as structured grids. The external "조회하기" portal link on
-`/main/246` remains a link in the page content and is not crawled.
+```text
+<category>/
+  json/
+    pages/                    # page body, calendar and collection summaries
+    posts/                    # individual board/news articles
+    attachments/              # extracted PDF, guide and eBook documents
+  html/                       # saved source HTML
+  files/<document-id>/
+    images/
+    pdf/
+    office/                   # HWP/HWPX, Word, Excel and PowerPoint
+    archives/
+    other/
+```
 
-`/main/101` contains two HTML tables and two image-based workflows. The shared
-static crawler saves the original workflow images beside the page JSON and
-stores tentative OCR in `images[].ocr_blocks`; the verified HTML text stays in
-`content`. The `rise.pknu.ac.kr` reference is not followed.
+Existing hashed filenames and document IDs are preserved. The logical datasets
+`pknu_student_life` and `pknu_notice` are also preserved for state, RAG processing
+and database identity; their physical folders now share `pknu_main`.
+The two incremental state JSON files are kept in Git; other collected data and
+state backups remain ignored.
+JSON `saved_path`, `document_json` and other local references point to the new
+locations. Specialty summaries retain their `main_<id>.json` names.
 
-`/main/247` (student record corrections) and `/main/248` (personal information
-changes) also use the shared static parser. Page 247 includes a process diagram
-and a table; page 248 contains prose and a portal link.
+The common static parser preserves paragraphs, lists, tables with merged cells,
+and CMS process diagrams. Image OCR remains reviewable in the JSON; it does not
+replace verified HTML text. PDF/eBook documents retain cleaned text by page.
 
-`/main/306`–`308` are scholarship guidance pages. The shared static parser
-preserves their paragraphs and tables under `output/json/학사정보/`. Links within
-these pages are not followed by the page collector.
-
-`/main/233`–`235` are image-only major-program guides. Their collector saves
-the original body image and reviewable Korean OCR blocks. OCR results remain
-`needs_review` because they can misread policy wording and portal paths.
-
-The static crawler follows tabs that point to registered file routes. Running
-`/main/94` also collects its common graduation-requirements PDF at `/main/238`
-through the existing PDF file crawler. Unknown IDs remain `needs_review` and
-are not fetched by the generic static parser.
-
-`/main/100` is excluded from the route registry because it only links to
-another site and has no page body to collect.
-
-`/main/95` combines a fixed credit-transfer guide with a `bbsId=307` board.
-The shared static parser saves the guide separately from the posts. The board
-collector follows detail links on the latest list page, saves each post, and
-downloads its attachments. Use `--board-pages N` to include more list pages.
+## Commands
 
 ```powershell
 python -m scripts.main.run --list
 python -m scripts.main.run --page-ids 31 92 95 --dry-run
 python -m scripts.main.run --page-ids 31 --year 2026
-python -m scripts.main.run --page-ids 92 230 231 232
-python -m scripts.main.run --page-ids 233 234 235
 python -m scripts.main.run --page-ids 94
-python -m scripts.main.run --page-ids 101
 python -m scripts.main.run --page-ids 102
-python -m scripts.main.run --page-ids 242 243 244
-python -m scripts.main.run --page-ids 245 246
-python -m scripts.main.run --page-ids 247 248
-python -m scripts.main.run --page-ids 306 307 308
 python -m scripts.main.run --page-ids 106 362
-python -m scripts.main.run --page-ids 114
-python -m scripts.main.run --page-ids 115
-python -m scripts.main.run --page-ids 449
-python -m scripts.main.run --page-ids 257 258
-python -m scripts.main.run --page-ids 118 259 260
-python -m scripts.main.run --page-ids 438 494
-python -m scripts.main.run --page-ids 263 264
+python -m scripts.main.run --page-ids 233 234 235
 python -m scripts.main.run --page-ids 399 --board-pages 1
-python -m scripts.main.run --page-ids 95
-python -m scripts.main.run --all
+python -m scripts.main.run --page-ids 51 52 53
 ```
 
-`--all` makes live requests for every registered page. The run report is saved
-under `files/pknu_main/output/main_run_report.json`. The existing crawler's
-per-route report is saved beside it as `student_life_route_inventory.json`. Calendar
-data is saved under `files/pknu_main/output/academic_calendar/`. Structured
-static pages and linked PDFs are saved under `files/pknu_student_life/output/`.
-`/main/399` board posts are stored separately in
-`files/pknu_student_life/output/json/교내_식당_주간식단표/`. To relocate posts
-collected by an older run, use `python -m scripts.main.migrate_weekly_menu`.
-The `/main/114` student ID guide is saved under the `학생생활` subcategory,
-including its body image and downloadable PPTX/HWP guides. Newly registered
-static pages use `학생생활` until the site category changes; existing academic
-guidance and academic information routes keep their established folders.
-The `/main/449` certificate guide resolves its two CMS PDF viewer IDs, saves
-the PDFs with extracted text, and marks image-heavy PDFs for visual review.
-Major-program OCR results are saved under `files/pknu_main/output/major_program/`,
-with original images under `files/pknu_main/output/images/`.
+`--all` sends live requests for all enabled routes. The default board scope is
+one list page. Pages 51, 52 and 53 always collect only the first list page.
+Their article JSON includes image/link URLs; image binaries are not downloaded.
+Run reports are saved in `_runs/main_run_report.json` and
+`_runs/student_life_route_inventory.json`. News manifests live in `_runs/pknu_today/`.
 
-The superseded one-off outputs for `/main/92`, `/main/94`, and
-`/main/230`–`232` are archived outside the active output tree at
-`files/pknu_main/_retired_duplicates_20260930/`. The September-only 2026
-calendar snapshot is archived there too; its events are present in the
-full-year calendar output. The current static documents and graduation PDF are
-under `files/pknu_student_life/output/`.
+Page 94 includes the graduation-requirements PDF at page 238. Page 102 includes
+the linked tuition FAQ board at page 250; the tuition payment page 251 is not
+crawled. Curriculum pages 106 and 362 collect their PDF attachments only.
+Registered link exclusions (including pages 262, 263, 306–308 and 494) are retained.
+Pages 100, 416 and 472 are excluded.
 
-Add a new page to `routes.py` only after verifying that its content structure
-matches an existing handler. If it needs a separate request or parser, add a
-collector under `collectors/` and dispatch it from `run.py`. Inventory results
-in `files/_discovery/pknu_main/` are evidence for that review, not an automatic
-list of crawl targets.
+To move a legacy checkout's data, first preview and then apply:
+
+```powershell
+python -m scripts.main.migrate_storage
+python -m scripts.main.migrate_storage --apply
+```
+
+The migration validates destination collisions before moving files, verifies
+file hashes, rewrites local JSON/state/RAG references, and checks that previously
+valid file references still exist. Interrupted and retired results are archived.
+The path mapping and summary are saved in `_runs/storage_migration_paths.json`
+and `_runs/storage_migration.json`. Repeating the migration finds no legacy files
+to move. This replaces the former academic-info and weekly-menu migration scripts.
+
+## Adding collection scope
+
+Add a verified page to `pages.json` with its existing handler and category path.
+If its structure requires another parser, implement that handler under
+`collectors/` and dispatch it from `run.py`. Discovery results in `_discovery/`
+are evidence for review, not automatic crawl targets. Reusing an existing parser
+does not require a new test file; follow `scripts/AGENTS.md` for regression tests.
+
+```text
+scripts/main/
+  pages.json                  # collection configuration
+  routes.py                   # validated routes and compatibility constants
+  paths.py                    # category and file-format storage paths
+  run.py                      # registered-route entry point
+  collectors/                 # calendar API, OCR, tuition, organization, PDFs, news
+  discovery/                  # inventory, catalog and coverage inspection
+  migrate_storage.py          # legacy data relocation and path rewriting
+  student_life_stats.py        # saved document diagnostics
+  update_priorities.py        # RAG priority maintenance
+```

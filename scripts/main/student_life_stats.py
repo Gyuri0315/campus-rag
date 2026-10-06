@@ -7,8 +7,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.crawlers.common.reader import read_document
-root = PROJECT_ROOT / "files" / "pknu_student_life" / "output" / "json"
-guide_dirs = [d for d in root.iterdir() if d.is_dir()]
+from scripts.crawlers.common.storage import get_dataset_paths
+paths = get_dataset_paths(PROJECT_ROOT, "pknu_student_life")
 ebook_url = "https://www.pknu.ac.kr/ebook/col_life/kor/index.html"
 
 text_pdfs = []
@@ -16,29 +16,28 @@ image_pdfs = []
 total_chars = 0
 ebook = None
 
-for d in guide_dirs:
-    for p in d.glob("*.json"):
-        doc = read_document(
-            json.loads(p.read_text(encoding="utf-8")),
-            dataset="pknu_student_life", project_root=PROJECT_ROOT,
-        )
-        if doc.get("url") == ebook_url:
-            ebook = doc
-            continue
-        n = len(doc.get("content") or "")
-        total_chars += n
-        entry = {
-            "slug": doc.get("slug"),
-            "title": doc.get("title", "")[:60],
-            "subcategory": doc.get("subcategory"),
-            "year": doc.get("year"),
-            "chars": n,
-            "skipped": bool(doc.get("pdf_text_skipped")),
-        }
-        if doc.get("pdf_text_skipped") or n < 80:
-            image_pdfs.append(entry)
-        else:
-            text_pdfs.append(entry)
+for p in paths.iter_document_json():
+    doc = read_document(
+        json.loads(p.read_text(encoding="utf-8")),
+        dataset="pknu_student_life", project_root=PROJECT_ROOT,
+    )
+    if doc.get("url") == ebook_url:
+        ebook = doc
+        continue
+    n = len(doc.get("content") or "")
+    total_chars += n
+    entry = {
+        "slug": doc.get("slug"),
+        "title": doc.get("title", "")[:60],
+        "subcategory": doc.get("subcategory"),
+        "year": doc.get("year"),
+        "chars": n,
+        "skipped": bool(doc.get("pdf_text_skipped")),
+    }
+    if doc.get("pdf_text_skipped") or n < 80:
+        image_pdfs.append(entry)
+    else:
+        text_pdfs.append(entry)
 
 n_guide = len(text_pdfs) + len(image_pdfs)
 pct = (len(image_pdfs) / n_guide * 100) if n_guide else 0

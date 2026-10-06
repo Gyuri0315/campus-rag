@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from scripts.tests._paths import PROJECT_ROOT
-
 import json
 import tempfile
 import unittest
@@ -14,12 +12,9 @@ from scripts.crawlers.common.storage import (
 )
 
 
-WORKSPACE_ROOT = PROJECT_ROOT
-
-
 class CrawlerStorageTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT)
+        self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.paths = get_dataset_paths(self.root, "pknu_notice")
 

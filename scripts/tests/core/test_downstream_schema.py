@@ -89,7 +89,7 @@ class DownstreamSchemaTests(unittest.TestCase):
         self.assertTrue(any("attachment text" in text for text in texts))
 
     def test_preprocessing_and_vectorization_emit_canonical_metadata(self) -> None:
-        with tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / "files" / "ce" / "output" / "json" / "cat" / "doc.json"
             source.parent.mkdir(parents=True)
@@ -115,7 +115,7 @@ class DownstreamSchemaTests(unittest.TestCase):
             self.assertNotIn("crawled_at", metadata)
 
     def test_migration_dry_run_preserves_file_content_and_counts(self) -> None:
-        with tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "legacy.json"
             original = legacy_notice()
             path.write_text(json.dumps(original, ensure_ascii=False), encoding="utf-8")

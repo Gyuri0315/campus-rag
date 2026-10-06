@@ -1,0 +1,891 @@
+{
+  "schema_version": "1.0",
+  "dataset": "pknu_student_life",
+  "updated_at": "2026-10-06T15:28:27+09:00",
+  "items": {
+    "3053ba1d1ea5": {
+      "slug": "3053ba1d1ea5",
+      "content_hash": "bcdab51c2e98bf11bc945164d2279ed11ef166481c28475e90d1252e5f1f3fb5",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2025/12/12/5162cd5e-1447-4d51-9b07-8aee26d2a9e2.pdf",
+      "last_seen_at": "2026-09-14T17:22:15+09:00",
+      "source_id": "3053ba1d1ea5",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "00707ea3ca8e": {
+      "slug": "00707ea3ca8e",
+      "content_hash": "e65b3e496eedc92c14398bf9835b1fe279f691de0c76eb5a60af74d0f14f2233",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/12/12/935ede1f-fa07-4384-b589-78aaa9fbb33f.pdf",
+      "last_seen_at": "2026-05-19T11:35:44+09:00",
+      "source_id": "00707ea3ca8e",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "8444b150febf": {
+      "slug": "8444b150febf",
+      "content_hash": "c761ab21b323ecf3787c1945991cdb0368e7d86965c0f5d86398dc2b0618e37c",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2025/01/21/e65ff972-3f53-4d57-bd78-72fa634813a3.pdf",
+      "last_seen_at": "2026-05-19T11:35:50+09:00",
+      "source_id": "8444b150febf",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "c281f04ac6af": {
+      "slug": "c281f04ac6af",
+      "content_hash": "3abc88ccc8160583f029b7973e29dcf66e3e95321c391e6ddc59c37de54e67de",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2025/02/05/e0625a3a-93b3-406c-9b94-8d6db81b4c6c.pdf",
+      "last_seen_at": "2026-05-19T11:35:53+09:00",
+      "source_id": "c281f04ac6af",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "5a92eda7fe93": {
+      "slug": "5a92eda7fe93",
+      "content_hash": "0ec1241c96b47c0d45c0cef08003ecd86ecf8061fc802ea51324b451b3b015d0",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2023/12/26/f63bf0a2-8869-4c63-b208-07bf0c120a93.pdf",
+      "last_seen_at": "2026-05-19T11:35:54+09:00",
+      "source_id": "5a92eda7fe93",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "af465be19e58": {
+      "slug": "af465be19e58",
+      "content_hash": "40e548f4bf092582059da20a3312626e6f78c1d1dc6c1b58483e6aa36f26a3bd",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/02/02/fbbf9306-122f-4ed5-8069-d6e28ddc659c.pdf",
+      "last_seen_at": "2026-05-19T11:35:57+09:00",
+      "source_id": "af465be19e58",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "5e93f2bde4a3": {
+      "slug": "5e93f2bde4a3",
+      "content_hash": "6ecb2e78adb414d353d56aaa08d9c52f1cbb74c7626ba32fa4f8c3ad6b039f29",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/06/07/c48ae9e0-5c22-40cf-b538-6d5590c6e0cf.pdf",
+      "last_seen_at": "2026-05-19T11:36:00+09:00",
+      "source_id": "5e93f2bde4a3",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "ae64d0747f93": {
+      "slug": "ae64d0747f93",
+      "content_hash": "6253e3552b6ccc6a9d4e436a5f2e0e6bc09e9e82eaeddaf2d241a5fe98ca4600",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2025/12/12/9df55cb7-7e1f-48e4-b4d6-9ef4594419ba.pdf",
+      "last_seen_at": "2026-05-19T11:36:02+09:00",
+      "source_id": "ae64d0747f93",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "851d023f9093": {
+      "slug": "851d023f9093",
+      "content_hash": "89a5b76c941bdf9aedc4cbf8de6d2a90e3e639505859c6b58a54d8ffa1725be8",
+      "url": "https://www.pknu.ac.kr/main/17",
+      "last_seen_at": "2026-09-14T22:31:54+09:00",
+      "source_id": "851d023f9093",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "8916c0b36def": {
+      "slug": "8916c0b36def",
+      "content_hash": "2c0320da9a6b4712cde369d479408b816d4fa0107d8ed4ef0383e0874789d40d",
+      "url": "https://www.pknu.ac.kr/main/92",
+      "last_seen_at": "2026-09-30T16:55:04+09:00",
+      "parser_version": 4,
+      "source_id": "8916c0b36def",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "ed188ef1faa9": {
+      "slug": "ed188ef1faa9",
+      "content_hash": "fdd6c5b624b744ce735717efd0d16229be2908c1c6bf6117736e266e1e202c20",
+      "url": "https://www.pknu.ac.kr/main/93",
+      "last_seen_at": "2026-09-14T22:31:57+09:00",
+      "source_id": "ed188ef1faa9",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "688d0bba115f": {
+      "slug": "688d0bba115f",
+      "content_hash": "7c6d4f7c64db3ddfa806997e1d51c6bc6405fafbcaf0b7e2fb2a4fcb15548405",
+      "url": "https://www.pknu.ac.kr/main/94",
+      "last_seen_at": "2026-09-30T14:24:46+09:00",
+      "parser_version": 2,
+      "source_id": "688d0bba115f",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "8b391e65fdc2": {
+      "slug": "8b391e65fdc2",
+      "content_hash": "bfbdbf06a73689c9879ff745545866a7ac95641d758a772b15eaac769b440761",
+      "url": "https://www.pknu.ac.kr/main/96",
+      "last_seen_at": "2026-09-14T22:32:01+09:00",
+      "source_id": "8b391e65fdc2",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "45d08adbc94e": {
+      "slug": "45d08adbc94e",
+      "content_hash": "755973ab84b10daa12bc86fe42ea88cc79f099620e92340935c01bffe788afba",
+      "url": "https://www.pknu.ac.kr/main/97",
+      "last_seen_at": "2026-09-14T22:32:03+09:00",
+      "source_id": "45d08adbc94e",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "4fb889b70fd1": {
+      "slug": "4fb889b70fd1",
+      "content_hash": "ee769eef24b3062c5242ee762f0a680607bec9d88c7f25cb4cae1007962ece5d",
+      "url": "https://www.pknu.ac.kr/main/98",
+      "last_seen_at": "2026-09-30T16:17:21+09:00",
+      "parser_version": 3,
+      "source_id": "4fb889b70fd1",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "11078c6b38f6": {
+      "slug": "11078c6b38f6",
+      "content_hash": "0d0b3e451a4ebef349332ae977d2f4ffc88bde3b8f26f384bf0abea1f863de0d",
+      "url": "https://www.pknu.ac.kr/main/99",
+      "last_seen_at": "2026-09-14T22:32:05+09:00",
+      "source_id": "11078c6b38f6",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "ea7a5a9c494e": {
+      "slug": "ea7a5a9c494e",
+      "content_hash": "3b9ad7eefe2d9aa6495fb6988c7d4aa522eac02450522b51b578877abf296877",
+      "url": "https://www.pknu.ac.kr/main/101",
+      "last_seen_at": "2026-09-30T17:42:38+09:00",
+      "parser_version": 5,
+      "image_hash": "51bfd3295403ef5ee275cc3d006dd430a1163a155c8d5e909db325b709dd7d2d",
+      "source_id": "ea7a5a9c494e",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "79891ebf0bc9": {
+      "slug": "79891ebf0bc9",
+      "content_hash": "73e1a1e63185d668675b898b74beae1f65322993ef9d1b52b7f96fa24bf73534",
+      "url": "https://www.pknu.ac.kr/main/103",
+      "last_seen_at": "2026-09-14T22:32:11+09:00",
+      "source_id": "79891ebf0bc9",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "326c02ced013": {
+      "slug": "326c02ced013",
+      "content_hash": "d5e69fde8c54f3f3a174da069b8620ec9bb67885a4eccff4dfa164c5c287ce06",
+      "url": "https://www.pknu.ac.kr/main/104",
+      "last_seen_at": "2026-09-30T18:01:02+09:00",
+      "parser_version": 5,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학사정보",
+      "source_id": "326c02ced013",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "6d0afb83c756": {
+      "slug": "6d0afb83c756",
+      "content_hash": "3eed96283185264533a83a361532ad0020f3b506b21828b2977253ccca930ee8",
+      "url": "https://www.pknu.ac.kr/main/114",
+      "last_seen_at": "2026-10-01T00:39:58+09:00",
+      "parser_version": 6,
+      "image_hash": "443f54a98bb82f306263ce3d37f7ba2e96b001ee25af498712940ab27789de86",
+      "attachment_hash": "5dd92af6fb0bc7c7e43de9cb87e489f29d7ce305a2b6a7b618ccc1e78e1f6f83",
+      "subcategory": "학생생활",
+      "source_id": "6d0afb83c756",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "4eb3f0997b89": {
+      "slug": "4eb3f0997b89",
+      "content_hash": "8962f9d93d898d89cf05d0cd76020098ac95987241917190cb38d7cc689b3b26",
+      "url": "https://www.pknu.ac.kr/main/115",
+      "last_seen_at": "2026-10-01T01:01:13+09:00",
+      "parser_version": 7,
+      "image_hash": "90b81f146c3874de6c452d88788d78228d25edbc62c553c48158f38727d03471",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "4eb3f0997b89",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "90a2cdf3f30f": {
+      "slug": "90a2cdf3f30f",
+      "content_hash": "498c2a06509353529f6b0453292312ae80f1064d0fe6a76708064a46f7c2639d",
+      "url": "https://www.pknu.ac.kr/main/117",
+      "last_seen_at": "2026-09-14T22:32:19+09:00",
+      "source_id": "90a2cdf3f30f",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "b0c015c68a99": {
+      "slug": "b0c015c68a99",
+      "content_hash": "9a3b52e6d8a1eddf20b5c1c3db40585194f04ec06c5878c47a1eb60ec2c0e869",
+      "url": "https://www.pknu.ac.kr/main/118",
+      "last_seen_at": "2026-10-01T12:16:56+09:00",
+      "parser_version": 11,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "b0c015c68a99",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "9169169f978e": {
+      "slug": "9169169f978e",
+      "content_hash": "8bb3fd9a38de252bb060be662f0586e8d439b8a534d1ea9a01a945ca567ea657",
+      "url": "https://www.pknu.ac.kr/main/119",
+      "last_seen_at": "2026-09-14T22:32:21+09:00",
+      "source_id": "9169169f978e",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "2adf535815ec": {
+      "slug": "2adf535815ec",
+      "content_hash": "19ccb4c95e5e50b3d2efd58cdcfe0b5f0c10baab8227ef7a92bb13f097d2163f",
+      "url": "https://www.pknu.ac.kr/main/237",
+      "last_seen_at": "2026-09-14T22:32:23+09:00",
+      "source_id": "2adf535815ec",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "0e6230387793": {
+      "slug": "0e6230387793",
+      "content_hash": "a40ddeba453ca411f7696d89139b00d253dd3aaee86aa57754c4c085fd0a372f",
+      "url": "https://www.pknu.ac.kr/main/244",
+      "last_seen_at": "2026-09-30T15:48:01+09:00",
+      "parser_version": 3,
+      "source_id": "0e6230387793",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "ab850642b421": {
+      "slug": "ab850642b421",
+      "content_hash": "e93db3c5b5394812ebf8ab6c2f288ed6840e02d8895796ab88af2c707c3af411",
+      "url": "https://www.pknu.ac.kr/main/262",
+      "last_seen_at": "2026-10-01T13:45:33+09:00",
+      "parser_version": 12,
+      "image_hash": "a99c2aa553bbbd03745fc79d182d127e21c49663a7eef10fe0ad575e2d128d8a",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reference_link_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "ab850642b421",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "5446d1644f00": {
+      "slug": "5446d1644f00",
+      "content_hash": "ad5b0a0b3f6b87f756955891151a5d92c8b44a87e1200b492020082b3e34d497",
+      "url": "https://www.pknu.ac.kr/main/449",
+      "last_seen_at": "2026-10-01T01:18:01+09:00",
+      "parser_version": 9,
+      "image_hash": "543f3f2f4ac689fe4296998e786253c8039d4b84c4a6f93712721d1eaa97ff62",
+      "attachment_hash": "d8e1bc9cc4a32bd35ee3c699350e93a0dace94d0bb538b91af2a6b7baf0147b1",
+      "subcategory": "학생생활",
+      "source_id": "5446d1644f00",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "38f883afc402": {
+      "slug": "38f883afc402",
+      "content_hash": "f562d360884cb6f40cbb0f7f4e64fa0bec0a61e2918125ebc0165139ed4f127f",
+      "url": "https://www.pknu.ac.kr/main/481",
+      "last_seen_at": "2026-09-14T22:32:29+09:00",
+      "source_id": "38f883afc402",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:726037": {
+      "slug": "76abd220df1542a1",
+      "content_hash": "89f3f11a37541401e522707329bf9566742e28f4be962435b47262bcc983ca99",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=726037",
+      "last_seen_at": "2026-09-30T15:17:53+09:00",
+      "source_id": "main:95:726037",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:726014": {
+      "slug": "10958f50f5eaa4f4",
+      "content_hash": "c3932a14beba5e6dd411b543f992b07c9438f69a5047c3ca9a6e3318fea2cfe4",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=726014",
+      "last_seen_at": "2026-09-30T15:17:54+09:00",
+      "source_id": "main:95:726014",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725901": {
+      "slug": "65cd017f939b4a81",
+      "content_hash": "ef4e926a521b973d543234a8794763b4d0ea21ffa1f661c06b3adce6c93f46b4",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725901",
+      "last_seen_at": "2026-09-30T15:17:56+09:00",
+      "source_id": "main:95:725901",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725870": {
+      "slug": "f8b7c22f734a47bd",
+      "content_hash": "274c28298c2f4c042e3c51e03aae007209b9be66f65aa6a5e4fbfcded750c6fb",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725870",
+      "last_seen_at": "2026-09-30T15:17:57+09:00",
+      "source_id": "main:95:725870",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725867": {
+      "slug": "0ada06736c9a6bc7",
+      "content_hash": "a26bcc9757ed04b85ed4fe4a7799dc4e6bb7c7986740dd0562bed36a41bfa2c3",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725867",
+      "last_seen_at": "2026-09-30T15:17:59+09:00",
+      "source_id": "main:95:725867",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725806": {
+      "slug": "b45eef4be53c5cfe",
+      "content_hash": "41a40f91e9d94ad933c2c30b03c045934332cbdcd0a202ecd60230aa2758bfe0",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725806",
+      "last_seen_at": "2026-09-30T15:18:00+09:00",
+      "source_id": "main:95:725806",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725755": {
+      "slug": "ed8614dfd64f7328",
+      "content_hash": "586aff11584583be6531d6d35d9e0d4247dd8c7bb6407ed94d109b5c47f0c58d",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725755",
+      "last_seen_at": "2026-09-30T15:18:02+09:00",
+      "source_id": "main:95:725755",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725749": {
+      "slug": "536e39c6eee29aed",
+      "content_hash": "f92faa28357a30449e8c01ecaa9adb9af7e5d414cd0a3e173251e324417bf73a",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725749",
+      "last_seen_at": "2026-09-30T15:18:03+09:00",
+      "source_id": "main:95:725749",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725744": {
+      "slug": "21065ca21a263660",
+      "content_hash": "e449fe3366cc59ec6f178daaea2834913a33ff2c9ab855dde373ee91dcd8eb98",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725744",
+      "last_seen_at": "2026-09-30T15:18:05+09:00",
+      "source_id": "main:95:725744",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725729": {
+      "slug": "31ac1519dbffae79",
+      "content_hash": "41c02db23f398a8129fac2fe9eb81de970793b0776ea1af330b9970feb56f760",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725729",
+      "last_seen_at": "2026-09-30T15:18:06+09:00",
+      "source_id": "main:95:725729",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725715": {
+      "slug": "89e25c6b449ca5ef",
+      "content_hash": "ae280e7e62679235703e525fed6a6071d8e79da2d21fed313e83fd32d39c9fc2",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725715",
+      "last_seen_at": "2026-09-30T15:18:08+09:00",
+      "source_id": "main:95:725715",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725707": {
+      "slug": "e093396b681ec5ec",
+      "content_hash": "5e0153055e28fae1f44d90243b8bd6d3f92a2e11715b32dbb025869f777ca290",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725707",
+      "last_seen_at": "2026-09-30T15:18:09+09:00",
+      "source_id": "main:95:725707",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725658": {
+      "slug": "2a8d8e7e1ba297bc",
+      "content_hash": "1c22d2f45283c29cd9e69eee95a0e2a78f71ba43679fa055412ace4cb17fcb60",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725658",
+      "last_seen_at": "2026-09-30T15:18:11+09:00",
+      "source_id": "main:95:725658",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725606": {
+      "slug": "46328166e6420e6d",
+      "content_hash": "513cf585cc5d121c4a3b4b36e512ff4322efd076606c36f74aeb199cbd2994d7",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725606",
+      "last_seen_at": "2026-09-30T15:18:12+09:00",
+      "source_id": "main:95:725606",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:95:725601": {
+      "slug": "572d043197ec4d78",
+      "content_hash": "e734c9314864c0c6e06e58545c3d9a0539be74a42a3598b48815d28e025060aa",
+      "url": "https://www.pknu.ac.kr/main/95?action=view&no=725601",
+      "last_seen_at": "2026-09-30T15:18:14+09:00",
+      "source_id": "main:95:725601",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "file:238": {
+      "slug": "8e785dcf9763a254",
+      "content_hash": "0e94e852533b7df363ae0fd763314eea75628b60d18d94cbdb152026bd188c77",
+      "url": "https://www.pknu.ac.kr/main/238",
+      "last_seen_at": "2026-09-30T14:32:06+09:00",
+      "source_id": "file:238",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "8e3a5fa06ccb": {
+      "slug": "8e3a5fa06ccb",
+      "content_hash": "e31773f35492291799479a36dadfc686c41f4e3215e86068410537174e6381a8",
+      "url": "https://www.pknu.ac.kr/main/230",
+      "last_seen_at": "2026-09-30T14:24:47+09:00",
+      "parser_version": 2,
+      "source_id": "8e3a5fa06ccb",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "7b31c5ea6add": {
+      "slug": "7b31c5ea6add",
+      "content_hash": "a9117fb17c3af8b093af0d96fc713cd8e76d897fe00954a0df1b7f7dde48b8fe",
+      "url": "https://www.pknu.ac.kr/main/231",
+      "last_seen_at": "2026-09-30T14:24:48+09:00",
+      "parser_version": 2,
+      "source_id": "7b31c5ea6add",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "d7b5b4ca0330": {
+      "slug": "d7b5b4ca0330",
+      "content_hash": "ad92160c9b1e570d982b978f4a1f951f89c89f387e5ccc65ff5bca5e7342c7b6",
+      "url": "https://www.pknu.ac.kr/main/232",
+      "last_seen_at": "2026-09-30T14:24:50+09:00",
+      "parser_version": 2,
+      "source_id": "d7b5b4ca0330",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "a50bcff389f1": {
+      "slug": "a50bcff389f1",
+      "content_hash": "a21ff496b7cb6afb23be0214d81026472d65a1ad9ef510c9d49eae923126ada4",
+      "url": "https://www.pknu.ac.kr/main/95",
+      "last_seen_at": "2026-09-30T15:00:29+09:00",
+      "parser_version": 2,
+      "source_id": "a50bcff389f1",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "77843da9d032": {
+      "slug": "77843da9d032",
+      "content_hash": "0090b59794f4a54b7135b30a0c87aa3bb8ea530d53c04d3197d7caa569ab6da7",
+      "url": "https://www.pknu.ac.kr/main/242",
+      "last_seen_at": "2026-09-30T15:47:58+09:00",
+      "parser_version": 3,
+      "source_id": "77843da9d032",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "78f7d6dbe138": {
+      "slug": "78f7d6dbe138",
+      "content_hash": "f05786873329850f204c20af31707b2067a09c14d38f362985c68f4f912afbd8",
+      "url": "https://www.pknu.ac.kr/main/243",
+      "last_seen_at": "2026-09-30T15:48:00+09:00",
+      "parser_version": 3,
+      "source_id": "78f7d6dbe138",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "85c2a3504dc2": {
+      "slug": "85c2a3504dc2",
+      "content_hash": "424d3950bd76b97f67ffc09824f5c428d8dd3a5b08e0615e61188e68a3bb596b",
+      "url": "https://www.pknu.ac.kr/main/245",
+      "last_seen_at": "2026-09-30T16:11:50+09:00",
+      "parser_version": 3,
+      "source_id": "85c2a3504dc2",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "dfdab4483dc2": {
+      "slug": "dfdab4483dc2",
+      "content_hash": "87451785936dcc24cbad6deaa79d4275a7d06bb1a485408b359db7d962a75266",
+      "url": "https://www.pknu.ac.kr/main/246",
+      "last_seen_at": "2026-09-30T16:11:52+09:00",
+      "parser_version": 3,
+      "source_id": "dfdab4483dc2",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "ca8b1b81c6c1696f": {
+      "slug": "ca8b1b81c6c1696f",
+      "content_hash": "4e4be6839f21a84d3c4213358292e9b46ffc77b0b5da37b60187ecb46251baee",
+      "parser_version": 2,
+      "url": "https://www.pknu.ac.kr/ebook/col_life/kor/index.html",
+      "last_seen_at": "2026-09-30T17:12:39+09:00",
+      "source_id": "ca8b1b81c6c1696f",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "8a3efbd8aa6c": {
+      "slug": "8a3efbd8aa6c",
+      "content_hash": "50a70f687efaee9cad1eff4f902e5f8c354c81517700b946f787dcd119d87336",
+      "url": "https://www.pknu.ac.kr/main/247",
+      "last_seen_at": "2026-09-30T18:01:04+09:00",
+      "parser_version": 5,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학사정보",
+      "source_id": "8a3efbd8aa6c",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "f349ce81f736": {
+      "slug": "f349ce81f736",
+      "content_hash": "4bd01e5ffe700f0ea6f84c659c8cea3594c39fec2687b6b803987962e8ab7603",
+      "url": "https://www.pknu.ac.kr/main/248",
+      "last_seen_at": "2026-09-30T17:23:12+09:00",
+      "parser_version": 4,
+      "source_id": "f349ce81f736",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "cad0f5b09812": {
+      "slug": "cad0f5b09812",
+      "content_hash": "d80725882e2c1a3d1ee166810e5a5c528a4305e4345ec7da51d215b506de29e3",
+      "url": "https://www.pknu.ac.kr/main/306",
+      "last_seen_at": "2026-09-30T23:11:54+09:00",
+      "parser_version": 5,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학사정보",
+      "source_id": "cad0f5b09812",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "e287a456e554": {
+      "slug": "e287a456e554",
+      "content_hash": "46066fc5c152cf857186e0fb83e890c328689276e8fa276b0e95bf23c2d9d45e",
+      "url": "https://www.pknu.ac.kr/main/307",
+      "last_seen_at": "2026-09-30T23:11:56+09:00",
+      "parser_version": 5,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학사정보",
+      "source_id": "e287a456e554",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "3e01f0841ca2": {
+      "slug": "3e01f0841ca2",
+      "content_hash": "e04564a1436be9baf221d2e168fb5e37fdfe9c834434fa6f5ea0745dbc1aa68a",
+      "url": "https://www.pknu.ac.kr/main/308",
+      "last_seen_at": "2026-09-30T23:11:57+09:00",
+      "parser_version": 5,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학사정보",
+      "source_id": "3e01f0841ca2",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "b34214103c73": {
+      "slug": "b34214103c73",
+      "content_hash": "c42f00fae3c9d3469081bff65e850f8477e8370a443fa9e89879acdf6c6a60df",
+      "url": "https://www.pknu.ac.kr/main/257",
+      "last_seen_at": "2026-10-01T01:31:45+09:00",
+      "parser_version": 10,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "b34214103c73",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "c5d21ae81021": {
+      "slug": "c5d21ae81021",
+      "content_hash": "aa84e4f88400985de5937c260ed24120909f4b9b1541010aca753e3d4cfda075",
+      "url": "https://www.pknu.ac.kr/main/258",
+      "last_seen_at": "2026-10-01T01:31:47+09:00",
+      "parser_version": 10,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "c5d21ae81021",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "0ee04f198311": {
+      "slug": "0ee04f198311",
+      "content_hash": "59c7314357cf2641bf66024969a22325ea6998ac0d1edd01a6a0f9871757c529",
+      "url": "https://www.pknu.ac.kr/main/259",
+      "last_seen_at": "2026-10-01T12:16:58+09:00",
+      "parser_version": 11,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "0ee04f198311",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "8f96319b9cde": {
+      "slug": "8f96319b9cde",
+      "content_hash": "6e19c19755ca76d386eb776809b7b3230e6684cf3740b65c0ce57da82fcbbe79",
+      "url": "https://www.pknu.ac.kr/main/260",
+      "last_seen_at": "2026-10-01T12:17:13+09:00",
+      "parser_version": 11,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "c76230a252ed62b6df022678481bf1c87091aafde635604926322a876d55953e",
+      "subcategory": "학생생활",
+      "source_id": "8f96319b9cde",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "3288801c061f": {
+      "slug": "3288801c061f",
+      "content_hash": "04c349e7b3706e906b87529cdf1ec40f9e68428f04c33ecc4ba9b2e8df41faaa",
+      "url": "https://www.pknu.ac.kr/main/438",
+      "last_seen_at": "2026-10-01T12:39:22+09:00",
+      "parser_version": 11,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "3288801c061f",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "9522d9d6fa6f": {
+      "slug": "9522d9d6fa6f",
+      "content_hash": "58c951d932fd163f182eb46b3588020759bdb66de59de50ba1d7ded72fd60e3c",
+      "url": "https://www.pknu.ac.kr/main/494",
+      "last_seen_at": "2026-10-01T12:39:24+09:00",
+      "parser_version": 11,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "9522d9d6fa6f",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "6577bfd52db2": {
+      "slug": "6577bfd52db2",
+      "content_hash": "3d8c1db69b862ece065b1e6066b503675913de21f7a9fa221d3cd27fa0aaeafa",
+      "url": "https://www.pknu.ac.kr/main/263",
+      "last_seen_at": "2026-10-01T12:57:21+09:00",
+      "parser_version": 12,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reference_link_hash": "27c141f9c533febe414fde1a8f5164eaafeb77e0349a03892636eae33a2b61f5",
+      "subcategory": "학생생활",
+      "source_id": "6577bfd52db2",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "719ab1265046": {
+      "slug": "719ab1265046",
+      "content_hash": "2844762e9c709ff907697db07320745da57789a6205290aef2f1a94205e1d57e",
+      "url": "https://www.pknu.ac.kr/main/264",
+      "last_seen_at": "2026-10-01T12:57:22+09:00",
+      "parser_version": 12,
+      "image_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "attachment_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "reference_link_hash": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "subcategory": "학생생활",
+      "source_id": "719ab1265046",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:726430": {
+      "slug": "ebd9c2380ed9de64",
+      "content_hash": "54f5af679d3dc9c98129bd0191b0e216584d45cf73bb4f8775f95df9b4993a8d",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=726430",
+      "last_seen_at": "2026-10-01T13:13:07+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:726430",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:726378": {
+      "slug": "c607db8672a27849",
+      "content_hash": "23601d85d2be2d7a5c99fb05811d26ee48d196d3675bf067dcec7c842fb4c5a2",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=726378",
+      "last_seen_at": "2026-10-01T13:13:10+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:726378",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:726310": {
+      "slug": "b0dec1b117379632",
+      "content_hash": "dd3194bd5e6be74df9a949b8977eec126cd03908888c8db0763b3582f2bc9a97",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=726310",
+      "last_seen_at": "2026-10-01T13:13:13+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:726310",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:726226": {
+      "slug": "07acec84eddec23f",
+      "content_hash": "814cbd460882414388db949d2d085025f8bf6a47a587c8782031930af9de0160",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=726226",
+      "last_seen_at": "2026-10-01T13:13:15+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:726226",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:726131": {
+      "slug": "0803d0d3208fb6f2",
+      "content_hash": "3cb33d31171c86ccec1aad1860e5fab441337e5c90d8a20503a55cd3b7ada869",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=726131",
+      "last_seen_at": "2026-10-01T13:13:18+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:726131",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:726050": {
+      "slug": "13ec5874f81a27a0",
+      "content_hash": "20ee5ccd496d555af95680872ad9059c1f1909f1e854935f4ee8023b825971b1",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=726050",
+      "last_seen_at": "2026-10-01T13:13:20+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:726050",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725970": {
+      "slug": "7fc2ce86a0f55963",
+      "content_hash": "748a36bf63359b805ccd0fa635da68e3a3c3ae1b49e52951a0702252ba2cf7dd",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725970",
+      "last_seen_at": "2026-10-01T13:13:23+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725970",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725910": {
+      "slug": "9e36803d150064e3",
+      "content_hash": "0f2b42cd3e12273e9e34f12e19848e0cb71ad1fafd904c171ea86c00c56b6406",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725910",
+      "last_seen_at": "2026-10-01T13:13:25+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725910",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725819": {
+      "slug": "931922d9fef18fc4",
+      "content_hash": "4ea1dae780fd4a23d0f0e67ad07c325a87487db317a12b902b27e3aa0b42d46b",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725819",
+      "last_seen_at": "2026-10-01T13:13:27+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725819",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725750": {
+      "slug": "2194863f356d1673",
+      "content_hash": "00efc85f9c47694b85feea187c656a0627fb9d7aa15f9618a9ab00ffcb0ebb8c",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725750",
+      "last_seen_at": "2026-10-01T13:13:29+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725750",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725659": {
+      "slug": "ba94c0699f582187",
+      "content_hash": "b6a455217eb9654b5039d36dc20405ca839641c511ddef3de61cc37546107216",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725659",
+      "last_seen_at": "2026-10-01T13:13:31+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725659",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725552": {
+      "slug": "2bfde3d6415db4db",
+      "content_hash": "9e844f388251fa99df6ae6abc934f360dd89ed0c42f651f4a453396cb7812669",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725552",
+      "last_seen_at": "2026-10-01T13:13:33+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725552",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725419": {
+      "slug": "5ee41005e44baade",
+      "content_hash": "d391ed52b15786e9981d8ec568e8831d8666c19dac3126b411338d1ee8edff4c",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725419",
+      "last_seen_at": "2026-10-01T13:13:35+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725419",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725329": {
+      "slug": "1d60168c7c585d04",
+      "content_hash": "daad98acfddf6b893044d8bc188515dfcf205329e0edc9b1eca45be71beef304",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725329",
+      "last_seen_at": "2026-10-01T13:13:37+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725329",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "main:399:725269": {
+      "slug": "c7e03f105740b4b1",
+      "content_hash": "ae50fbe625d0bc93d459b166929f5fcc1d5b3dd1994c616c360e4fc521a78caa",
+      "url": "https://www.pknu.ac.kr/main/399?action=view&no=725269",
+      "last_seen_at": "2026-10-01T13:13:39+09:00",
+      "subcategory": "교내_식당_주간식단표",
+      "source_id": "main:399:725269",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "15f715d6aa8cfe9b": {
+      "slug": "15f715d6aa8cfe9b",
+      "content_hash": "941c91ca64b465d21cd1ae5f73c2e82dfcb398a858c4ee4c61d916fd25b8212b",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/08/02/c53536c5-8346-4484-9b72-788c21dbc399.pdf",
+      "last_seen_at": "2026-10-01T14:01:47+09:00",
+      "source_id": "15f715d6aa8cfe9b",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "d5629ef2fa77f3a9": {
+      "slug": "d5629ef2fa77f3a9",
+      "content_hash": "aace88ff5afada67cd84440ecc22596bcd6676c0fcce9eedf03a3414a0571c6c",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/08/02/31bb4b16-b43b-4c88-9eb7-790901a6fed0.pdf",
+      "last_seen_at": "2026-10-01T14:01:49+09:00",
+      "source_id": "d5629ef2fa77f3a9",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "8f636dfea862340a": {
+      "slug": "8f636dfea862340a",
+      "content_hash": "26ea9265bcdf67c5ab085f17ec82e02fcb2fb097adbaa162d0b092f0624a0ed3",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/08/02/6db28262-c86d-4622-b74a-9318979d5dde.pdf",
+      "last_seen_at": "2026-10-01T14:01:50+09:00",
+      "source_id": "8f636dfea862340a",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "9f6da9104b88d222": {
+      "slug": "9f6da9104b88d222",
+      "content_hash": "ef4733a930fb92908f4409459064d75c512b0deb3b9de68c70a8f5343750b567",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/08/02/dd0f12c3-b02a-45cb-8a04-c5e4f6ae6040.pdf",
+      "last_seen_at": "2026-10-01T14:01:51+09:00",
+      "source_id": "9f6da9104b88d222",
+      "miss_count": 0,
+      "status": "active"
+    },
+    "c327a56eb2313f44": {
+      "slug": "c327a56eb2313f44",
+      "content_hash": "afdff115a3d758eea1f47f7edf1c097171aca732deff2d2d3bb10bd372d9f57c",
+      "pdf_url": "https://www.pknu.ac.kr/upload/media/2024/08/02/fb7c4c97-7c4d-48fa-90e3-4becd7aa3a09.pdf",
+      "last_seen_at": "2026-10-01T14:01:52+09:00",
+      "source_id": "c327a56eb2313f44",
+      "miss_count": 0,
+      "status": "active"
+    }
+  }
+}

@@ -11,10 +11,7 @@ from scripts.crawlers.departments import engine
 from scripts.crawlers.departments.config import DEFAULT_REGISTRY_PATH, DepartmentConfig, SectionConfig, audit_registry, load_registry
 from scripts.crawlers.departments.engine import crawl_ready_configs
 from scripts.migrations.department_registry_categories import plan_registry
-from scripts.tests._paths import PROJECT_ROOT, FIXTURES_ROOT
-
-
-WORKSPACE_ROOT = PROJECT_ROOT
+from scripts.tests._paths import FIXTURES_ROOT
 
 
 class DepartmentConfigTests(unittest.TestCase):
@@ -144,7 +141,7 @@ class DepartmentConfigTests(unittest.TestCase):
     def test_duplicate_dataset_is_rejected(self) -> None:
         payload = json.loads(DEFAULT_REGISTRY_PATH.read_text(encoding="utf-8"))
         payload["departments"].append(dict(payload["departments"][0]))
-        with tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "registry.json"
             path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "duplicate datasets"):

@@ -3,10 +3,10 @@
 https://www.pknu.ac.kr/main/163
 
 저장 형식:
-  - files/pknu_notice/output/json/<category>/<slug>.json
-  - files/pknu_notice/output/html/<category>/<slug>.html
-  - files/pknu_notice/output/files/<category>/<slug>/<attachment>
-  - files/pknu_notice/output/deleted/<category>/<slug>.json
+  - files/pknu_main/커뮤니티/공지사항/<category>/json/posts/<slug>.json
+  - files/pknu_main/커뮤니티/공지사항/<category>/html/<slug>.html
+  - files/pknu_main/커뮤니티/공지사항/<category>/files/<slug>/<format>/<attachment>
+  - files/pknu_main/_archive/pknu_notice/deleted/<category>/<slug>.json
 
 실행:
   - python scripts/crawlers/pknu_notice.py
@@ -621,7 +621,9 @@ def save_attachments(
 
         filename = unique_attachment_filename(filename, used_names)
 
-        output_file = file_dir / filename
+        from scripts.main.paths import attachment_path
+        output_file = attachment_path(file_dir, filename, PROJECT_ROOT)
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         try:
             with output_file.open("wb") as f:
                 for chunk in resp.iter_content(chunk_size=1024 * 256):
@@ -820,11 +822,11 @@ def crawl_details(
             )
             stats.count_attachments(doc.get("attachments"))
         was_existing = bool(existing_path and existing_path.exists())
-        if existing_path and existing_path.parent.name != save_folder:
+        if existing_path and existing_path != PATHS.document_json(save_folder, slug):
             # 첫 카테고리 폴더가 바뀐 경우: 기존 파일 제거 후 새 경로에 저장
             try:
                 existing_path.unlink(missing_ok=True)
-                old_html = existing_path.parent.parent.parent / "html" / existing_path.parent.name / f"{slug}.html"
+                old_html = PATHS.document_html(category_dir_name(existing_doc["category"]), slug)
                 if old_html.exists():
                     old_html.unlink()
             except OSError as exc:
@@ -944,7 +946,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reset-state",
         action="store_true",
-        help="files/pknu_notice/state.json을 빈 공통 상태로 초기화",
+        help="files/pknu_main/_state/pknu_notice.json을 빈 공통 상태로 초기화",
     )
     parser.add_argument(
         "--once",

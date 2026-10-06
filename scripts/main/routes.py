@@ -1,74 +1,62 @@
-"""Verified /main/<id> routes and their collection strategy.
-
-Only IDs listed here may enter the collection runner. Inventory/catalog labels
-are observations, not permission to send an unverified page to a generic parser.
-"""
-
+"""Verified main-site collection rules loaded from pages.json."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+from pathlib import Path
+
+
+CONFIG_FILE = Path(__file__).with_name("pages.json")
+_rows = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))["pages"]
+PAGE_SETTINGS: dict[int, dict] = {}
+for _row in _rows:
+    _id = _row["page_id"]
+    if not isinstance(_id, int) or _id in PAGE_SETTINGS:
+        raise ValueError(f"invalid or duplicate page ID: {_id}")
+    if _row.get("enabled"):
+        if not _row.get("handler") or not _row.get("category_path"):
+            raise ValueError(f"page {_id} needs a handler and category_path")
+        for _part in _row["category_path"]:
+            if not isinstance(_part, str) or not _part or _part in {".", ".."} or any(c in _part for c in '/\\:*?"<>|'):
+                raise ValueError(f"invalid category component on page {_id}")
+    PAGE_SETTINGS[_id] = _row
 
 
 @dataclass(frozen=True)
 class MainRoute:
     page_id: int
     handler: str
+    category_path: tuple[str, ...] = ()
+    follow_links: bool = True
+    download_attachments: bool = True
 
     @property
     def url(self) -> str:
         return f"https://www.pknu.ac.kr/main/{self.page_id}"
 
 
-# Existing, verified pknu_student_life page routes.
-STATIC_PAGE_IDS: tuple[int, ...] = (
-    17, 92, 93, 94, 96, 97, 98, 99, 101, 103, 104, 114, 115, 117,
-    118, 119, 230, 231, 232, 237, 242, 243, 244, 245, 246, 247, 248,
-    257, 258, 259, 260, 262, 263, 264, 306, 307, 308, 438, 449, 481, 494,
-)
-# These pages are collected only at their own URLs. Links inside them remain
-# part of the page content and never add another route to the run.
-NO_FOLLOW_LINK_PAGE_IDS = frozenset({262, 263, 306, 307, 308, 494})
-# Previously collected pages retain their original folders. Newly registered
-# static pages default to the current student-life category.
-ACADEMIC_GUIDE_STATIC_PAGE_IDS = frozenset({
-    17, 92, 93, 94, 96, 97, 98, 99, 103, 117, 119,
-    230, 231, 232, 237, 242, 243, 244, 245, 246, 248, 481,
-    95,  # fixed introduction above the credit-transfer board
-})
-ACADEMIC_INFO_STATIC_PAGE_IDS = frozenset({101, 104, 247, 306, 307, 308})
-BOARD_PAGE_IDS = (95, 399)
-# /main/100 only forwards to another site and has no collectable page body.
-# /main/416 (image-only facility map) is deferred from collection.
-# /main/472 (custom scholarship search) is explicitly outside the collection scope.
-EXCLUDED_PAGE_IDS = frozenset({100, 416, 472})
-LINK_HUB_PAGE_IDS = (110,)
-TUITION_PAGE_IDS = (102,)
-ORG_PAGE_IDS = (533,)
-CURRICULUM_FILE_PAGE_IDS = (106, 362)
-REDIRECT_PAGE_TARGETS = {
-    112: "https://irumi.pknu.ac.kr/link.jsp?menuId=U020913",
-    528: "https://yebigun.pknu.ac.kr/",
-}
-FILE_PAGE_IDS = (238,)
-ACADEMIC_CALENDAR_PAGE_IDS = (31,)
-MAJOR_PROGRAM_PAGE_IDS = (233, 234, 235)
-NOTICE_PAGE_IDS = (163,)
-GUIDE_PAGE_IDS = (434,)
+def _ids(handler: str) -> tuple[int, ...]:
+    return tuple(i for i, row in PAGE_SETTINGS.items() if row.get("enabled") and row["handler"] == handler)
 
-ROUTE_GROUPS = {
-    "static": STATIC_PAGE_IDS,
-    "board": BOARD_PAGE_IDS,
-    "link_hub": LINK_HUB_PAGE_IDS,
-    "tuition": TUITION_PAGE_IDS,
-    "organization": ORG_PAGE_IDS,
-    "curriculum_files": CURRICULUM_FILE_PAGE_IDS,
-    "redirect": tuple(REDIRECT_PAGE_TARGETS),
-    "file": FILE_PAGE_IDS,
-    "academic_calendar": ACADEMIC_CALENDAR_PAGE_IDS,
-    "major_program": MAJOR_PROGRAM_PAGE_IDS,
-    "notice": NOTICE_PAGE_IDS,
-    "guide": GUIDE_PAGE_IDS,
-}
+
+STATIC_PAGE_IDS = _ids("static")
+BOARD_PAGE_IDS = _ids("board")
+LINK_HUB_PAGE_IDS = _ids("link_hub")
+TUITION_PAGE_IDS = _ids("tuition")
+ORG_PAGE_IDS = _ids("organization")
+CURRICULUM_FILE_PAGE_IDS = _ids("curriculum_files")
+FILE_PAGE_IDS = _ids("file")
+ACADEMIC_CALENDAR_PAGE_IDS = _ids("academic_calendar")
+MAJOR_PROGRAM_PAGE_IDS = _ids("major_program")
+NOTICE_PAGE_IDS = _ids("notice")
+TODAY_PAGE_IDS = _ids("today")
+GUIDE_PAGE_IDS = _ids("guide")
+REDIRECT_PAGE_TARGETS = {i: PAGE_SETTINGS[i]["redirect_target"] for i in _ids("redirect")}
+EXCLUDED_PAGE_IDS = frozenset(i for i, row in PAGE_SETTINGS.items() if not row.get("enabled"))
+NO_FOLLOW_LINK_PAGE_IDS = frozenset(i for i in STATIC_PAGE_IDS if not PAGE_SETTINGS[i].get("follow_links", True))
+ACADEMIC_GUIDE_STATIC_PAGE_IDS = frozenset(i for i in (*STATIC_PAGE_IDS, 95) if PAGE_SETTINGS[i]["category_path"][1] == "학사안내")
+ACADEMIC_INFO_STATIC_PAGE_IDS = frozenset(i for i in STATIC_PAGE_IDS if PAGE_SETTINGS[i]["category_path"][1] == "학사정보")
+ROUTE_GROUPS = {handler: _ids(handler) for handler in dict.fromkeys(row["handler"] for row in PAGE_SETTINGS.values() if row.get("enabled"))}
 
 
 def _build_routes() -> dict[int, MainRoute]:
@@ -77,28 +65,26 @@ def _build_routes() -> dict[int, MainRoute]:
         for page_id in page_ids:
             if page_id in routes:
                 raise ValueError(f"/main/{page_id} has multiple handlers")
-            routes[page_id] = MainRoute(page_id, handler)
-    excluded_routes = routes.keys() & EXCLUDED_PAGE_IDS
-    if excluded_routes:
-        raise ValueError(f"excluded main pages have handlers: {sorted(excluded_routes)}")
-    invalid_no_follow = NO_FOLLOW_LINK_PAGE_IDS - set(STATIC_PAGE_IDS)
-    if invalid_no_follow:
-        raise ValueError(f"no-follow pages must be static: {sorted(invalid_no_follow)}")
+            row = PAGE_SETTINGS.get(page_id, {})
+            routes[page_id] = MainRoute(page_id, handler, tuple(row.get("category_path", ())),
+                                        row.get("follow_links", True), row.get("download_attachments", True))
+    if routes.keys() & EXCLUDED_PAGE_IDS:
+        raise ValueError(f"excluded main pages have handlers: {sorted(routes.keys() & EXCLUDED_PAGE_IDS)}")
+    if NO_FOLLOW_LINK_PAGE_IDS - set(STATIC_PAGE_IDS):
+        raise ValueError("no-follow pages must be static")
     return routes
 
 
 ROUTES = _build_routes()
-STUDENT_LIFE_PAGE_IDS = frozenset(
-    ROUTES.keys() - set(ACADEMIC_CALENDAR_PAGE_IDS) - set(MAJOR_PROGRAM_PAGE_IDS)
-    - set(NOTICE_PAGE_IDS) - set(GUIDE_PAGE_IDS) - set(CURRICULUM_FILE_PAGE_IDS)
-)
+STUDENT_LIFE_PAGE_IDS = frozenset(ROUTES.keys() - set(ACADEMIC_CALENDAR_PAGE_IDS)
+    - set(MAJOR_PROGRAM_PAGE_IDS) - set(NOTICE_PAGE_IDS) - set(TODAY_PAGE_IDS)
+    - set(GUIDE_PAGE_IDS) - set(CURRICULUM_FILE_PAGE_IDS))
 CONFIGURED_PAGE_IDS = frozenset(ROUTES)
 
 
 def plan(page_ids: list[int]) -> list[dict]:
-    """Describe a requested run, including unknown IDs, without fetching pages."""
-    return [{"page_id": page_id, "url": f"https://www.pknu.ac.kr/main/{page_id}",
-             "handler": ROUTES[page_id].handler if page_id in ROUTES else None,
-             "status": ("configured" if page_id in ROUTES else "excluded"
-                        if page_id in EXCLUDED_PAGE_IDS else "needs_review")}
-            for page_id in dict.fromkeys(page_ids)]
+    return [{"page_id": i, "url": f"https://www.pknu.ac.kr/main/{i}",
+             "handler": ROUTES[i].handler if i in ROUTES else None,
+             "category_path": list(ROUTES[i].category_path) if i in ROUTES else [],
+             "status": "configured" if i in ROUTES else "excluded" if i in EXCLUDED_PAGE_IDS else "needs_review"}
+            for i in dict.fromkeys(page_ids)]

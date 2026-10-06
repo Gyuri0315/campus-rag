@@ -26,7 +26,7 @@ from scripts.crawlers.departments.urls import resolve_url
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 BASE_URL = "https://www.pknu.ac.kr"
 USER_AGENT = "campus-rag-page-inventory/1.0"
-DEFAULT_OUTPUT = PROJECT_ROOT / "files/_discovery/pknu_main"
+DEFAULT_OUTPUT = PROJECT_ROOT / "files/pknu_main/_discovery"
 ERROR_TEXT = re.compile(r"페이지\s*(?:를|가)?\s*(?:찾을\s*수\s*없|존재하지\s*않)|잘못된\s*(?:접근|요청)|요청하신\s*페이지.*(?:없|오류)|page\s+not\s+found", re.I)
 DENY_TEXT = re.compile(r"접근\s*(?:권한이\s*없|이\s*거부|할\s*수\s*없|금지)|비정상적인\s*접근|access\s+denied|request\s+blocked", re.I)
 FILE_EXT = re.compile(r"\.(?:pdf|hwp|hwpx|docx?|xlsx?|pptx?|zip|txt)(?:$|[?#])", re.I)

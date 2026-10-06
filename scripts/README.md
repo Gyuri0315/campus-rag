@@ -4,6 +4,9 @@
 
 Evaluation commands and datasets live under `eval/`; see `eval/README.md`.
 Main-site page routes and discovery tools live under `scripts/main/`; see `scripts/main/README.md`.
+Main-site collection settings are in `scripts/main/pages.json`. Its results share
+`files/pknu_main/`, organized by site category and then file format. Incremental
+state is in `_state/`; RAG intermediates are in `_derived/<logical-dataset>/`.
 
 ```text
 scripts/

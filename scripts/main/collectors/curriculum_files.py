@@ -19,6 +19,7 @@ from scripts.crawlers.common.schema import (
     now_kst, sanitize_attachment_filename, url_source_id, validate_common_document,
 )
 from scripts.crawlers.common.storage import get_dataset_paths
+from scripts.main.paths import page_json
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -93,7 +94,7 @@ def _download_pdf(
     session: requests.Session, page_url: str, candidate: dict[str, str],
     slug: str, existing_doc: dict | None, *, full_resync: bool,
 ) -> dict:
-    destination = PATHS.attachment_dir(SUBCATEGORY, slug) / candidate["filename"]
+    destination = PATHS.attachment_file(SUBCATEGORY, slug, candidate["filename"])
     old_attachment = (existing_doc.get("attachments") or [{}])[0] if existing_doc else {}
     reusable = (
         not full_resync
@@ -292,7 +293,7 @@ def collect_curriculum_files(
     for index, candidate in enumerate(candidates, start=1):
         source_id = f"main:{page_id}:attachment:{url_source_id(candidate['url'])}"
         slug = document_slug("pknu_student_life", source_id)
-        doc_path = PATHS.document_json(SUBCATEGORY, slug)
+        doc_path = PATHS.document_json(SUBCATEGORY, slug, kind="attachments")
         existing_doc = _existing_document(doc_path)
         attachment = _download_pdf(
             session, page_url, candidate, slug, existing_doc, full_resync=full_resync,
@@ -381,7 +382,7 @@ def collect_curriculum_files(
             item["status"] != "success" for item in summaries) else "success",
         "attachment_count": len(summaries), "attachments": summaries,
     }
-    target = PATHS.output / SUBCATEGORY / f"main_{page_id}.json"
+    target = page_json(ROOT, page_id)
     _write_json(target, manifest)
     manifest["output"] = target.relative_to(ROOT).as_posix()
     return manifest

@@ -38,12 +38,12 @@ DATASET_TABLES = {
         "chunks": "rag_chunks",
     },
     "pknu_notice": {
-        "index": PROJECT_ROOT / "files" / "pknu_notice" / "vectorized" / "index.jsonl",
+        "index": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized" / "index.jsonl",
         "sources": "pknu_notice_sources",
         "chunks": "pknu_notice_chunks",
     },
     "pknu_student_life": {
-        "index": PROJECT_ROOT / "files" / "pknu_student_life" / "vectorized" / "index.jsonl",
+        "index": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "vectorized" / "index.jsonl",
         "sources": "pknu_student_life_sources",
         "chunks": "pknu_student_life_chunks",
     },

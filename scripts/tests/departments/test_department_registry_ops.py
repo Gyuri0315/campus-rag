@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from scripts.tests._paths import PROJECT_ROOT
-
 import argparse
 import io
 import json
@@ -17,9 +15,6 @@ from scripts.crawlers.departments.discovery import DiscoveryResult
 from scripts.crawlers.departments.probe import ProbeResult
 from scripts.crawlers.departments.registry_ops import accepted_sections, plan_discovery_updates
 from scripts.crawlers.departments.freshness import add_result_provenance
-
-
-WORKSPACE_ROOT = PROJECT_ROOT
 
 
 def sample_config() -> DepartmentConfig:
@@ -66,7 +61,7 @@ class DepartmentRegistryOpsTests(unittest.TestCase):
             }],
         }
         discovery = add_result_provenance(discovery, sample_config())
-        with tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "econ.pknu.ac.kr" / "discovery.json"
             path.parent.mkdir(parents=True)
             path.write_text(json.dumps(discovery, ensure_ascii=False), encoding="utf-8")
@@ -94,7 +89,7 @@ class DepartmentRegistryOpsTests(unittest.TestCase):
             site_key="econ.pknu.ac.kr", base_url=site.homepage,
             status="success", site_prefix="econ", sections=[], errors=[],
         )
-        with tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             args = argparse.Namespace(
                 registry=root / "registry.json", sites=root / "sites.csv",

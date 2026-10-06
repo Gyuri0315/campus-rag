@@ -61,6 +61,22 @@ class WebDataset:
     def preprocessed_files_root(self) -> Path:
         return self.preprocessed_root / "files"
 
+    def source_roots(self, kind: str) -> list[Path]:
+        if self.name in {"pknu_notice", "pknu_student_life"}:
+            return sorted(path for path in self.output_root.rglob(kind) if path.is_dir())
+        return [self.output_root / kind]
+
+    def processed_root(self, source_root: Path, kind: str) -> Path:
+        if self.name in {"pknu_notice", "pknu_student_life"}:
+            return self.preprocessed_root / kind / source_root.parent.relative_to(self.output_root)
+        return self.preprocessed_root / kind
+
+    def source_for(self, path: Path, kind: str) -> Path:
+        matches = [root for root in self.source_roots(kind) if path.resolve().is_relative_to(root.resolve())]
+        if not matches:
+            raise ValueError(f"source outside {self.name} {kind} roots: {path}")
+        return max(matches, key=lambda root: len(root.parts))
+
 
 WEB_DATASETS = {
     "ce": WebDataset(
@@ -70,13 +86,13 @@ WEB_DATASETS = {
     ),
     "pknu_notice": WebDataset(
         name="pknu_notice",
-        output_root=PROJECT_ROOT / "files" / "pknu_notice" / "output",
-        preprocessed_root=PROJECT_ROOT / "files" / "pknu_notice" / "preprocessed",
+        output_root=PROJECT_ROOT / "files" / "pknu_main" / "커뮤니티" / "공지사항",
+        preprocessed_root=PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "preprocessed",
     ),
     "pknu_student_life": WebDataset(
         name="pknu_student_life",
-        output_root=PROJECT_ROOT / "files" / "pknu_student_life" / "output",
-        preprocessed_root=PROJECT_ROOT / "files" / "pknu_student_life" / "preprocessed",
+        output_root=PROJECT_ROOT / "files" / "pknu_main" / "대학생활",
+        preprocessed_root=PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "preprocessed",
     ),
 }
 
@@ -116,43 +132,27 @@ def run_web_dataset(
     file_exts: set[str] | None,
     targets: dict[str, list[Path]] | None = None,
 ) -> None:
-    log.info("[%s] JSON preprocessing", dataset.name)
-    run_file_preprocessing(
-        input_root=dataset.json_root,
-        output_root=dataset.preprocessed_json_root,
-        output_json_root=dataset.json_root,
-        project_root=PROJECT_ROOT,
-        failed_from_log=None,
-        dry_run=dry_run,
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        pdf_ocr_mode=pdf_ocr_mode,
-        ocr_language=ocr_language,
-        ocr_dpi=ocr_dpi,
-        layout="flat",
-        file_exts=None,
-        changed_only=changed_only,
-        target_files=(targets or {}).get("json"),
-    )
-
-    log.info("[%s] attachment preprocessing", dataset.name)
-    run_file_preprocessing(
-        input_root=dataset.files_root,
-        output_root=dataset.preprocessed_files_root,
-        output_json_root=dataset.json_root,
-        project_root=PROJECT_ROOT,
-        failed_from_log=None,
-        dry_run=dry_run,
-        chunk_size=chunk_size,
-        chunk_overlap=chunk_overlap,
-        pdf_ocr_mode=pdf_ocr_mode,
-        ocr_language=ocr_language,
-        ocr_dpi=ocr_dpi,
-        layout="by_ext",
-        file_exts=file_exts,
-        changed_only=changed_only,
-        target_files=(targets or {}).get("files"),
-    )
+    for kind in ("json", "files"):
+        for source_root in dataset.source_roots(kind):
+            selected = None if targets is None else [p for p in targets.get(kind, [])
+                                                     if p.resolve().is_relative_to(source_root.resolve())]
+            if kind == "json" and dataset.name in {"pknu_notice", "pknu_student_life"}:
+                from scripts.main.paths import is_crawler_document
+                selected = [p for p in (source_root.rglob("*.json") if selected is None else selected)
+                            if is_crawler_document(p)]
+            if selected == []:
+                continue
+            run_file_preprocessing(
+                input_root=source_root,
+                output_root=dataset.processed_root(source_root, kind),
+                output_json_root=source_root if kind == "json" else source_root.parent / "json",
+                project_root=PROJECT_ROOT, failed_from_log=None, dry_run=dry_run,
+                chunk_size=chunk_size, chunk_overlap=chunk_overlap,
+                pdf_ocr_mode=pdf_ocr_mode, ocr_language=ocr_language, ocr_dpi=ocr_dpi,
+                layout="flat" if kind == "json" else "by_ext",
+                file_exts=None if kind == "json" else file_exts,
+                changed_only=changed_only, target_files=selected,
+            )
 
 
 def run_rule_dataset(

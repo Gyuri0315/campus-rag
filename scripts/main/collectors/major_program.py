@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
+from scripts.main.paths import page_root
 import shutil
 
 from bs4 import BeautifulSoup
@@ -63,7 +64,7 @@ def collect_major_program(session: requests.Session, page_id: int, *,
         html = payload.decode(response.encoding or "utf-8")
     title, candidates = parse_major_program_page(html, page_id)
     records = save_body_images(candidates, session=session, page_url=url,
-                               output_dir=ROOT / "files/pknu_main/output/images",
+                               output_dir=page_root(ROOT, page_id) / "files" / f"main_{page_id}" / "images",
                                project_root=ROOT)
     if len(records) != 1 or records[0]["status"] != "saved":
         raise ValueError(f"major-program image download failed: {records[0].get('error') if records else 'no record'}")

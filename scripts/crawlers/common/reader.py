@@ -29,6 +29,16 @@ def infer_dataset_from_path(path: Path) -> str | None:
     if "files" in folded:
         index = folded.index("files")
         if index + 1 < len(parts):
+            if parts[index + 1] == "pknu_main":
+                tail = parts[index + 2:]
+                if "_derived" in tail:
+                    stage = tail.index("_derived")
+                    if stage + 1 < len(tail):
+                        return tail[stage + 1]
+                if len(tail) >= 2 and tail[:2] == ("커뮤니티", "공지사항"):
+                    return "pknu_notice"
+                if tail and tail[0] == "대학생활":
+                    return "pknu_student_life"
             return parts[index + 1]
     return None
 

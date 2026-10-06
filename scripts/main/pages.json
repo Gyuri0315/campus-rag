@@ -1,0 +1,694 @@
+{
+  "schema_version": 1,
+  "pages": [
+    {
+      "page_id": 17,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 31,
+      "handler": "academic_calendar",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "학사일정"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 51,
+      "handler": "today",
+      "category_path": [
+        "커뮤니티",
+        "부경투데이"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 52,
+      "handler": "today",
+      "category_path": [
+        "커뮤니티",
+        "교수동정"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 53,
+      "handler": "today",
+      "category_path": [
+        "커뮤니티",
+        "부경나우"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 92,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 93,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 94,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 95,
+      "handler": "board",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "학점교류"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 96,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 97,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 98,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 99,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 101,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 102,
+      "handler": "tuition",
+      "category_path": [
+        "대학생활",
+        "학사정보",
+        "등록금_안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 103,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "수강신청"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 104,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 106,
+      "handler": "curriculum_files",
+      "category_path": [
+        "대학생활",
+        "교육과정"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 110,
+      "handler": "link_hub",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 112,
+      "handler": "redirect",
+      "category_path": [
+        "대학생활",
+        "수강신청"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "redirect_target": "https://irumi.pknu.ac.kr/link.jsp?menuId=U020913"
+    },
+    {
+      "page_id": 114,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 115,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 117,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 118,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 119,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 163,
+      "handler": "notice",
+      "category_path": [
+        "커뮤니티",
+        "공지사항"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 230,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 231,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 232,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 233,
+      "handler": "major_program",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "전공제도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 234,
+      "handler": "major_program",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "전공제도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 235,
+      "handler": "major_program",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "전공제도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 237,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 238,
+      "handler": "file",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 242,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 243,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 244,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 245,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 246,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 247,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 248,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 257,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 258,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 259,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 260,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 262,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 263,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 264,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 306,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 307,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 308,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 362,
+      "handler": "curriculum_files",
+      "category_path": [
+        "대학생활",
+        "교육과정"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 399,
+      "handler": "board",
+      "category_path": [
+        "대학생활",
+        "학생생활",
+        "교내_식당_주간식단표"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 434,
+      "handler": "guide",
+      "category_path": [
+        "대학생활",
+        "학생생활",
+        "대학생활_가이드"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 438,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 449,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 481,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 494,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 528,
+      "handler": "redirect",
+      "category_path": [
+        "대학생활",
+        "학생생활",
+        "예비군"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "redirect_target": "https://yebigun.pknu.ac.kr/"
+    },
+    {
+      "page_id": 533,
+      "handler": "organization",
+      "category_path": [
+        "대학소개",
+        "조직도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 100,
+      "handler": null,
+      "category_path": [],
+      "enabled": false
+    },
+    {
+      "page_id": 416,
+      "handler": null,
+      "category_path": [],
+      "enabled": false
+    },
+    {
+      "page_id": 472,
+      "handler": null,
+      "category_path": [],
+      "enabled": false
+    }
+  ]
+}

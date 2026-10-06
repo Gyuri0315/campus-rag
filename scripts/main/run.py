@@ -16,11 +16,12 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from scripts.main.routes import ROUTES, STUDENT_LIFE_PAGE_IDS, plan
+from scripts.main.paths import main_root, page_json
 
 
 ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_REPORT = ROOT / "files/pknu_main/output/main_run_report.json"
-STUDENT_LIFE_ROUTE_REPORT = ROOT / "files/pknu_main/output/student_life_route_inventory.json"
+DEFAULT_REPORT = main_root(ROOT) / "_runs" / "main_run_report.json"
+STUDENT_LIFE_ROUTE_REPORT = main_root(ROOT) / "_runs" / "student_life_route_inventory.json"
 
 
 def _inside_repo(path: Path) -> Path:
@@ -39,7 +40,7 @@ def _write_json(path: Path, value: dict) -> None:
 def _calendar_path(year: int, months: list[int]) -> Path:
     suffix = "" if set(months) == set(range(1, 13)) else "_m" + "-".join(
         f"{month:02d}" for month in sorted(set(months)))
-    return ROOT / "files/pknu_main/output/academic_calendar" / f"main_31_{year}{suffix}.json"
+    return page_json(ROOT, 31, f"main_31_{year}{suffix}.json")
 
 
 def execute(page_ids: list[int], *, year: int, months: list[int], full_resync: bool,
@@ -91,6 +92,31 @@ def execute(page_ids: list[int], *, year: int, months: list[int], full_resync: b
         except Exception as exc:
             item.update(status="failed", error=f"{type(exc).__name__}: {exc}")
             report["collectors"]["notice"] = {"status": "failed", "error": item["error"]}
+    today_items = [item for item in routes if item["handler"] == "today"]
+    if today_items:
+        import requests
+
+        from scripts.main.collectors.pknu_today import OUTPUT, collect_first_page
+
+        with requests.Session() as session:
+            session.headers.update({"User-Agent": "campus-rag/1.0 (+https://www.pknu.ac.kr)"})
+            for item in today_items:
+                try:
+                    data = collect_first_page(session, item["page_id"])
+                    manifest = OUTPUT / "_runs" / "pknu_today" / f'main_{item["page_id"]}_page1.json'
+                    item.update(status=data["status"],
+                                output=manifest.relative_to(ROOT).as_posix(),
+                                post_count=data["saved_count"],
+                                failed_count=data["failed_count"])
+                except Exception as exc:
+                    item.update(status="failed", error=f"{type(exc).__name__}: {exc}")
+        report["collectors"]["today"] = {
+            "status": "failed" if any(item["status"] == "failed" for item in today_items)
+            else "needs_review" if any(item["status"] == "needs_review" for item in today_items)
+            else "completed",
+            "page_ids": [item["page_id"] for item in today_items],
+            "list_pages_per_section": 1,
+        }
     if any(item["handler"] == "guide" for item in routes):
         item = next(item for item in routes if item["handler"] == "guide")
         try:
@@ -124,8 +150,7 @@ def execute(page_ids: list[int], *, year: int, months: list[int], full_resync: b
             for item in major_items:
                 try:
                     data = collect_major_program(session, item["page_id"])
-                    target = (ROOT / "files/pknu_main/output/major_program"
-                              / f'main_{item["page_id"]}.json')
+                    target = page_json(ROOT, item["page_id"])
                     _write_json(target, data)
                     item.update(status=data["status"],
                                 output=target.relative_to(ROOT).as_posix(),

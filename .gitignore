@@ -1,6 +1,12 @@
 # Runtime crawler data
-files/
-FILES/
+files/*
+FILES/*
+!files/pknu_main/
+files/pknu_main/*
+!files/pknu_main/_state/
+files/pknu_main/_state/*
+!files/pknu_main/_state/pknu_notice.json
+!files/pknu_main/_state/pknu_student_life.json
 output/
 outputs/
 preprocessed/

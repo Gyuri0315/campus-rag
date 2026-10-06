@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from scripts.tests._paths import PROJECT_ROOT
-
 import hashlib
 import json
 import tempfile
@@ -19,16 +17,9 @@ from scripts.crawlers.common.schema import (
 )
 from scripts.rule.preprocessing import extract_rule_json_blocks
 
-WORKSPACE_ROOT = PROJECT_ROOT
-
-
-def workspace_tempdir() -> tempfile.TemporaryDirectory[str]:
-    return tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT)
-
-
 class AttachmentSchemaTests(unittest.TestCase):
     def test_download_success_has_relative_path_size_and_sha256(self) -> None:
-        with workspace_tempdir() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             saved = root / "files" / "guide.pdf"
             saved.parent.mkdir(parents=True)
@@ -54,7 +45,7 @@ class AttachmentSchemaTests(unittest.TestCase):
             self.assertEqual(attachment["downloaded_from_url"], attachment["final_url"])
 
     def test_http_failure_keeps_attachment_with_structured_error(self) -> None:
-        with workspace_tempdir() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             attachment = build_attachment(
                 index=2,
@@ -71,7 +62,7 @@ class AttachmentSchemaTests(unittest.TestCase):
             self.assertTrue(attachment["error"]["retryable"])
 
     def test_empty_file_is_valid_download_with_zero_size(self) -> None:
-        with workspace_tempdir() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             saved = root / "empty.pdf"
             saved.write_bytes(b"")
@@ -99,7 +90,7 @@ class AttachmentSchemaTests(unittest.TestCase):
         self.assertEqual(failed["error"], "parser crashed")
 
     def test_text_extraction_success_is_json_serializable(self) -> None:
-        with workspace_tempdir() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             saved = root / "rule.hwp"
             saved.write_bytes(b"rule")
@@ -127,7 +118,7 @@ class AttachmentSchemaTests(unittest.TestCase):
         self.assertEqual(unique_attachment_filename("report.pdf", used), "report_2.pdf")
 
     def test_legacy_attachment_is_upgraded_without_losing_legacy_fields(self) -> None:
-        with workspace_tempdir() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             saved = root / "legacy.pdf"
             saved.write_bytes(b"legacy")
@@ -168,7 +159,7 @@ class AttachmentSchemaTests(unittest.TestCase):
             ],
             "file_preview_texts": [{"text": "legacy attachment text"}],
         }
-        with workspace_tempdir() as temp_dir:
+        with tempfile.TemporaryDirectory() as temp_dir:
             blocks, _ = extract_rule_json_blocks(doc, Path(temp_dir))
         block_texts = [block["text"] for block in blocks]
         self.assertIn("canonical attachment text", block_texts)

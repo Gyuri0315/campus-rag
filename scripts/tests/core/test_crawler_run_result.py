@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-from scripts.tests._paths import PROJECT_ROOT
-
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from scripts.crawlers.common.schema import CrawlStats, RunResult, classify_document
-
-
-WORKSPACE_ROOT = PROJECT_ROOT
 
 
 class CrawlerRunResultTests(unittest.TestCase):
@@ -55,11 +50,11 @@ class CrawlerRunResultTests(unittest.TestCase):
         self.assertEqual((1, 3, 2, 1), (total.new, total.updated, total.skipped, total.failed))
 
     def test_result_path_and_json_schema(self) -> None:
-        with tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT) as directory:
+        with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             result = RunResult("pknu_student_life", "smoke", stats=CrawlStats(skipped=3)).finish()
             path = result.save(root)
-            self.assertEqual(root / "files" / "pknu_student_life" / "output" / "runs" / f"{result.run_id}.json", path)
+            self.assertEqual(root / "files" / "pknu_main" / "_runs" / "pknu_student_life" / f"{result.run_id}.json", path)
             payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual("1.0", payload["schema_version"])
             self.assertIn("+09:00", payload["started_at"])

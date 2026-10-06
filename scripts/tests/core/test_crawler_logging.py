@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from scripts.tests._paths import PROJECT_ROOT
-
 import io
 import json
 import logging
@@ -12,12 +10,9 @@ from pathlib import Path
 from scripts.crawlers.common.logging import configure_crawler_logging, log_event, set_run_id
 
 
-WORKSPACE_ROOT = PROJECT_ROOT
-
-
 class CrawlerLoggingTests(unittest.TestCase):
     def setUp(self) -> None:
-        self.temp = tempfile.TemporaryDirectory(dir=WORKSPACE_ROOT)
+        self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.console = io.StringIO()
         self.logger, self.context = configure_crawler_logging(

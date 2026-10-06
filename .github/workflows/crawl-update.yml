@@ -53,6 +53,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add state.json state_pknu_notice.json state_pknu_student_life.json
+          for state_path in files/ce/state.json files/rule/state.json files/pknu_main/_state/pknu_notice.json files/pknu_main/_state/pknu_student_life.json; do
+            if [ -f "$state_path" ]; then
+              git add -f -- "$state_path"
+            fi
+          done
           git diff --cached --quiet || git commit -m "chore(crawler): update crawl state [skip ci]"
           git push

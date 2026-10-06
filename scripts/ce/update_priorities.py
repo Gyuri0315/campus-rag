@@ -35,8 +35,8 @@ LOG_FILE = LOG_DIR / "update_ce_priorities.log"
 DEFAULT_CE_INDEX = PROJECT_ROOT / "files" / "ce" / "vectorized" / "index.jsonl"
 DEFAULT_RULE_INDEX = PROJECT_ROOT / "files" / "rule" / "vectorized" / "index.jsonl"
 DEFAULT_MAIN_INDEXES = (
-    PROJECT_ROOT / "files" / "pknu_notice" / "vectorized" / "index.jsonl",
-    PROJECT_ROOT / "files" / "pknu_student_life" / "vectorized" / "index.jsonl",
+    PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized" / "index.jsonl",
+    PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "vectorized" / "index.jsonl",
 )
 
 log = logging.getLogger(__name__)

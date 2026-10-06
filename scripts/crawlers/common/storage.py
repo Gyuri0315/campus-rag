@@ -55,7 +55,7 @@ class DatasetPaths:
     def category_html(self, category: str) -> Path:
         return self.html / safe_component(category, "category")
 
-    def document_json(self, category: str, slug: str) -> Path:
+    def document_json(self, category: str, slug: str, *, kind: str | None = None) -> Path:
         return self.category_json(category) / f"{safe_component(slug, 'slug')}.json"
 
     def document_html(self, category: str, slug: str) -> Path:
@@ -63,6 +63,12 @@ class DatasetPaths:
 
     def attachment_dir(self, category: str, slug: str) -> Path:
         return self.files / safe_component(category, "category") / safe_component(slug, "slug")
+
+    def attachment_file(self, category: str, slug: str, filename: str) -> Path:
+        return self.attachment_dir(category, slug) / filename
+
+    def iter_document_json(self):
+        yield from self.json.rglob("*.json")
 
     def deleted_json(self, category: str, slug: str) -> Path:
         return self.deleted / safe_component(category, "category") / f"{safe_component(slug, 'slug')}.json"
@@ -85,6 +91,9 @@ def safe_component(value: object, label: str) -> str:
 
 def get_dataset_paths(project_root: Path, dataset: str) -> DatasetPaths:
     dataset_name = safe_component(dataset, "dataset")
+    if dataset_name in {"pknu_notice", "pknu_student_life"}:
+        from scripts.main.paths import get_main_dataset_paths
+        return get_main_dataset_paths(project_root, dataset_name)
     root = project_root.resolve() / "files" / dataset_name
     output = root / "output"
     return DatasetPaths(
@@ -233,7 +242,9 @@ def write_document(
     paths: DatasetPaths, doc: dict[str, Any], category: str, slug: str,
     raw_html: str | None = None,
 ) -> tuple[Path, Path | None]:
-    json_path = paths.document_json(category, slug)
+    from scripts.main.paths import MainDatasetPaths, document_kind
+    kind = document_kind(doc) if isinstance(paths, MainDatasetPaths) else None
+    json_path = paths.document_json(category, slug, kind=kind)
     json_path.parent.mkdir(parents=True, exist_ok=True)
     json_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
     html_path: Path | None = None

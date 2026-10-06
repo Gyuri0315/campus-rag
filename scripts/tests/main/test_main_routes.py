@@ -55,7 +55,7 @@ class MainRouteTests(unittest.TestCase):
 
     def test_curriculum_route_keeps_ocr_preview_out_of_console_report(self) -> None:
         result = {
-            "status": "needs_review", "output": "files/pknu_student_life/output/교육과정/main_106.json",
+            "status": "needs_review", "output": "files/pknu_main/대학생활/교육과정/json/pages/main_106.json",
             "attachment_count": 1,
             "attachments": [{"title": "안내서", "text_preview": "« OCR 결과", "text_status": "success"}],
         }
