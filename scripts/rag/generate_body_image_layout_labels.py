@@ -75,8 +75,9 @@ def _image_only(source_path: str) -> bool:
 
 def collect_candidates(datasets: list[str] | None = None) -> list[dict[str, Any]]:
     candidates = []
-    roots = [PROJECT_ROOT / "files" / dataset / "preprocessed" / "body_images" for dataset in datasets] if datasets else [
-        path / "preprocessed" / "body_images" for path in (PROJECT_ROOT / "files").iterdir()
+    from scripts.crawlers.common.storage import get_dataset_root, iter_dataset_roots
+    roots = [get_dataset_root(PROJECT_ROOT, dataset) / "preprocessed" / "body_images" for dataset in datasets] if datasets else [
+        path / "preprocessed" / "body_images" for path in iter_dataset_roots(PROJECT_ROOT)
         if (path / "preprocessed" / "body_images").is_dir()
     ]
     for root in sorted(roots):

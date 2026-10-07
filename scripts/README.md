@@ -8,6 +8,13 @@ Main-site collection settings are in `scripts/main/pages.json`. Its results shar
 `files/pknu_main/`, organized by site category and then file format. Incremental
 state is in `_state/`; RAG intermediates are in `_derived/<logical-dataset>/`.
 
+Department crawlers save new results under `files/department/<dataset>/`, using
+the existing department alias (for example, `ce`). Each department keeps
+`output/{json,html,files,images,runs}`, `state.json`, `preprocessed/`, and
+`vectorized/` inside that folder. Existing `files/<dataset>/` data is read as a
+legacy source for incremental state, document hashes and reusable attachments;
+changing the storage path does not trigger a crawl or move existing data.
+
 ```text
 scripts/
 ├─ crawlers/

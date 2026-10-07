@@ -1,13 +1,13 @@
 """preprocessed JSON을 RAG 검색용 벡터 파일로 변환하는 스크립트.
 
 동작 요약:
-1. /files/ce/preprocessed 아래의 전처리 JSON 파일을 모두 찾는다.
+1. /files/department/ce/preprocessed 아래의 전처리 JSON 파일을 모두 찾는다.
 2. 각 JSON의 chunks 배열에서 검색 단위 텍스트와 출처 메타데이터를 꺼낸다.
 3. 기본값으로 추가 패키지 없이 동작하는 해시 기반 임베딩을 생성한다.
    sentence-transformers가 설치되어 있으면 옵션으로 의미 기반 임베딩도 사용할 수 있다.
-4. 파일별 벡터 결과는 /files/ce/vectorized에 같은 폴더 구조로 저장한다.
-5. 전체 청크를 한 번에 불러오기 쉬운 /files/ce/vectorized/index.jsonl과
-   실행 요약인 /files/ce/vectorized/manifest.json을 함께 만든다.
+4. 파일별 벡터 결과는 /files/department/ce/vectorized에 같은 폴더 구조로 저장한다.
+5. 전체 청크를 한 번에 불러오기 쉬운 /files/department/ce/vectorized/index.jsonl과
+   실행 요약인 /files/department/ce/vectorized/manifest.json을 함께 만든다.
 
 기본 실행:
     python scripts/rag/vectorization.py
@@ -36,6 +36,10 @@ from typing import Iterable, Protocol
 log = logging.getLogger(__name__)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.crawlers.common.storage import get_dataset_root
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "vectorization.log"
 
@@ -54,8 +58,8 @@ def configure_logging() -> None:
 # CLI 기본값: 입력/출력 경로와 임베딩 방식 설정.
 DATASET_PATHS = {
     "ce": {
-        "input_root": PROJECT_ROOT / "files" / "ce" / "preprocessed",
-        "output_root": PROJECT_ROOT / "files" / "ce" / "vectorized",
+        "input_root": get_dataset_root(PROJECT_ROOT, "ce") / "preprocessed",
+        "output_root": get_dataset_root(PROJECT_ROOT, "ce") / "vectorized",
     },
     "pknu_notice": {
         "input_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "preprocessed",
@@ -682,7 +686,7 @@ def main() -> None:
         default=DEFAULT_DATASET,
         help=(
             "Dataset path preset to vectorize. "
-            "Use ce for files/ce/preprocessed -> files/ce/vectorized, "
+            "Use ce for files/department/ce/{preprocessed,vectorized}, "
             "pknu_notice for files/pknu_main/_derived/pknu_notice/{preprocessed,vectorized}, "
             "or rule for files/rule/preprocessed -> files/rule/vectorized."
         ),

@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.text_cleaning import clean_extracted_text
 from scripts.crawlers.common.reader import infer_dataset_from_path, read_document
+from scripts.crawlers.common.storage import get_dataset_root
 from scripts.extractors.common import (
     DEFAULT_OCR_DPI,
     DEFAULT_OCR_LANGUAGE,
@@ -87,10 +88,19 @@ def make_slug(rel_path: str) -> str:
 
 def preserved_source_slug(source_path: str, output_path: Path) -> str:
     """Keep chunk identity when a migrated source is preprocessed again."""
-    if output_path.is_file():
+    candidates = [(output_path, source_path)]
+    parts = output_path.parts
+    for index in range(len(parts) - 2):
+        if parts[index:index + 2] == ("files", "department"):
+            legacy_output = Path(*parts[:index + 1], *parts[index + 2:])
+            candidates.append((legacy_output, source_path.replace("files/department/", "files/", 1)))
+            break
+    for candidate, previous_source in candidates:
+        if not candidate.is_file():
+            continue
         try:
-            previous = json.loads(output_path.read_text(encoding="utf-8"))
-            if previous.get("source_path") == source_path and previous.get("slug"):
+            previous = json.loads(candidate.read_text(encoding="utf-8"))
+            if previous.get("source_path") == previous_source and previous.get("slug"):
                 return str(previous["slug"])
         except (OSError, ValueError, AttributeError):
             pass
@@ -804,24 +814,24 @@ def run_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="files/ce/output의 게시글 JSON과 첨부 원문파일을 RAG용 전처리 JSON으로 변환"
+        description="files/department/ce/output의 게시글 JSON과 첨부 원문파일을 RAG용 전처리 JSON으로 변환"
     )
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=PROJECT_ROOT / "files" / "ce" / "output" / "files",
+        default=get_dataset_root(PROJECT_ROOT, "ce") / "output" / "files",
         help="원본 크롤링 결과 루트 경로",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=PROJECT_ROOT / "files" / "ce" / "preprocessed",
+        default=get_dataset_root(PROJECT_ROOT, "ce") / "preprocessed",
         help="전처리 JSON 출력 루트 경로",
     )
     parser.add_argument(
         "--output-json-root",
         type=Path,
-        default=PROJECT_ROOT / "files" / "ce" / "output" / "json",
+        default=get_dataset_root(PROJECT_ROOT, "ce") / "output" / "json",
         help="크롤링 본문 JSON 루트 (첨부 provenance 조인용)",
     )
     parser.add_argument(

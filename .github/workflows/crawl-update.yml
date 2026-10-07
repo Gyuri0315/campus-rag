@@ -53,7 +53,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          for state_path in files/ce/state.json files/rule/state.json files/pknu_main/_state/pknu_notice.json files/pknu_main/_state/pknu_student_life.json; do
+          for state_path in files/department/ce/state.json files/rule/state.json files/pknu_main/_state/pknu_notice.json files/pknu_main/_state/pknu_student_life.json; do
             if [ -f "$state_path" ]; then
               git add -f -- "$state_path"
             fi

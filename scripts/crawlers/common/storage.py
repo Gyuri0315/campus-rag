@@ -9,6 +9,7 @@ import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -89,12 +90,42 @@ def safe_component(value: object, label: str) -> str:
     return component
 
 
-def get_dataset_paths(project_root: Path, dataset: str) -> DatasetPaths:
+@lru_cache(maxsize=1)
+def department_datasets() -> frozenset[str]:
+    registry = Path(__file__).resolve().parents[1] / "departments" / "registry.json"
+    payload = json.loads(registry.read_text(encoding="utf-8"))
+    return frozenset(str(row["dataset"]) for row in payload["departments"])
+
+
+def get_dataset_root(project_root: Path, dataset: str, *, group: str | None = None) -> Path:
+    dataset_name = safe_component(dataset, "dataset")
+    if group not in {None, "department"}:
+        raise ValueError(f"unsupported dataset group: {group}")
+    files = project_root.resolve() / "files"
+    if dataset_name in {"pknu_notice", "pknu_student_life"}:
+        return files / "pknu_main"
+    if group == "department" or dataset_name in department_datasets():
+        return files / "department" / dataset_name
+    return files / dataset_name
+
+
+def iter_dataset_roots(project_root: Path):
+    """Find grouped departments and legacy dataset folders for read-only tools."""
+    files = project_root.resolve() / "files"
+    if files.is_dir():
+        for root in sorted(files.iterdir()):
+            if root.is_dir() and root.name == "department":
+                yield from (p for p in sorted(root.iterdir()) if p.is_dir())
+            elif root.is_dir() and not root.name.startswith("_"):
+                yield root
+
+
+def get_dataset_paths(project_root: Path, dataset: str, *, group: str | None = None) -> DatasetPaths:
     dataset_name = safe_component(dataset, "dataset")
     if dataset_name in {"pknu_notice", "pknu_student_life"}:
         from scripts.main.paths import get_main_dataset_paths
         return get_main_dataset_paths(project_root, dataset_name)
-    root = project_root.resolve() / "files" / dataset_name
+    root = get_dataset_root(project_root, dataset_name, group=group)
     output = root / "output"
     return DatasetPaths(
         project_root=project_root.resolve(), dataset=dataset_name, root=root,

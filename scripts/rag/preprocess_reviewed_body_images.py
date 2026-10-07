@@ -38,7 +38,8 @@ def main() -> int:
     if args.chunk_size < 1 or args.chunk_overlap < 0:
         parser.error("chunk size must be positive and overlap must be non-negative")
 
-    input_root = (PROJECT_ROOT / "files" / args.dataset / "output" / "json").resolve()
+    from scripts.crawlers.common.storage import get_dataset_paths
+    input_root = get_dataset_paths(PROJECT_ROOT, args.dataset).json.resolve()
     output_root = (args.output_root if args.output_root else
                    PROJECT_ROOT / "files" / "_reviewed" / "body_image_ocr" / "rag_inputs" / args.dataset).resolve()
     sources: list[Path] = []

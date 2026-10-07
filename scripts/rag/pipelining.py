@@ -40,7 +40,7 @@ def run_command(name: str, command: list[str]) -> None:
     log.info("[%s] done in %.1fs", name, elapsed)
 
 
-CE_DATA_ROOT = Path("files/ce")
+CE_DATA_ROOT = Path("files/department/ce")
 
 
 def run_preprocess_steps(python: str) -> None:

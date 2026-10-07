@@ -29,10 +29,11 @@ from scripts.ce.priority import (  # noqa: E402
     calculate_ce_priority,
 )
 from scripts.db import connect_postgres  # noqa: E402
+from scripts.crawlers.common.storage import get_dataset_root
 
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "update_ce_priorities.log"
-DEFAULT_CE_INDEX = PROJECT_ROOT / "files" / "ce" / "vectorized" / "index.jsonl"
+DEFAULT_CE_INDEX = get_dataset_root(PROJECT_ROOT, "ce") / "vectorized" / "index.jsonl"
 DEFAULT_RULE_INDEX = PROJECT_ROOT / "files" / "rule" / "vectorized" / "index.jsonl"
 DEFAULT_MAIN_INDEXES = (
     PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized" / "index.jsonl",

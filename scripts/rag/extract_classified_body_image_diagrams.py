@@ -42,12 +42,15 @@ def _safe_project_path(value: str) -> Path:
 
 def _ocr_sidecar_path(source_path: str, dataset: str) -> Path | None:
     source = _safe_project_path(source_path)
-    base = (ROOT / 'files' / dataset / 'output' / 'json').resolve()
+    from scripts.crawlers.common.storage import get_dataset_root
+    base = (get_dataset_root(ROOT, dataset) / 'output' / 'json').resolve()
+    if source.is_relative_to(ROOT / 'files' / dataset):
+        base = ROOT / 'files' / dataset / 'output' / 'json'
     try:
         relative = source.relative_to(base)
     except ValueError:
         return None
-    return ROOT / 'files' / dataset / 'preprocessed' / 'body_images' / relative
+    return base.parent.parent / 'preprocessed' / 'body_images' / relative
 
 
 def _existing_ocr(row: dict) -> tuple[list[dict], str | None, str | None, bool]:
@@ -80,7 +83,11 @@ def _extract_one(row: dict, *, executable: str, language: str, tessdata: str | N
         if Path(dataset).name != dataset or dataset in {'.', '..'}:
             raise ValueError('Invalid dataset in classification record')
         image_path = _safe_project_path(str(row.get('saved_path') or ''))
-        dataset_images = (ROOT / 'files' / dataset / 'output' / 'images').resolve()
+        from scripts.crawlers.common.storage import get_dataset_root
+        dataset_images = (get_dataset_root(ROOT, dataset) / 'output' / 'images').resolve()
+        legacy_images = (ROOT / 'files' / dataset / 'output' / 'images').resolve()
+        if image_path.is_relative_to(legacy_images):
+            dataset_images = legacy_images
         image_path.relative_to(dataset_images)
         if not image_path.is_file():
             raise FileNotFoundError('Classified image file is missing')

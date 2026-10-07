@@ -171,12 +171,14 @@ def configure_department(config: DepartmentConfig) -> None:
     ACTIVE_CONFIG = config
     ACTIVE_ADAPTER = get_adapter(config.adapter)
     BASE_URL = config.base_url
-    PATHS = get_dataset_paths(PROJECT_ROOT, config.dataset)
+    PATHS = get_dataset_paths(PROJECT_ROOT, config.dataset, group="department")
     OUTPUT_JSON = PATHS.json
     OUTPUT_HTML = PATHS.html
     OUTPUT_FILES = PATHS.files
     STATE_FILE = PATHS.state
-    LEGACY_STATE_FILES = tuple(PROJECT_ROOT / item for item in config.legacy_state_files)
+    legacy_root = PROJECT_ROOT / "files" / config.dataset
+    LEGACY_STATE_FILES = (legacy_root / "state.json", legacy_root / "state.json.bak",
+                          *(PROJECT_ROOT / item for item in config.legacy_state_files))
     SECTIONS = [section.runtime_dict(config.base_url) for section in config.active_sections]
     REQUEST_DELAY = config.request_delay_seconds
     LIST_DELAY = config.list_delay_seconds
@@ -279,7 +281,7 @@ def save_document(doc: dict, raw_html: str) -> None:
 
 
 def load_existing_attachments(category: str, slug: str) -> list[dict]:
-    json_path = PATHS.document_json(category, slug)
+    json_path = existing_document_path(category, slug)
     if not json_path.exists():
         return []
 
@@ -302,6 +304,14 @@ def load_existing_attachments(category: str, slug: str) -> list[dict]:
             reusable.append(normalize_attachment(attachment, index=index, project_root=PROJECT_ROOT))
 
     return reusable
+
+
+def existing_document_path(category: str, slug: str) -> Path:
+    current = PATHS.document_json(category, slug)
+    if current.is_file():
+        return current
+    legacy = PATHS.project_root / "files" / PATHS.dataset / "output" / "json" / category / f"{slug}.json"
+    return legacy if legacy.is_file() else current
 
 
 # ─── HTTP 요청 ────────────────────────────────────────────────────────────────
@@ -1061,7 +1071,7 @@ def crawl_board(
                     stats.failed += 1
                     save_document(doc, post_resp.text)
                     continue
-                existing_path = PATHS.document_json(category, doc["slug"])
+                existing_path = existing_document_path(category, doc["slug"])
                 existing_hash = ""
                 if existing_path.exists():
                     try:
@@ -1206,7 +1216,7 @@ def crawl_static(
         stats.failed = 1
         save_document(doc, resp.text)
         return stats
-    existing_path = PATHS.document_json(category, doc["slug"])
+    existing_path = existing_document_path(category, doc["slug"])
     existing_hash = ""
     if existing_path.exists():
         try:
@@ -1358,7 +1368,7 @@ def _run_config(config: DepartmentConfig, args: argparse.Namespace) -> int:
         result.add_error("CONFIGURATION_ERROR", exc, retryable=False)
         result.finish("failed")
         try:
-            result.save(PROJECT_ROOT)
+            result.save(PROJECT_ROOT, group="department")
         except OSError:
             pass
         logging.getLogger("crawler.department").critical(
@@ -1395,7 +1405,7 @@ def _run_config(config: DepartmentConfig, args: argparse.Namespace) -> int:
         result.finish("failed")
         log_event(log, logging.CRITICAL, "run_finished", status="failed", exc_info=True)
     try:
-        result_path = result.save(PROJECT_ROOT)
+        result_path = result.save(PROJECT_ROOT, group="department")
     except OSError as exc:
         result.add_error("OUTPUT_PATH_ERROR", exc, retryable=False)
         result.finish("failed")

@@ -18,6 +18,7 @@ from scripts.crawlers.departments.body_images import collect_body_images, save_b
 from scripts.crawlers.departments.engine import build_session
 from scripts.extractors.image_ocr import VERSION, extract_image
 from scripts.rag.body_image_layout import enrich_entry
+from scripts.crawlers.common.storage import get_dataset_paths, get_dataset_root, iter_dataset_roots
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -52,7 +53,7 @@ def main():
             parser.error('Missing Tesseract languages: ' + ', '.join(sorted(missing)))
     except (OSError, subprocess.CalledProcessError) as exc:
         parser.error(f'Tesseract unavailable: {exc}')
-    datasets = args.dataset or [p.name for p in (ROOT/'files').iterdir() if (p/'output/json').is_dir()]
+    datasets = args.dataset or sorted({p.name for p in iter_dataset_roots(ROOT) if (p/'output/json').is_dir()})
     report = []
     # Match crawler request behavior: direct, normal browser headers and no
     # inherited dead proxy. This does not loosen TLS verification or bypass
@@ -61,14 +62,14 @@ def main():
         for dataset in datasets:
             if Path(dataset).name != dataset or dataset in {'.', '..'}:
                 parser.error('Invalid dataset')
-            output = ROOT/'files'/dataset/'output'
+            output = get_dataset_paths(ROOT, dataset).output
             for path in sorted((output/'json').rglob('*.json')):
                 doc = json.loads(path.read_text(encoding='utf-8'))
                 if not args.all_body_images and 'IMAGE_ONLY_REQUIRES_OCR' not in doc.get('crawl', {}).get('warnings', []):
                     continue
                 if args.limit is not None and len(report) >= args.limit:
                     break
-                target = ROOT/'files'/dataset/'preprocessed/body_images'/path.relative_to(output/'json')
+                target = get_dataset_root(ROOT, dataset)/'preprocessed/body_images'/path.relative_to(output/'json')
                 entry = {'source_path': path.relative_to(ROOT).as_posix(), 'url': doc.get('url'), 'images': [],
                          'processed_at': datetime.now(timezone.utc).isoformat(), 'ocr_version': VERSION,
                          'language': args.language, 'status': 'needs_review'}

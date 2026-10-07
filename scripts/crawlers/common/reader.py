@@ -29,6 +29,8 @@ def infer_dataset_from_path(path: Path) -> str | None:
     if "files" in folded:
         index = folded.index("files")
         if index + 1 < len(parts):
+            if folded[index + 1] == "department":
+                return parts[index + 2] if index + 2 < len(parts) else None
             if parts[index + 1] == "pknu_main":
                 tail = parts[index + 2:]
                 if "_derived" in tail:

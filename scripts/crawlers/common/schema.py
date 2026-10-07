@@ -173,12 +173,12 @@ class RunResult:
             "errors": [asdict(error) for error in self.errors],
         }
 
-    def save(self, project_root: Path) -> Path:
+    def save(self, project_root: Path, *, group: str | None = None) -> Path:
         if self.finished_at is None:
             self.finish()
         from scripts.crawlers.common.storage import get_dataset_paths
 
-        path = get_dataset_paths(project_root, self.dataset).run_result(self.run_id)
+        path = get_dataset_paths(project_root, self.dataset, group=group).run_result(self.run_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(self.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
         return path

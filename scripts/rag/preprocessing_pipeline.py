@@ -26,6 +26,7 @@ from scripts.rag.file_preprocessing import (  # noqa: E402
     parse_file_exts,
     run_batch as run_file_preprocessing,
 )
+from scripts.crawlers.common.storage import get_dataset_paths, get_dataset_root
 from scripts.rule.preprocessing import (  # noqa: E402
     SUPPORTED_ATTACHMENT_EXTS,
     run_batch as run_rule_preprocessing,
@@ -81,8 +82,8 @@ class WebDataset:
 WEB_DATASETS = {
     "ce": WebDataset(
         name="ce",
-        output_root=PROJECT_ROOT / "files" / "ce" / "output",
-        preprocessed_root=PROJECT_ROOT / "files" / "ce" / "preprocessed",
+        output_root=get_dataset_paths(PROJECT_ROOT, "ce").output,
+        preprocessed_root=get_dataset_root(PROJECT_ROOT, "ce") / "preprocessed",
     ),
     "pknu_notice": WebDataset(
         name="pknu_notice",
