@@ -1155,12 +1155,16 @@ export default function ChatContent() {
               className="pb-3 mb-2 flex-shrink-0"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.5)" }}
             >
-              <span
-                className="text-xs sm:text-sm font-bold leading-snug block"
+              {/* 홈으로 (홈에서만 관리자 페이지로 갈 수 있다). ?from=chat 이 있으면
+                  홈이 로그인 사용자를 /chat 으로 되돌려 보내지 않는다 (app/page.tsx) */}
+              <Link
+                href="/?from=chat"
+                title="홈으로"
+                className="text-xs sm:text-sm font-bold leading-snug block w-fit transition-opacity hover:opacity-70"
                 style={{ color: "var(--clr-navy)" }}
               >
-                부경대학교
-              </span>
+                unira | 부경대학교
+              </Link>
             </div>
 
             {/* 새 채팅 */}
