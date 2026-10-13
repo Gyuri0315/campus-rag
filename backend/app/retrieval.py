@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import logging
 import re
+import threading
 import time
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
@@ -880,6 +881,44 @@ def _process_candidate_row(
 
 RpcResult = Tuple[Any, float, Optional[BaseException]]
 
+# Concurrent RPCs run on one long-lived pool, and each worker thread talks to
+# Supabase through its own client. Sharing the app's single client across
+# threads broke whole requests at once (measured 2026-10-13: 9-16 of 192 calls
+# failed with socket errors at 4-8 workers, all 8 RPCs of a query together);
+# one client per worker failed 0 of 288. The pool is kept so those per-thread
+# clients (and their open connections) are reused instead of rebuilt per query.
+_rpc_pool: Optional[ThreadPoolExecutor] = None
+_rpc_pool_size = 0
+_rpc_pool_lock = threading.Lock()
+_worker_clients = threading.local()
+
+
+def _get_rpc_pool(size: int) -> ThreadPoolExecutor:
+    global _rpc_pool, _rpc_pool_size
+    with _rpc_pool_lock:
+        if _rpc_pool is None or _rpc_pool_size != size:
+            if _rpc_pool is not None:
+                _rpc_pool.shutdown(wait=False)
+            _rpc_pool = ThreadPoolExecutor(max_workers=size, thread_name_prefix="rag-rpc")
+            _rpc_pool_size = size
+        return _rpc_pool
+
+
+def _worker_client(shared: Client) -> Client:
+    """This worker thread's own client with the same URL/key as `shared`.
+    Clients without those attributes (test fakes) are used as-is."""
+    url = getattr(shared, "supabase_url", None)
+    key = getattr(shared, "supabase_key", None)
+    if not isinstance(url, str) or not isinstance(key, str):
+        return shared
+    clients = getattr(_worker_clients, "by_target", None)
+    if clients is None:
+        clients = _worker_clients.by_target = {}
+    client = clients.get((url, key))
+    if client is None:
+        client = clients[(url, key)] = build_supabase_client(url, key)
+    return client
+
 
 def _fetch_rpc_responses(
     client: Client,
@@ -903,19 +942,21 @@ def _fetch_rpc_responses(
                 "match_count": candidate_counts[rpc_name],
             }
 
-    def run(name: str) -> RpcResult:
+    def run(name: str, rpc_client: Client) -> RpcResult:
         started = time.perf_counter()
         try:
-            response = client.rpc(name, calls[name]).execute()
+            response = rpc_client.rpc(name, calls[name]).execute()
             return response, (time.perf_counter() - started) * 1000, None
         except Exception as exc:  # reported by the caller, same as before
             return None, (time.perf_counter() - started) * 1000, exc
 
     if max_workers <= 1:
-        return {name: run(name) for name in calls}
-    with ThreadPoolExecutor(max_workers=min(max_workers, len(calls))) as pool:
-        futures = {name: pool.submit(run, name) for name in calls}
-        return {name: future.result() for name, future in futures.items()}
+        return {name: run(name, client) for name in calls}
+    pool = _get_rpc_pool(max_workers)
+    futures = {
+        name: pool.submit(lambda n=name: run(n, _worker_client(client))) for name in calls
+    }
+    return {name: future.result() for name, future in futures.items()}
 
 
 def search(
