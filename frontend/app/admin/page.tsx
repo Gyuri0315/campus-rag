@@ -1,34 +1,31 @@
 "use client";
 
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import adminData from "@/data/routes/admin.json";
+import {
+  AdminApiError,
+  fetchAdminDashboard,
+  type AdminCommentEntry,
+  type AdminDashboard,
+  type AdminThumbsEntry,
+  type AdminTopQuestion,
+} from "@/app/lib/api";
 
 const NAVY = "#25348B";
 const NAVY_MUTED = "rgba(37,52,139,0.45)";
 const DOWN_RED = "#c0392b";
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
-type ThumbsKind = "up" | "down";
-type ThumbsEntry = {
-  id: string;
-  kind: ThumbsKind;
-  question: string;
-  answer: string;
-  createdAt: string;
-  reasons: string[];
-};
-type CommentEntry = {
-  id: string;
-  comment: string;
-  relatedQuestion: string | null;
-  createdAt: string;
-};
-type TopQuestion = {
-  id: string;
-  question: string;
-  count: number;
-};
+// 피드백·질문 데이터는 백엔드 /admin/dashboard 실데이터 (message_feedback, chat_messages).
+// 파일 업로드만 아직 백엔드 API가 없어 admin.json mock 을 쓴다.
+type ThumbsEntry = AdminThumbsEntry;
+type CommentEntry = AdminCommentEntry;
+type TopQuestion = AdminTopQuestion;
+const EMPTY_THUMBS: ThumbsEntry[] = [];
+const EMPTY_COMMENTS: CommentEntry[] = [];
+const EMPTY_TOP_QUESTIONS: TopQuestion[] = [];
 type UploadEntry = {
   id: string;
   filename: string;
@@ -41,12 +38,6 @@ const THUMBS_FILTER_OPTIONS = [
   { value: "up" as const, label: "좋아요" },
   { value: "down" as const, label: "싫어요" },
 ] satisfies readonly { value: "all" | "up" | "down"; label: string }[];
-
-const PERIOD_FILTER_OPTIONS = [
-  { value: "all" as const, label: "전체 기간" },
-  { value: "30d" as const, label: "최근 30일" },
-  { value: "7d" as const, label: "최근 7일" },
-] satisfies readonly { value: "all" | "30d" | "7d"; label: string }[];
 
 // ── 아이콘 ────────────────────────────────────────────────────────────────────
 const IconArrowLeft = () => (
@@ -490,16 +481,70 @@ function TopQuestionRow({
 }
 
 // ── 메인 페이지 ──────────────────────────────────────────────────────────────
+// 로딩·권한 없음·오류 안내 패널
+function DashboardStatus({
+  message,
+  tone = "muted",
+  action,
+}: {
+  message: string;
+  tone?: "muted" | "error";
+  action?: ReactNode;
+}) {
+  return (
+    <div
+      className="flex flex-col items-center gap-2 rounded-2xl px-4 py-8 text-center text-xs sm:text-sm"
+      style={{
+        background: "rgba(255,255,255,0.45)",
+        color: tone === "error" ? DOWN_RED : NAVY_MUTED,
+        border: "1px solid rgba(255,255,255,0.7)",
+      }}
+      role={tone === "error" ? "alert" : "status"}
+    >
+      <p>{message}</p>
+      {action}
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const router = useRouter();
 
-  const summary = adminData.summary;
-  const allThumbs = adminData.feedback.thumbs as ThumbsEntry[];
-  const comments = adminData.feedback.comments as CommentEntry[];
-  const topQuestions = adminData.topQuestions as TopQuestion[];
+  // ── 실데이터 로드 (관리자만: 백엔드가 ADMIN_EMAILS 로 판정) ─────────────────
+  const [dashboard, setDashboard] = useState<AdminDashboard | null>(null);
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadError, setLoadError] = useState<{ status: number; message: string } | null>(null);
+
+  const loadDashboard = useCallback(async (signal?: AbortSignal) => {
+    setLoadState("loading");
+    setLoadError(null);
+    try {
+      const data = await fetchAdminDashboard(signal);
+      setDashboard(data);
+      setLoadState("ready");
+    } catch (err) {
+      if (signal?.aborted) return;
+      const status = err instanceof AdminApiError ? err.status : 0;
+      const message = err instanceof Error ? err.message : "대시보드를 불러오지 못했습니다.";
+      setLoadError({ status, message });
+      setLoadState("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    // 마운트 시 1회 조회. setState 는 비동기 응답 이후에만 일어난다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadDashboard(controller.signal);
+    return () => controller.abort();
+  }, [loadDashboard]);
+
+  const summary = dashboard?.summary ?? null;
+  const allThumbs = dashboard?.feedback.thumbs ?? EMPTY_THUMBS;
+  const comments = dashboard?.feedback.comments ?? EMPTY_COMMENTS;
+  const topQuestions = dashboard?.topQuestions ?? EMPTY_TOP_QUESTIONS;
 
   const [thumbsFilter, setThumbsFilter] = useState<"all" | "up" | "down">("all");
-  const [periodFilter, setPeriodFilter] = useState<"all" | "30d" | "7d">("all");
 
   // 페이지네이션 상태
   const [thumbsPage, setThumbsPage] = useState(1);
@@ -537,15 +582,16 @@ export default function AdminPage() {
     commentsPage * PAGE_SIZE,
   );
 
-  // periodFilter는 mock 단계에서는 표시만 한다 (기간 필드를 일관되게 비교할
-  // 만큼 데이터가 풍부하지 않음). 실제 API 연동 시 서버 쿼리에 위임 예정.
+  // 인기 질문은 서버가 최근 질문 표본(questionSampleSize)으로 집계한다.
+  // (예전 mock 의 기간 필터는 동작하지 않는 표시용이라 제거)
   const visibleTopQuestions = topQuestions;
   const maxQuestionCount = visibleTopQuestions.reduce(
     (acc, q) => (q.count > acc ? q.count : acc),
     0,
   );
 
-  const satisfactionPct = `${Math.round(summary.satisfactionRate * 100)}%`;
+  const satisfactionPct =
+    summary && summary.satisfactionRate !== null ? `${Math.round(summary.satisfactionRate * 100)}%` : "-";
 
   const handleFileButtonClick = () => fileInputRef.current?.click();
 
@@ -597,28 +643,75 @@ export default function AdminPage() {
             뒤로가기
           </button>
 
-          <div className="flex flex-col gap-1">
-            <h1 className="text-xl sm:text-2xl font-bold" style={{ color: NAVY }}>
-              관리자 대시보드
-            </h1>
-            <p className="text-[11px] sm:text-xs" style={{ color: NAVY_MUTED }}>
-              마지막 업데이트: {formatDateTime(summary.lastUpdatedAt)}
-            </p>
+          <div className="flex items-end justify-between gap-3">
+            <div className="flex flex-col gap-1">
+              <h1 className="text-xl sm:text-2xl font-bold" style={{ color: NAVY }}>
+                관리자 대시보드
+              </h1>
+              {summary && (
+                <p className="text-[11px] sm:text-xs" style={{ color: NAVY_MUTED }}>
+                  마지막 업데이트: {formatDateTime(summary.lastUpdatedAt)}
+                </p>
+              )}
+            </div>
+            {loadState !== "loading" && loadError?.status !== 401 && loadError?.status !== 403 && (
+              <button
+                type="button"
+                onClick={() => void loadDashboard()}
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition-opacity hover:opacity-75"
+                style={{ color: NAVY, background: "rgba(255,255,255,0.6)", border: `1.5px solid ${NAVY}` }}
+              >
+                새로고침
+              </button>
+            )}
           </div>
         </div>
 
+        {loadState === "loading" && <DashboardStatus message="대시보드를 불러오는 중이에요..." />}
+
+        {loadState === "error" && loadError && (
+          <DashboardStatus
+            tone={loadError.status === 403 || loadError.status === 401 ? "muted" : "error"}
+            message={
+              loadError.status === 401
+                ? "로그인이 필요합니다."
+                : loadError.status === 403
+                  ? "관리자만 볼 수 있는 페이지예요. 관리자 계정으로 로그인해 주세요."
+                  : loadError.message
+            }
+            action={
+              loadError.status === 401 ? (
+                <Link href="/auth?next=/admin" className="text-xs font-semibold underline" style={{ color: NAVY }}>
+                  로그인하러 가기
+                </Link>
+              ) : loadError.status === 403 ? null : (
+                <button
+                  type="button"
+                  onClick={() => void loadDashboard()}
+                  className="text-xs font-semibold underline"
+                  style={{ color: NAVY }}
+                >
+                  다시 시도
+                </button>
+              )
+            }
+          />
+        )}
+
+        {loadState === "ready" && summary && (
+        <>
         {/* ── 1. 요약 통계 ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
             label="총 피드백"
             value={summary.totalFeedback.toLocaleString("ko-KR")}
-            hint="좋아요 / 싫어요 + 텍스트 의견 합계"
+            hint={`좋아요 ${summary.upCount.toLocaleString("ko-KR")} · 싫어요 ${summary.downCount.toLocaleString("ko-KR")}`}
             icon={<IconStat />}
           />
           <StatCard
             label="만족도"
             value={satisfactionPct}
-            hint={`좋아요 비율 · ${summary.totalFeedback}건 기준`}
+            hint={summary.totalFeedback ? `좋아요 비율 · ${summary.totalFeedback}건 기준` : "아직 피드백이 없어요"}
             icon={<IconCheckCircle />}
           />
           <StatCard
@@ -694,14 +787,20 @@ export default function AdminPage() {
           icon={<IconChartBar />}
           title="인기 질문 Top 10"
           action={
-            <FilterPills
-              value={periodFilter}
-              onChange={setPeriodFilter}
-              options={PERIOD_FILTER_OPTIONS}
-            />
+            <span className="text-[10px] sm:text-[11px]" style={{ color: NAVY_MUTED }}>
+              최근 질문 {summary.questionSampleSize.toLocaleString("ko-KR")}개 기준
+            </span>
           }
         >
           <div className="flex flex-col gap-3 sm:gap-3.5">
+            {visibleTopQuestions.length === 0 && (
+              <div
+                className="rounded-xl py-6 text-center text-xs sm:text-sm"
+                style={{ background: "rgba(255,255,255,0.45)", color: NAVY_MUTED }}
+              >
+                아직 질문이 없습니다.
+              </div>
+            )}
             {visibleTopQuestions.map((q, i) => (
               <TopQuestionRow
                 key={q.id}
@@ -860,6 +959,8 @@ export default function AdminPage() {
             )}
           </div>
         </SectionCard>
+        </>
+        )}
       </main>
 
       {/* ── 푸터 ── */}

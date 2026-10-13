@@ -109,3 +109,61 @@ export async function askBackend(
     answerable,
   };
 }
+
+// ── 관리자 대시보드 (/api/admin/dashboard → 백엔드 /admin/dashboard) ─────────────
+
+export type AdminThumbsEntry = {
+  id: string;
+  kind: "up" | "down";
+  question: string;
+  answer: string;
+  createdAt: string;
+  reasons: string[];
+};
+
+export type AdminCommentEntry = {
+  id: string;
+  comment: string;
+  relatedQuestion: string | null;
+  createdAt: string;
+};
+
+export type AdminTopQuestion = { id: string; question: string; count: number };
+
+export type AdminDashboard = {
+  summary: {
+    totalFeedback: number;
+    upCount: number;
+    downCount: number;
+    /** 피드백이 0건이면 null */
+    satisfactionRate: number | null;
+    totalQuestions: number;
+    /** 자주 묻는 질문 집계에 쓴 최근 질문 수 */
+    questionSampleSize: number;
+    lastUpdatedAt: string;
+  };
+  feedback: { thumbs: AdminThumbsEntry[]; comments: AdminCommentEntry[] };
+  topQuestions: AdminTopQuestion[];
+};
+
+/** 실패 시 status(401 로그인 필요 / 403 관리자 아님 등)를 담아 던진다. */
+export class AdminApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+export async function fetchAdminDashboard(signal?: AbortSignal): Promise<AdminDashboard> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new AdminApiError("로그인이 필요합니다.", 401);
+
+  const res = await fetch("/api/admin/dashboard", {
+    headers: { Accept: "application/json", Authorization: `Bearer ${session.access_token}` },
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) throw new AdminApiError(await readErrorMessage(res), res.status);
+  return (await res.json()) as AdminDashboard;
+}
