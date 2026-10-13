@@ -968,7 +968,7 @@ export default function AdminPage() {
         className="py-4 text-center text-[10px] sm:text-xs flex-shrink-0"
         style={{ color: NAVY_MUTED }}
       >
-        관리자 전용 화면 · 데이터는 mock 입니다
+        관리자 전용 화면 · 피드백·질문 통계는 실시간 데이터 (파일 업로드는 준비 중)
       </footer>
     </div>
   );
