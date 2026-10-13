@@ -87,6 +87,9 @@ class Settings(BaseSettings):
     # blowing up in json.loads. JSON list form (["a","b"]) is still accepted
     # by the validator below.
     cors_origins: Annotated[List[str], NoDecode] = ["http://localhost:3000"]
+    # 관리자 대시보드(/admin/*)에 접근할 수 있는 계정 이메일 (콤마 구분).
+    # 비어 있으면 아무도 접근할 수 없다(기본 거부). 대소문자 무시.
+    admin_emails: Annotated[List[str], NoDecode] = []
     log_level: str = "INFO"
     port: int = 8000
 
@@ -101,7 +104,7 @@ class Settings(BaseSettings):
             )
         return value
 
-    @field_validator("cors_origins", "rpc_names", mode="before")
+    @field_validator("cors_origins", "rpc_names", "admin_emails", mode="before")
     @classmethod
     def _split_csv(cls, value, info):
         if isinstance(value, str):
