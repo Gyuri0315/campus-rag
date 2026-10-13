@@ -22,9 +22,13 @@ export default function HomePage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // 로그인 상태면 홈 대신 바로 /chat 으로. loading 중에는 깜빡임 방지를 위해 대기.
+  // 단, 채팅 화면의 로고를 눌러 일부러 홈으로 온 경우(?from=chat)는 머문다
+  // (홈에서만 관리자 페이지로 갈 수 있어서). useSearchParams 는 페이지 전체를
+  // Suspense 로 감싸야 해서 클라이언트에서만 도는 effect 안에서 직접 읽는다.
   useEffect(() => {
-    if (authLoading) return;
-    if (user) router.replace("/chat");
+    if (authLoading || !user) return;
+    const cameFromChat = new URLSearchParams(window.location.search).get("from") === "chat";
+    if (!cameFromChat) router.replace("/chat");
   }, [user, authLoading, router]);
 
   const handleSearch = () => {
