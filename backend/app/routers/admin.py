@@ -13,9 +13,9 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from ..deps import AppState, get_state, require_admin
+from ..deps import AppState, get_state, is_admin_request, require_admin, require_user
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/admin")
@@ -111,6 +111,18 @@ def build_dashboard(
 def _count(query: Any) -> int:
     response = query.execute()
     return int(response.count or 0)
+
+
+@router.get("/me")
+def admin_me(
+    request: Request,
+    state: AppState = Depends(get_state),
+    _user_id: str = Depends(require_user),
+) -> Dict[str, bool]:
+    """Whether the logged-in caller is an admin, so the UI can hide the
+    Admin entry from everyone else (the dashboard itself is still gated by
+    require_admin)."""
+    return {"isAdmin": is_admin_request(request, state)}
 
 
 @router.get("/dashboard")

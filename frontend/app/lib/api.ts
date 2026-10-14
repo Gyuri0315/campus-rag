@@ -153,6 +153,27 @@ export class AdminApiError extends Error {
   }
 }
 
+/** 로그인한 사용자가 관리자인지. 로그아웃 상태나 오류면 false. */
+export async function fetchIsAdmin(signal?: AbortSignal): Promise<boolean> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return false;
+
+  try {
+    const res = await fetch("/api/admin/me", {
+      headers: { Accept: "application/json", Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+      signal,
+    });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { isAdmin?: unknown };
+    return body.isAdmin === true;
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchAdminDashboard(signal?: AbortSignal): Promise<AdminDashboard> {
   const {
     data: { session },

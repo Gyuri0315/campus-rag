@@ -76,7 +76,13 @@ def require_admin(
     client (RLS bypassed), so the allowlist is the only gate. An empty list
     denies everyone.
     """
-    allowed = {email.lower() for email in state.settings.admin_emails}
-    if getattr(request.state, "user_email", "") not in allowed:
+    if not is_admin_request(request, state):
         raise HTTPException(status_code=403, detail="관리자만 접근할 수 있습니다.")
     return user_id
+
+
+def is_admin_request(request: Request, state: AppState) -> bool:
+    """Whether the caller (already authenticated by require_user) is on the
+    admin allowlist. An empty list means nobody is an admin."""
+    allowed = {email.lower() for email in state.settings.admin_emails}
+    return getattr(request.state, "user_email", "") in allowed
