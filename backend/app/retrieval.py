@@ -12,6 +12,17 @@ from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from supabase import Client, create_client
 
+from .freshness import (
+    CHUNK_TABLES,
+    FRESHNESS_LEXICAL_FETCH,
+    FRESHNESS_RPCS,
+    OPENING_CHUNKS,
+    OPENING_SOURCES,
+    freshness_adjustment,
+    is_current_term_notice,
+    is_schedule_query,
+    seed_slots,
+)
 from .reranking import normalize_scores
 
 logger = logging.getLogger(__name__)
@@ -494,7 +505,8 @@ def _final_score(
         + _dataset_priority(row) * bounded_dataset_weight
         + _source_kind_priority(row) * bounded_source_kind_weight
     )
-    return max(0.0, score - _query_mismatch_penalty(row))
+    freshness = float(row.get("_freshness_adjustment") or 0.0)
+    return max(0.0, score - _query_mismatch_penalty(row) + freshness)
 
 
 def _normalize_text(text: str) -> str:
@@ -826,6 +838,12 @@ def _rerank_candidates(
         # _is_contact_directory_row's docstring for why this lives here.
         if _is_contact_directory_row(copied):
             rerank_final_score += CONTACT_DIRECTORY_BONUS
+        # Same idea for the freshness/graduate penalties: the reranker can't
+        # tell a 2021 notice from this term's, so re-apply them on the
+        # reranker side of the blend (see freshness.py).
+        rerank_final_score += (
+            float(copied.get("_freshness_adjustment") or 0.0) * bounded_reranker_weight
+        )
         copied["rerank_score"] = rerank_score
         copied["rerank_final_score"] = rerank_final_score
         rescored.append(copied)
@@ -868,6 +886,7 @@ def _process_candidate_row(
     if _dataset_mismatch_flags(copied, query_terms):
         return None, "dataset_mismatch"
 
+    copied["_freshness_adjustment"] = freshness_adjustment(copied, rpc_name, query_text)
     base_dataset_priority = DATASET_PRIORITIES.get(rpc_name, 0.50)
     boost = _dataset_priority_boost(rpc_name, query_text)
     copied["_boosted_dataset_priority"] = max(0.0, min(1.0, base_dataset_priority + boost))
@@ -937,9 +956,12 @@ def _fetch_rpc_responses(
     for rpc_name in rpc_names:
         calls[rpc_name] = {**base_payload, "match_count": candidate_counts[rpc_name]}
         if lexical_query:
+            lexical_count = candidate_counts[rpc_name]
+            if rpc_name in FRESHNESS_RPCS:
+                lexical_count = max(lexical_count, FRESHNESS_LEXICAL_FETCH)
             calls[f"{rpc_name}_lexical"] = {
                 "query_text": lexical_query,
-                "match_count": candidate_counts[rpc_name],
+                "match_count": lexical_count,
             }
 
     def run(name: str, rpc_client: Client) -> RpcResult:
@@ -957,6 +979,96 @@ def _fetch_rpc_responses(
         name: pool.submit(lambda n=name: run(n, _worker_client(client))) for name in calls
     }
     return {name: future.result() for name, future in futures.items()}
+
+
+def _opening_chunks_of_current_notices(
+    client: Client,
+    candidates: List[Dict[str, Any]],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> List[Dict[str, Any]]:
+    """Opening chunks of the top current-term notices among `candidates`
+    that aren't candidates already (see freshness.OPENING_SOURCES for why).
+
+    Each extra row reuses its notice's candidate row (title, url, priority,
+    similarity) with the chunk's own id/content swapped in, then goes
+    through the normal per-row pipeline; the reranker decides whether it
+    beats the chunk that brought the notice in. A failed fetch only logs.
+    """
+    parents: Dict[str, Dict[str, Any]] = {}
+    ranked = sorted(
+        candidates,
+        key=lambda row: _final_score(row, priority_weight, dataset_priority_weight, source_kind_weight),
+        reverse=True,
+    )
+    for row in ranked:
+        rpc_name = str((row.get("metadata") or {}).get("rpc_name") or "")
+        source_id = row.get("source_id")
+        if rpc_name not in CHUNK_TABLES or not source_id or source_id in parents:
+            continue
+        if is_current_term_notice(row):
+            parents[source_id] = row
+            if len(parents) >= OPENING_SOURCES:
+                break
+    if not parents:
+        return []
+
+    present = {_dedupe_key(row) for row in candidates}
+    extra: List[Dict[str, Any]] = []
+    by_table: Dict[str, List[str]] = {}
+    for source_id, parent in parents.items():
+        table = CHUNK_TABLES[str(parent["metadata"]["rpc_name"])]
+        by_table.setdefault(table, []).append(source_id)
+    for table, source_ids in by_table.items():
+        try:
+            response = (
+                client.table(table)
+                .select("id, source_id, chunk_id, chunk_index, content, metadata")
+                .in_("source_id", source_ids)
+                .lt("chunk_index", OPENING_CHUNKS)
+                .execute()
+            )
+        except Exception:
+            logger.warning("retrieval: opening chunks fetch failed table=%s", table, exc_info=True)
+            continue
+        for chunk in response.data or []:
+            parent = parents[chunk["source_id"]]
+            rpc_name = str(parent["metadata"]["rpc_name"])
+            row = {
+                **parent,
+                "id": chunk["id"],
+                "chunk_id": chunk.get("chunk_id"),
+                "chunk_index": chunk.get("chunk_index"),
+                "content": chunk.get("content"),
+                "metadata": {**(parent.get("metadata") or {}), **(chunk.get("metadata") or {})},
+            }
+            for key in ("_lexical_only", "_query_mismatch_flags", "rerank_score", "rerank_final_score"):
+                row.pop(key, None)
+            processed, outcome = _process_candidate_row(
+                row, rpc_name, query_text, query_terms,
+                priority_weight, dataset_priority_weight, source_kind_weight,
+            )
+            if processed is None or outcome in ("noise", "dataset_mismatch"):
+                continue
+            key = _dedupe_key(processed)
+            if key in present:
+                continue
+            processed["similarity"] = _similarity(parent)
+            processed["final_score"] = _final_score(
+                processed, priority_weight, dataset_priority_weight, source_kind_weight
+            )
+            present.add(key)
+            extra.append(processed)
+    if extra:
+        logger.info(
+            "retrieval: added %d opening chunk(s) of %d current-term notice(s)",
+            len(extra),
+            len(parents),
+        )
+    return extra
 
 
 def search(
@@ -1016,7 +1128,7 @@ def search(
         client, rpc_names, payload, candidate_counts, lexical_query, max_workers=rpc_concurrency,
     )
 
-    per_rpc_rows: List[List[Dict[str, Any]]] = []
+    per_rpc_rows: List[Tuple[str, List[Dict[str, Any]]]] = []
     merged: List[Dict[str, Any]] = []
     for rpc_name in rpc_names:
         rpc_candidate_count = candidate_counts[rpc_name]
@@ -1170,7 +1282,7 @@ def search(
             dataset_priority_weight,
             source_kind_weight,
         )
-        per_rpc_rows.append(rows)
+        per_rpc_rows.append((rpc_name, rows))
         merged.extend(rows)
 
     candidates: List[Dict[str, Any]] = []
@@ -1178,12 +1290,17 @@ def search(
     url_counts: Dict[str, int] = {}
     lexical_url_counts: Dict[str, int] = {}
 
-    # Keep one high-scoring row from each successful RPC before global ranking.
+    # Keep one high-scoring row from each successful RPC before global ranking
+    # (more for the notice tables on schedule questions -- see freshness.py).
     # This prevents one noisy collection from crowding out regulations/notices.
-    for rows in per_rpc_rows:
+    for rpc_name, rows in per_rpc_rows:
         if len(candidates) >= overall_candidate_count:
             break
+        wanted = seed_slots(rpc_name, query_text)
+        taken = 0
         for row in rows:
+            if taken >= wanted or len(candidates) >= overall_candidate_count:
+                break
             if _add_row(
                 candidates,
                 seen,
@@ -1193,7 +1310,7 @@ def search(
                 lexical_url_counts=lexical_url_counts,
                 max_lexical_chunks_per_url=max_lexical_chunks_per_url,
             ):
-                break
+                taken += 1
 
     merged.sort(
         key=lambda row: _final_score(
@@ -1215,6 +1332,19 @@ def search(
             max_chunks_per_url=max_chunks_per_url,
             lexical_url_counts=lexical_url_counts,
             max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+        )
+
+    if is_schedule_query(query_text):
+        candidates.extend(
+            _opening_chunks_of_current_notices(
+                client,
+                candidates,
+                query_text,
+                query_terms,
+                priority_weight,
+                dataset_priority_weight,
+                source_kind_weight,
+            )
         )
 
     selected = _rerank_candidates(
