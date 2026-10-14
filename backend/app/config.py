@@ -73,6 +73,11 @@ class Settings(BaseSettings):
     reranker_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     reranker_device: str = "cpu"
     reranker_weight: float = 0.80
+    # int8 dynamic quantization of the reranker's Linear layers (CPU only).
+    # Measured 2026-10-02 on 20 real candidate sets: 3.84s -> 2.54s per set
+    # (1.5x), but the top-1 changed in 40% of sets, so it's off until a
+    # regression eval says answers don't get worse.
+    reranker_quantize: bool = False
     rpc_names: Annotated[List[str], NoDecode] = [
         "match_rule_documents",
         "match_pknu_notice_documents",
