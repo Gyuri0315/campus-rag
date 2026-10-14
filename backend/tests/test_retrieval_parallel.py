@@ -4,6 +4,7 @@ import threading
 import time
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from app.retrieval import _fetch_rpc_responses
 
@@ -62,6 +63,36 @@ class FetchRpcResponsesTests(unittest.TestCase):
         _fetch_rpc_responses(client, ["a", "b", "c", "d"], {}, {k: 30 for k in "abcd"}, "q", max_workers=8)
         # 8 calls x 0.3s would take 2.4s sequentially.
         self.assertLess(time.perf_counter() - started, 1.2)
+
+    def test_concurrent_calls_use_one_client_per_worker_thread(self):
+        built = []
+        threads_by_client = {}
+        lock = threading.Lock()
+
+        class RealishClient(FakeClient):
+            supabase_url = "https://example.supabase.co"
+            supabase_key = "key"
+
+            def rpc(self, name, params):
+                with lock:
+                    threads_by_client.setdefault(id(self), set()).add(threading.get_ident())
+                return super().rpc(name, params)
+
+        def fake_build(url, key):
+            client = RealishClient(delay=0.05)
+            built.append(client)
+            return client
+
+        shared = RealishClient()
+        with patch("app.retrieval.build_supabase_client", side_effect=fake_build):
+            for _ in range(3):
+                result = _fetch_rpc_responses(
+                    shared, ["a", "b", "c", "d"], {}, {k: 30 for k in "abcd"}, "q", max_workers=3,
+                )
+                self.assertTrue(all(error is None for _r, _ms, error in result.values()))
+        self.assertEqual({}, shared.calls)  # the shared client is never used across threads
+        self.assertLessEqual(len(built), 3)  # reused across queries, not rebuilt per call
+        self.assertTrue(all(len(threads) == 1 for threads in threads_by_client.values()))
 
     def test_default_is_sequential_in_original_order(self):
         client = FakeClient()

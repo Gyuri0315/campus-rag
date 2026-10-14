@@ -353,7 +353,8 @@ def deduplicate_sources(
     sources_table: str,
     chunks_table: str,
 ) -> int:
-    """Keep at most one active source row per (url, title), deleting the rest.
+    """Keep at most one active source row per (url, title, attachment name),
+    deleting the rest.
 
     Root cause this guards against: each crawler generates a source's `id`
     (slug) independently, and for several crawlers that slug is not fully
@@ -370,6 +371,17 @@ def deduplicate_sources(
     titled documents at the same URL, so deduping on url alone would wrongly
     collapse genuinely different documents together (this actually happened
     during the manual 2026-09-15 cleanup and had to be corrected).
+
+    The attachment name (metadata.attachment_name, '' for the notice body
+    itself) is part of the key too: a notice's body and each of its
+    attachments all share the notice's url and title, so (url, title) alone
+    kept only the biggest of them and deleted the rest every run. Found
+    2026-10-14: 2,963 of 6,635 pknu_notice and 1,622 of 3,201 ce notices had
+    lost their body text (no notice kept both a body and an attachment) --
+    e.g. "2026-2학기 수강신청 변경기간 안내" kept only a menu-guide PDF and
+    lost the body with the actual dates. The attachment *name* is what the
+    site shows, so it stays stable when the upload path (and so the slug)
+    changes between crawls -- the duplication this function exists for.
 
     "Best" within a (url, title) group is the row with the most chunks
     (a proxy for the most complete crawl/extraction), tie-broken by id for
@@ -398,7 +410,8 @@ def deduplicate_sources(
                     select s.id,
                            coalesce(cc.chunk_count, 0) as chunk_count,
                            row_number() over (
-                               partition by s.url, s.title
+                               partition by s.url, s.title,
+                                            coalesce(s.metadata->>'attachment_name', '')
                                order by coalesce(cc.chunk_count, 0) desc, s.id desc
                            ) as rn
                     from {sources_table} s

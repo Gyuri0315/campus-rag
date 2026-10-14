@@ -8,7 +8,7 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.testclient import TestClient
 
 from app.deps import get_state, require_admin, require_user
-from app.routers.admin import build_dashboard, normalize_question
+from app.routers.admin import build_dashboard, normalize_question, router as admin_router
 
 
 def feedback(id_, rating, chat, answer_at, *, reasons=None, comment=None, answer="답변"):
@@ -96,6 +96,34 @@ class RequireAdminTests(unittest.TestCase):
     def test_empty_allowlist_denies_everyone(self):
         response = self.client([], "admin@pknu.ac.kr").get("/secret")
         self.assertEqual(403, response.status_code)
+
+
+class AdminMeTests(unittest.TestCase):
+    def client(self, admin_emails, caller_email):
+        app = FastAPI()
+        app.include_router(admin_router)
+
+        def fake_user(request: Request) -> str:
+            request.state.user_email = caller_email
+            return "user-1"
+
+        app.dependency_overrides[require_user] = fake_user
+        app.dependency_overrides[get_state] = lambda: SimpleNamespace(
+            settings=SimpleNamespace(admin_emails=admin_emails))
+        return TestClient(app)
+
+    def test_reports_admin_and_non_admin(self):
+        self.assertEqual({"isAdmin": True},
+                         self.client(["Admin@PKNU.ac.kr"], "admin@pknu.ac.kr").get("/admin/me").json())
+        self.assertEqual({"isAdmin": False},
+                         self.client(["admin@pknu.ac.kr"], "student@pknu.ac.kr").get("/admin/me").json())
+
+    def test_requires_login(self):
+        app = FastAPI()
+        app.include_router(admin_router)
+        app.dependency_overrides[get_state] = lambda: SimpleNamespace(
+            settings=SimpleNamespace(admin_emails=["admin@pknu.ac.kr"]))
+        self.assertEqual(401, TestClient(app).get("/admin/me").status_code)
 
 
 if __name__ == "__main__":
