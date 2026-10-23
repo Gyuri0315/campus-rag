@@ -3,17 +3,36 @@
 `scripts` is organized by responsibility. New code should import and execute the canonical paths below.
 
 Evaluation commands and datasets live under `eval/`; see `eval/README.md`.
-Main-site page routes and discovery tools live under `scripts/main/`; see `scripts/main/README.md`.
+Main-site page routes and discovery tools live under `scripts/main/`; see [메인 홈페이지 크롤링 명령어](main/README.md) for full, category, page and limited-board runs.
 Main-site collection settings are in `scripts/main/pages.json`. Its results share
 `files/pknu_main/`, organized by site category and then file format. Incremental
 state is in `_state/`; RAG intermediates are in `_derived/<logical-dataset>/`.
 
-Department crawlers save new results under `files/department/<dataset>/`, using
-the existing department alias (for example, `ce`). Each department keeps
-`output/{json,html,files,images,runs}`, `state.json`, `preprocessed/`, and
-`vectorized/` inside that folder. Existing `files/<dataset>/` data is read as a
-legacy source for incremental state, document hashes and reusable attachments;
-changing the storage path does not trigger a crawl or move existing data.
+College, faculty, department, and major websites use the common department
+crawler. Their explicit `storage_path` in `crawlers/departments/registry.json`
+places each dataset under `files/department/<college>/<faculty-or-department>/<major>/<dataset>/`.
+Levels without a separate organization/site are omitted; a website shared by
+multiple majors stays at the faculty level and is stored once. Independent
+faculties use their own name as the first level. The existing dataset alias
+(for example, `ce`) remains the leaf folder and document identity is preserved.
+Each dataset keeps `output/{json,html,files,images,runs}`, `state.json`,
+`preprocessed/`, and `vectorized/` inside that folder.
+
+```text
+files/department/
+├─ 공과대학/
+│  ├─ coe/                                 # college website
+│  ├─ 화학공학과/chemeng/
+│  └─ 기계공학부/기계학전공/me/
+└─ 정보융합대학/컴퓨터·인공지능공학부/ce/    # shared faculty website
+```
+
+Existing department directories can be reorganized without crawling:
+`python -m scripts.migrations.crawler_storage --department-layout` previews
+the moves; add `--apply` to move them and update local JSON/JSONL references.
+The command refuses destination collisions and records its verification in
+`files/department/_migration/`. Legacy flat folders remain readable for older
+checkouts that have not yet been migrated.
 
 ```text
 scripts/
@@ -38,7 +57,7 @@ scripts/
 ├─ extractors/           # attachment/file format extractors
 ├─ rag/                  # preprocessing, vectorization, loading, and search
 ├─ ce/                   # CE preprocessing and priority commands
-├─ main/                 # main-site analysis and priority commands
+├─ main/                 # main-site category entry points, collectors and shared logic
 ├─ rule/                 # rule preprocessing and priority commands
 └─ tests/
 ```

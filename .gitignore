@@ -59,3 +59,6 @@ Thumbs.db
 CLAUDE.md
 # Local OCR language models
 .tools/tessdata/
+
+# Local data files
+pknu_main_collection_inventory.csv

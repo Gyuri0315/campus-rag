@@ -4,7 +4,8 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from scripts.crawlers import pknu_student_life as crawler
+from scripts.main.collectors import ebook as crawler
+from scripts.main.common.storage import PROJECT_ROOT
 from scripts.crawlers.common.schema import validate_common_document
 
 
@@ -48,7 +49,7 @@ class StudentLifeEbookTests(unittest.TestCase):
         self.assertIn("[Page 3]\n성적 관리 안내", doc["content"])
         self.assertNotIn("1BSU", doc["content"])
         self.assertIn("ebook_pages_without_readable_text:2", doc["crawl"]["warnings"])
-        self.assertEqual(validate_common_document(doc, crawler.PROJECT_ROOT), [])
+        self.assertEqual(validate_common_document(doc, PROJECT_ROOT), [])
 
     def test_cleanup_removes_flipbook_noise_but_keeps_columns_and_bullets(self) -> None:
         raw = ("1BSU\n\u0cdf\u088e\u09b8\u0796  1-1. 수강신청 ········ 04\n"

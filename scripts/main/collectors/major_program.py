@@ -5,17 +5,15 @@ not as verified policy text.
 """
 
 from __future__ import annotations
-
+from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 from pathlib import Path
-from scripts.main.paths import page_root
-import shutil
-
-from bs4 import BeautifulSoup
-import requests
-
-from scripts.crawlers.departments.body_images import collect_body_images, save_body_images
+from scripts.crawlers.common.body_images import collect_body_images, save_body_images
 from scripts.extractors.image_ocr import VERSION, extract_image
+from scripts.main.paths import page_root
+from scripts.main.routes import PAGE_SETTINGS, body_image_ocr_enabled
+import requests
+import shutil
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -73,6 +71,14 @@ def collect_major_program(session: requests.Session, page_id: int, *,
         "order", "alt", "source_url", "saved_path", "sha256", "size_bytes",
         "width", "height", "content_type")}
     image["ocr_blocks"] = []
+    if not body_image_ocr_enabled(PAGE_SETTINGS.get(page_id, {}).get("options")):
+        image.update(ocr_status="not_requested", ocr_text="")
+        return {"page_id": page_id, "title": title, "url": url,
+                "retrieved_at": datetime.now(timezone.utc).isoformat(),
+                "status": "collected", "warnings": [], "image_count": 1,
+                "ocr_engine": None, "ocr_version": None, "ocr_block_count": 0,
+                "images": [image], "content": "", "content_source": "original_images",
+                "image_text_extraction": "not_requested"}
     warnings = ["OCR_REVIEW_REQUIRED"]
     try:
         local_models = str(LOCAL_TESSDATA) if tessdata is None and LOCAL_TESSDATA.is_dir() else tessdata

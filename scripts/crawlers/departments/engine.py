@@ -48,7 +48,8 @@ from scripts.crawlers.common.logging import (  # noqa: E402
     configure_crawler_logging, log_attachment_events, log_event, set_run_id,
 )
 from scripts.crawlers.common.storage import (  # noqa: E402
-    empty_state, get_dataset_paths, load_state_with_migration, save_state_atomic, write_document,
+    department_legacy_roots, empty_state, get_dataset_paths, load_state_with_migration,
+    save_state_atomic, write_document,
 )
 from scripts.crawlers.common.reader import remove_redundant_legacy_fields  # noqa: E402
 from scripts.crawlers.departments.config import (  # noqa: E402
@@ -64,6 +65,7 @@ from scripts.crawlers.departments.tls import (  # noqa: E402
     TLS_CERTIFICATE_VERIFY_FAILED,
     classify_request_error,
     get_with_tls_policy,
+    mount_verified_legacy_tls,
 )
 
 ACTIVE_CONFIG: DepartmentConfig | None = None
@@ -171,13 +173,14 @@ def configure_department(config: DepartmentConfig) -> None:
     ACTIVE_CONFIG = config
     ACTIVE_ADAPTER = get_adapter(config.adapter)
     BASE_URL = config.base_url
-    PATHS = get_dataset_paths(PROJECT_ROOT, config.dataset, group="department")
+    PATHS = get_dataset_paths(PROJECT_ROOT, config.dataset, group="department",
+                              storage_path=config.storage_path or None)
     OUTPUT_JSON = PATHS.json
     OUTPUT_HTML = PATHS.html
     OUTPUT_FILES = PATHS.files
     STATE_FILE = PATHS.state
-    legacy_root = PROJECT_ROOT / "files" / config.dataset
-    LEGACY_STATE_FILES = (legacy_root / "state.json", legacy_root / "state.json.bak",
+    LEGACY_STATE_FILES = (*(path for root in department_legacy_roots(PROJECT_ROOT, config.dataset)
+                           for path in (root / "state.json", root / "state.json.bak")),
                           *(PROJECT_ROOT / item for item in config.legacy_state_files))
     SECTIONS = [section.runtime_dict(config.base_url) for section in config.active_sections]
     REQUEST_DELAY = config.request_delay_seconds
@@ -235,6 +238,10 @@ def build_session() -> requests.Session:
             "Referer": BASE_URL,
         }
     )
+    if ACTIVE_CONFIG and ACTIVE_CONFIG.tls_legacy_server_connect:
+        mount_verified_legacy_tls(session, ACTIVE_CONFIG.base_url)
+        for host in ACTIVE_CONFIG.tls_legacy_server_hosts:
+            mount_verified_legacy_tls(session, f"https://{host}/")
     return session
 
 
@@ -310,8 +317,11 @@ def existing_document_path(category: str, slug: str) -> Path:
     current = PATHS.document_json(category, slug)
     if current.is_file():
         return current
-    legacy = PATHS.project_root / "files" / PATHS.dataset / "output" / "json" / category / f"{slug}.json"
-    return legacy if legacy.is_file() else current
+    for root in department_legacy_roots(PATHS.project_root, PATHS.dataset):
+        legacy = root / "output" / "json" / category / f"{slug}.json"
+        if legacy.is_file():
+            return legacy
+    return current
 
 
 # ─── HTTP 요청 ────────────────────────────────────────────────────────────────
@@ -1135,7 +1145,7 @@ def validate_body_content(doc, parsed, diagnostics=None):
 
 
 def collect_document_images(doc, soup, session, *, download=True, page_url=None):
-    from scripts.crawlers.departments.body_images import collect_body_images, save_body_images
+    from scripts.crawlers.common.body_images import collect_body_images, save_body_images
     candidates = collect_body_images(soup)
     if not candidates:
         return
@@ -1181,6 +1191,11 @@ def crawl_static(
 
     source_id = f"static:{url_source_id(page_url)}"
     slug = document_slug(ACTIVE_CONFIG.dataset, source_id)
+    attachments = parsed.get("attachments", [])
+    if no_download_files:
+        attachments = attachment_metadata_only(attachments, page_url)
+    elif attachments:
+        attachments = save_attachments(session, attachments, category, slug, page_url)
     doc = {
         "slug": slug,
         "title": title,
@@ -1191,7 +1206,7 @@ def crawl_static(
         "type": doc_type,
         "is_notice": False,
         "content": content_text,
-        "attachments": parsed.get("attachments", []),
+        "attachments": attachments,
         "crawled_at": datetime.now().isoformat(),
     }
     doc = apply_common_schema(
@@ -1212,6 +1227,8 @@ def crawl_static(
     collect_document_images(doc, soup, session, download=not no_download_files,
                             page_url=getattr(resp, 'url', None) or page_url)
     stats = CrawlStats(discovered=1, requested=1)
+    stats.count_attachments(doc.get("attachments"))
+    log_attachment_events(log, doc.get("attachments"), source_id=source_id)
     if validate_body_content(doc, parsed, diagnostics):
         stats.failed = 1
         save_document(doc, resp.text)

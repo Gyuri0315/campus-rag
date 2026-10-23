@@ -12,6 +12,11 @@ import schedule
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.crawlers.common.storage import get_dataset_root
+
 DEFAULT_RUN_AT = "09:00"
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "daily_pipeline.log"
@@ -40,7 +45,7 @@ def run_command(name: str, command: list[str]) -> None:
     log.info("[%s] done in %.1fs", name, elapsed)
 
 
-CE_DATA_ROOT = Path("files/department/ce")
+CE_DATA_ROOT = get_dataset_root(PROJECT_ROOT, "ce")
 
 
 def run_preprocess_steps(python: str) -> None:

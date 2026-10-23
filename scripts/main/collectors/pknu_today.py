@@ -1,21 +1,18 @@
 """Collect one list page of the three PKNU Today community boards."""
 
 from __future__ import annotations
-
-import argparse
-from datetime import datetime, timezone
-import json
-from pathlib import Path
-import re
-import time
-from urllib.parse import parse_qs, urljoin, urlparse
-
 from bs4 import BeautifulSoup
-import requests
-
-from scripts.crawlers.pknu_notice import ListItem, parse_detail_page
+from datetime import datetime, timezone
+from pathlib import Path
+from scripts.main.common.board import ListItem, parse_detail_page
 from scripts.main.paths import main_root
 from scripts.main.routes import ROUTES
+from urllib.parse import parse_qs, urljoin, urlparse
+import argparse
+import json
+import re
+import requests
+import time
 
 
 ROOT = Path(__file__).resolve().parents[3]

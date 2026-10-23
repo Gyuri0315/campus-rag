@@ -74,8 +74,50 @@ class NumericCMSClassificationTests(unittest.TestCase):
         items = adapter.parse_list(soup, "https://department.example.test/dept/100")
         self.assertNotIn("9990000", {item["source_id"] for item in items})
 
+    def test_sns_cards_keep_public_content_and_external_links_without_following(self) -> None:
+        adapter = get_adapter('numeric_cms')
+        soup = BeautifulSoup('''<ul class="snsList"><li>
+          <a class="snsBox" onclick="snsModal('https://youtu.be/sample')">
+          <div class="txtbox"><span></span><p>홍보영상</p></div></a></li>
+          <li><a class="snsBox" onclick="snsModal('')"><div class="txtbox">
+          <p>대학 신설</p></div></a></li></ul>''', 'lxml')
+        board_url = 'https://department.example.test/dept/100'
+        items = adapter.parse_list(soup, board_url)
+        self.assertEqual(2, len(items))
+        self.assertNotEqual(items[0]['source_id'], items[1]['source_id'])
+        self.assertTrue(items[0]['post_url'].startswith(board_url + '#sns_'))
+        page_one = adapter.parse_list(soup, board_url + '?pageIndex=1&bbsId=123')
+        page_two = adapter.parse_list(soup, board_url + '?pageIndex=2&bbsId=123')
+        self.assertEqual(page_one[0]['post_url'], page_two[0]['post_url'])
+        detail = adapter.parse_detail(soup, items[0]['post_url'], items[0], base_url=board_url, site_prefix='dept')
+        self.assertEqual('홍보영상', detail['body'])
+        self.assertEqual([{'label': '홍보영상', 'url': 'https://youtu.be/sample', 'followed': False}], detail['reference_links'])
+        self.assertIsNone(adapter.parse_detail(BeautifulSoup('<ul class="snsList"></ul>', 'lxml'), items[0]['post_url'], items[0], base_url=board_url, site_prefix='dept'))
+
 
 class NumericCMSTableTests(unittest.TestCase):
+    def test_embedded_media_only_body_retains_sources(self):
+        adapter = NumericCMSAdapter()
+        page_url = 'https://department.example.test/dept/100?action=view&no=1'
+        soup = BeautifulSoup('''<div class="a_bdCont"><table><tr><td class="bdvEdit">
+          <iframe src="https://www.youtube.com/embed/example" title="홍보영상"></iframe>
+          <iframe src="javascript:alert(1)"></iframe>
+          </td></tr></table></div>''', 'lxml')
+        parsed = adapter.parse_detail(soup, page_url, {'title': '영상 안내'},
+                                      base_url='https://department.example.test', site_prefix='dept')
+        self.assertIn('홍보영상: https://www.youtube.com/embed/example', parsed['body'])
+        self.assertNotIn('empty', parsed.get('content_state', ''))
+        self.assertEqual([{'url': 'https://www.youtube.com/embed/example', 'label': '홍보영상',
+                          'source': 'iframe', 'followed': False}], parsed['reference_links'])
+        video = BeautifulSoup('''<main><video><source src="/usingDownload.do?no=1">
+          동영상을 지원하지 않는 브라우저입니다.</source></video></main>''', 'lxml')
+        self.assertIn('영상: /usingDownload.do?no=1', adapter.parse_static(video, fallback_title='안내')['content'])
+        self.assertNotIn('지원하지 않는', adapter.parse_static(video, fallback_title='안내')['content'])
+
+    def test_icon_only_email_keeps_mailto_address(self):
+        soup = BeautifulSoup('<main>이메일: <a href="mailto:faculty@example.test"><img alt="메일"></a></main>', 'lxml')
+        self.assertIn('faculty@example.test', extract_body_content(soup.main))
+
     def test_saved_ce_curriculum_fixture(self):
         fixture = FIXTURES_ROOT / 'departments/numeric_cms/ce_ai_curriculum.html'
         soup = BeautifulSoup(fixture.read_text(encoding='utf-8'), 'lxml')
@@ -84,6 +126,21 @@ class NumericCMSTableTests(unittest.TestCase):
         self.assertIn('2026', parsed['content'])
         self.assertIn(' | ', parsed['content'])
         self.assertGreater(len(parsed['content'].splitlines()), 10)
+
+    def test_static_embedded_documents_are_attachments_without_video_links(self):
+        soup = BeautifulSoup('''<div id="sbCont">
+          <iframe src="/upload/support.pdf"></iframe>
+          <a href="/upload/support.pdf">Download PDF</a>
+          <embed src="/upload/curriculum.pdf">
+          <object data="/upload/guide.pdf"></object>
+          <iframe src="https://www.youtube.com/embed/example"></iframe>
+          <iframe src="javascript:download('ignored.pdf')"></iframe>
+          </div>''', "lxml")
+        parsed = NumericCMSAdapter().parse_static(soup, fallback_title="Support")
+        self.assertEqual([item["url"] for item in parsed["attachments"]],
+                         ["/upload/support.pdf", "/upload/curriculum.pdf", "/upload/guide.pdf"])
+        self.assertIn("문서: /upload/support.pdf", parsed["content"])
+        self.assertIn("영상: https://www.youtube.com/embed/example", parsed["content"])
 
     def test_static_table_only_guide(self):
         soup = BeautifulSoup('''<main><table><caption>교육과정</caption>
@@ -183,6 +240,27 @@ class DepartmentNumericCmsRegressionTests(unittest.TestCase):
         self.assertEqual(0, stats.failed)
         self.assertEqual("static_page", captured[0]["type"])
         self.assertEqual("curriculum", captured[0]["metadata"]["source_type"])
+
+    def test_sns_board_sample_limit_does_not_fetch_external_content(self) -> None:
+        html = '''<ul class="snsList"><li><a class="snsBox" onclick="snsModal('https://youtu.be/sample')">
+          <div class="txtbox"><p>영상 안내</p></div></a></li><li>
+          <a class="snsBox" onclick="snsModal('')"><div class="txtbox"><p>대학 소개</p></div></a></li></ul>'''
+        captured = []
+        board = {'url': 'https://department.example.test/dept/100', 'bbs_id': '123',
+                 'name': '뉴스', 'category': '커뮤니티', 'type': 'notice'}
+        with (
+            patch.object(engine, 'fetch', return_value=FakeResponse(html)) as fetch,
+            patch.object(engine, 'save_document', side_effect=lambda doc, _: captured.append(doc)),
+            patch.object(engine, 'load_existing_attachments', return_value=[]),
+        ):
+            stats, _ = engine.crawl_board(object(), board, {'items': {}}, is_initial=True,
+                                          recent_only=1, max_items=1, no_download_files=True)
+        self.assertEqual(1, stats.requested)
+        self.assertEqual(0, stats.failed)
+        self.assertEqual(1, len(captured))
+        self.assertEqual('영상 안내', captured[0]['content'])
+        self.assertEqual('https://youtu.be/sample', captured[0]['reference_links'][0]['url'])
+        self.assertTrue(all(call.args[1].startswith(board['url']) for call in fetch.call_args_list))
 
     def test_list_parser_matches_numeric_cms_golden_result(self) -> None:
         items = engine.parse_list_page(

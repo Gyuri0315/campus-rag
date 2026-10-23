@@ -3,12 +3,15 @@ from __future__ import annotations
 import unittest
 import sys
 import tempfile
+import ssl
+from dataclasses import replace
 from unittest.mock import Mock, patch
 
 import requests
 
 from scripts.crawlers.departments import cli, engine
 from scripts.crawlers.departments.probe import probe_site
+from scripts.crawlers.departments.config import get_department
 from scripts.crawlers.departments.tls import NETWORK_REQUEST_FAILED, TLS_CERTIFICATE_VERIFY_FAILED, classify_request_error, get_with_tls_policy
 
 
@@ -89,6 +92,20 @@ class DepartmentTlsTests(unittest.TestCase):
     def test_common_engine_does_not_disable_certificate_verification(self) -> None:
         session = engine.build_session()
         self.assertIsNot(session.verify, False)
+
+    def test_opt_in_legacy_negotiation_retains_certificate_and_host_verification(self) -> None:
+        config = replace(get_department("ce"), base_url="https://legacy.example.test/site",
+                         tls_legacy_server_connect=True, tls_legacy_server_hosts=("assets.example.test",))
+        with patch.object(engine, "ACTIVE_CONFIG", config):
+            session = engine.build_session()
+        adapter = session.get_adapter("https://legacy.example.test/site/1")
+        self.assertTrue(adapter._context.check_hostname)
+        self.assertEqual(adapter._context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertIsNot(session.verify, False)
+        self.assertIsNot(adapter, session.get_adapter("https://other.example.test/1"))
+        assets = session.get_adapter("https://assets.example.test/image.png")
+        self.assertTrue(assets._context.check_hostname)
+        self.assertEqual(assets._context.verify_mode, ssl.CERT_REQUIRED)
 
 
 if __name__ == "__main__":

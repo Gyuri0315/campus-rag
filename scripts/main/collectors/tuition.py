@@ -6,15 +6,35 @@ This module never treats those placeholders as tuition data.
 """
 
 from __future__ import annotations
-
+from bs4 import BeautifulSoup
 from collections import Counter
 from datetime import datetime, timezone
 from io import BytesIO
-import re
+from pathlib import Path
+from scripts.crawlers.common.schema import (
+    CrawlStats,
+    apply_common_schema,
+    attachment_text,
+    document_slug,
+)
+from scripts.main.common import board as cms_board
+from scripts.main.common.documents import extract_pdf_text
+from scripts.main.common.http import fetch, is_html_response
+from scripts.main.common.storage import (
+    BASE_URL,
+    PATHS,
+    PROJECT_ROOT,
+    SUBCATEGORY_ACADEMIC_INFO,
+    save_json,
+)
+from scripts.main.paths import page_json
+from typing import Any
+from urllib.parse import urljoin
 from xml.etree import ElementTree as ET
 from zipfile import BadZipFile, ZipFile
-
-from bs4 import BeautifulSoup
+import json
+import re
+import requests
 
 
 IFRAME_URL = "https://irumi.pknu.ac.kr/uni/enro/uniEnroView"
@@ -372,3 +392,174 @@ def collect_main_102_tuition(session, page_url: str, iframe_url: str) -> dict:
     result["warning_counts"] = dict(Counter(warning for group in ("tuition", "departments", "installments")
                                      for row in result[group] for warning in row["warnings"]))
     return result
+
+
+def collect_tuition_faq(
+    session: requests.Session, faq_url: str,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Read the /main/250 board without following its payment tab or body links."""
+    first = fetch(session, faq_url)
+    if not is_html_response(first, faq_url):
+        raise ValueError(f"tuition_faq_unverified: HTTP {first.status_code}, {first.url}")
+    soup = BeautifulSoup(first.text, "lxml")
+    bbs_input = soup.select_one('input[name="bbsId"]')
+    bbs_id = (bbs_input.get("value") or "").strip() if bbs_input else ""
+    if bbs_id != "86":
+        raise ValueError(f"tuition_faq_board_changed: {bbs_id!r}")
+    _, total_pages = cms_board.parse_page_indicator(first.text)
+    if not 1 <= total_pages <= 10:
+        raise ValueError(f"tuition_faq_page_count_unverified: {total_pages}")
+
+    items: dict[str, cms_board.ListItem] = {}
+    for page in range(1, total_pages + 1):
+        page_url = faq_url if page == 1 else f"{faq_url}?bbsId={bbs_id}&pageIndex={page}"
+        response = first if page == 1 else fetch(session, page_url)
+        if not is_html_response(response, page_url):
+            raise ValueError(f"tuition_faq_list_unverified: page {page}")
+        found = cms_board.parse_list_page(response.text, bbs_id, "등록금 FAQ")
+        if not found:
+            raise ValueError(f"tuition_faq_list_empty: page {page}")
+        for item in found:
+            if item.no in items:
+                raise ValueError(f"tuition_faq_duplicate_post: {item.no}")
+            items[item.no] = item
+
+    faq_items: list[dict[str, Any]] = []
+    documents: list[dict[str, Any]] = []
+    for post_no, item in items.items():
+        post_url = f"{faq_url}?action=view&no={post_no}"
+        response = fetch(session, post_url)
+        if not is_html_response(response, post_url):
+            raise ValueError(f"tuition_faq_detail_unverified: {post_no}")
+        detail_soup = BeautifulSoup(response.text, "lxml")
+        detail_board = detail_soup.select_one('#frmPost input[name="bbsId"]')
+        detail_post = detail_soup.select_one('#frmPost input[name="chkNo"]')
+        if (detail_board is None or detail_board.get("value") != bbs_id
+                or detail_post is None or detail_post.get("value") != post_no):
+            raise ValueError(f"tuition_faq_detail_identity_unverified: {post_no}")
+        detail = cms_board.parse_detail_page(response.text, item)
+        if not detail or (not detail["content"].strip() and not detail["attachments"]):
+            raise ValueError(f"tuition_faq_detail_empty: {post_no}")
+
+        source_id = f"main:250:{post_no}"
+        slug = document_slug("pknu_student_life", source_id)
+        output = PATHS.document_json(SUBCATEGORY_ACADEMIC_INFO, slug, kind="posts")
+        existing_doc = None
+        if output.is_file():
+            try:
+                existing_doc = json.loads(output.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+        attachments = cms_board.save_attachments(
+            session, detail["attachments"], SUBCATEGORY_ACADEMIC_INFO, slug, post_url,
+            existing_doc=existing_doc, file_dir=PATHS.attachment_dir(SUBCATEGORY_ACADEMIC_INFO, slug),
+        )
+        if any(not attachment["downloaded"] for attachment in attachments):
+            raise ValueError(f"tuition_faq_attachment_failed: {post_no}")
+        parts = [detail["content"].strip()] if detail["content"].strip() else []
+        for attachment in attachments:
+            saved_path = attachment.get("saved_path") or ""
+            if Path(saved_path).suffix.lower() != ".pdf":
+                continue
+            text_info = attachment.get("text") or {}
+            if text_info.get("status") == "success":
+                pdf_text = text_info.get("content") or ""
+            else:
+                try:
+                    pdf_text = extract_pdf_text(PROJECT_ROOT / saved_path)
+                    attachment["text"] = attachment_text(
+                        "success" if pdf_text else "skipped", content=pdf_text, extractor="pymupdf",
+                    )
+                except Exception as exc:
+                    raise ValueError(f"tuition_faq_pdf_text_failed: {post_no}: {exc}") from exc
+            if pdf_text:
+                parts.append(f"[{attachment['name']}]\n{pdf_text}")
+        content = "\n\n".join(parts).strip()
+        if not content:
+            raise ValueError(f"tuition_faq_text_empty: {post_no}")
+        doc = apply_common_schema(
+            {"url": post_url, "title": detail["title"], "category": '대학생활',
+             "subcategory": SUBCATEGORY_ACADEMIC_INFO, "tags": ["등록금", "FAQ"],
+             "content": content, "attachments": attachments},
+            source_dataset="pknu_student_life", source_id=source_id,
+            source_site=BASE_URL, document_type="guide", content_source="pknu_main_faq_board",
+            published_at=detail["date"], author=detail["author"],
+            metadata={"page_id": 250, "parent_page_id": 102, "bbs_id": bbs_id,
+                      "post_no": post_no},
+        )
+        documents.append(doc)
+        faq_items.append({
+            "post_no": post_no, "title": detail["title"], "url": post_url,
+            "date": detail["date"], "content": content, "attachments": attachments,
+            "document_path": output.relative_to(PROJECT_ROOT).as_posix(),
+        })
+    return ({"source_url": faq_url, "bbs_id": bbs_id, "total_pages": total_pages,
+             "item_count": len(faq_items), "items": faq_items}, documents)
+
+
+def crawl_tuition_page(session: requests.Session) -> tuple[CrawlStats, dict[str, Any]]:
+    """Store #102 tuition data and the FAQ linked from its own tab."""
+    page_id = 102
+    url = f"{BASE_URL}/main/{page_id}"
+    target = page_json(PROJECT_ROOT, 102)
+    stats = CrawlStats(discovered=1, requested=1)
+    detail: dict[str, Any] = {"page_id": page_id, "route": "tuition", "url": url,
+                              "data_path": target.relative_to(PROJECT_ROOT).as_posix()}
+    try:
+        response = fetch(session, url)
+        if not is_html_response(response, url):
+            raise ValueError(f"tuition_page_unverified: HTTP {response.status_code}, {response.url}")
+        soup = BeautifulSoup(response.text, "lxml")
+        frame = soup.select_one('#subCont iframe[title="계열별 등록금 조회"][src]')
+        iframe_url = urljoin(url, frame.get("src", "")) if frame else ""
+        if iframe_url != IFRAME_URL:
+            raise ValueError(f"tuition_iframe_unverified: {iframe_url!r}")
+        faq_tab = next((anchor for anchor in soup.select("#subCont .subTab a[href]")
+                        if anchor.get_text(" ", strip=True).upper() == "FAQ"), None)
+        faq_url = urljoin(url, faq_tab.get("href", "")) if faq_tab else ""
+        if faq_url != f"{BASE_URL}/main/250":
+            raise ValueError(f"tuition_faq_tab_unverified: {faq_url!r}")
+        data = collect_main_102_tuition(session, url, iframe_url)
+        data.update(category='대학생활', subcategory=SUBCATEGORY_ACADEMIC_INFO,
+                    page_url=url)
+        if (not all(data["counts"][name] for name in ("tuition", "departments", "installments"))
+                or "official_checks" not in data or "installment_reconciliation" not in data):
+            raise ValueError("tuition_query_returned_no_confirmed_rows: " + "; ".join(data["warnings"]))
+        faq, faq_docs = collect_tuition_faq(session, faq_url)
+        data["faq"] = faq
+        for doc in faq_docs:
+            output = PATHS.document_json(SUBCATEGORY_ACADEMIC_INFO, doc["slug"], kind="posts")
+            existing_doc = None
+            if output.is_file():
+                try:
+                    existing_doc = json.loads(output.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    pass
+            if (existing_doc and existing_doc.get("content_hash") == doc["content_hash"]
+                    and existing_doc.get("attachments") == doc["attachments"]
+                    and existing_doc.get("title") == doc["title"]
+                    and existing_doc.get("published_at") == doc["published_at"]):
+                continue
+            save_json(doc, SUBCATEGORY_ACADEMIC_INFO, doc["slug"])
+        previous = target.is_file()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        temporary = target.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary.replace(target)
+        detail.update(status="partial_success" if data["status"] == "needs_review" else "success",
+                      counts=data["counts"], review_counts=data["review_counts"],
+                      faq_count=faq["item_count"], faq_pages=faq["total_pages"],
+                      warnings=data["warnings"],
+                      official_checks={key: data["official_checks"][key] for key in
+                                       ("amount_rows_checked", "amount_rows_matched",
+                                        "classification_rows_checked", "classification_rows_matched")},
+                      installment_group_counts=data["installment_reconciliation"]["group_counts"])
+        if previous:
+            stats.updated += 1
+        else:
+            stats.new += 1
+    except (requests.RequestException, ValueError, OSError) as exc:
+        stats.failed += 1
+        detail.update(status="failed", reason=str(exc),
+                      retryable=isinstance(exc, requests.RequestException))
+    return stats, detail

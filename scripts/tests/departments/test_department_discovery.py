@@ -84,7 +84,8 @@ class DepartmentFreshnessTests(unittest.TestCase):
     def test_provenance_records_adapter_hash_url_and_time(self) -> None:
         payload = add_result_provenance({"status": "success"}, config())
         provenance = payload["provenance"]
-        self.assertEqual({"name": "numeric_cms", "version": "1.0"}, provenance["adapter"])
+        adapter = get_adapter(config().adapter)
+        self.assertEqual({"name": adapter.name, "version": adapter.version}, provenance["adapter"])
         self.assertEqual(64, len(provenance["registry_config_hash"]))
         self.assertEqual("https://econ.pknu.ac.kr", provenance["registry_url"])
         self.assertIn("+09:00", provenance["executed_at"])

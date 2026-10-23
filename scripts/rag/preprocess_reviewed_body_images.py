@@ -2,7 +2,7 @@
 
 Example:
   python -m scripts.rag.preprocess_reviewed_body_images --dataset ce \
-    --source files/ce/output/json/category/document.json
+    --source files/department/정보융합대학/컴퓨터·인공지능공학부/ce/output/json/category/document.json
 """
 from __future__ import annotations
 

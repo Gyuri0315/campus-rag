@@ -41,6 +41,8 @@ def asset_type(filename: str) -> str:
         return "office"
     if suffix in {".zip", ".rar", ".7z"}:
         return "archives"
+    if suffix in {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac"}:
+        return "audio"
     return "other"
 
 
@@ -67,11 +69,11 @@ def is_crawler_document(path: Path) -> bool:
 
 
 def page_root(project_root: Path, page_id: int) -> Path:
-    from scripts.main.routes import ROUTES
-    route = ROUTES.get(page_id)
-    if route is None:
+    from scripts.main.routes import PAGE_SETTINGS
+    category_path = PAGE_SETTINGS.get(page_id, {}).get("category_path")
+    if not category_path:
         return main_root(project_root) / "_discovery" / f"main_{page_id}"
-    return main_root(project_root).joinpath(*route.category_path)
+    return main_root(project_root).joinpath(*category_path)
 
 
 def page_json(project_root: Path, page_id: int, filename: str | None = None) -> Path:
@@ -85,9 +87,9 @@ class MainDatasetPaths(DatasetPaths):
             return page_root(self.project_root, 163) / category
         if category in STUDENT_CATEGORIES:
             return self.root / "대학생활" / Path(*STUDENT_CATEGORIES[category])
-        from scripts.main.routes import ROUTES
-        configured = {route.category_path for route in ROUTES.values()
-                      if route.handler == "static" and route.category_path[-1] == category}
+        from scripts.main.routes import PAGE_SETTINGS
+        configured = {tuple(row["category_path"]) for row in PAGE_SETTINGS.values()
+                      if row.get("category_path") and row["category_path"][-1] == category}
         if len(configured) > 1:
             raise ValueError(f"ambiguous category: {category}")
         return self.root.joinpath(*next(iter(configured))) if configured else self.root / "대학생활" / category

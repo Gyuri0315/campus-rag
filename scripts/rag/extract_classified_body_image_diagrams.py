@@ -2,7 +2,7 @@
 
 Examples:
   python -m scripts.rag.extract_classified_body_image_diagrams --dataset ce --limit 10
-  python -m scripts.rag.extract_classified_body_image_diagrams --dataset ce --source-path files/ce/output/json/학부안내/454c014f68226924.json --include-uncertain-layout
+  python -m scripts.rag.extract_classified_body_image_diagrams --dataset ce --source-path files/department/정보융합대학/컴퓨터·인공지능공학부/ce/output/json/학부안내/454c014f68226924.json --include-uncertain-layout
 """
 from __future__ import annotations
 

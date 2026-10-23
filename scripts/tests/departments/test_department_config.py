@@ -60,6 +60,9 @@ class DepartmentConfigTests(unittest.TestCase):
             ("control character", {"path": "/sample/\n100"}),
             ("unknown adapter", {"adapter": "unknown"}),
             ("unknown document type", {"document_type": "article"}),
+            ("storage traversal", {"storage_path": ["..", "sample"]}),
+            ("wrong storage leaf", {"storage_path": ["College", "other"]}),
+            ("storage string", {"storage_path": "College/sample"}),
         )
         for label, change in cases:
             payload = json.loads(json.dumps(base))
@@ -73,6 +76,8 @@ class DepartmentConfigTests(unittest.TestCase):
                 payload["sections"][0]["path"] = change["path"]
             if "document_type" in change:
                 payload["sections"][0]["document_type"] = change["document_type"]
+            if "storage_path" in change:
+                payload["storage_path"] = change["storage_path"]
             with self.subTest(case=label), self.assertRaises(ValueError):
                 DepartmentConfig.from_dict(payload)
 

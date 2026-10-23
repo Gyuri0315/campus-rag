@@ -14,7 +14,7 @@ import shutil
 import subprocess
 
 from bs4 import BeautifulSoup
-from scripts.crawlers.departments.body_images import collect_body_images, save_body_images
+from scripts.crawlers.common.body_images import collect_body_images, save_body_images
 from scripts.crawlers.departments.engine import build_session
 from scripts.extractors.image_ocr import VERSION, extract_image
 from scripts.rag.body_image_layout import enrich_entry

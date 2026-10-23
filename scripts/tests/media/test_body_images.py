@@ -10,7 +10,7 @@ from unittest.mock import patch
 from PIL import Image, ImageDraw
 from bs4 import BeautifulSoup
 
-from scripts.crawlers.departments.body_images import collect_body_images, save_body_images, image_info
+from scripts.crawlers.common.body_images import collect_body_images, save_body_images, image_info
 from scripts.extractors.image_ocr import detect_grid, layout_blocks
 
 
@@ -44,7 +44,7 @@ class BodyImageTests(unittest.TestCase):
         data = 'data:image/png;base64,' + base64.b64encode(payload).decode()
         response = SimpleNamespace(url='https://example.org/image.png', raise_for_status=lambda:None,
                                    iter_content=lambda size:iter([payload]), close=lambda:None)
-        with tempfile.TemporaryDirectory() as temp, patch('scripts.crawlers.departments.body_images.get_with_tls_policy', return_value=(response, False)) as fetch:
+        with tempfile.TemporaryDirectory() as temp, patch('scripts.crawlers.common.body_images.get_with_tls_policy', return_value=(response, False)) as fetch:
             root = Path(temp)
             records = save_body_images([{'order':1,'src':data,'alt':''}, {'order':2,'src':'image.png','alt':''},
                                        {'order':3,'src':'image.png','alt':''}, {'order':4,'src':'data:image/png;base64,bad!','alt':''}],
@@ -61,7 +61,7 @@ class BodyImageTests(unittest.TestCase):
     def test_html_response_rejected_and_no_download_honored(self):
         response=SimpleNamespace(url='https://example.org/a.png', raise_for_status=lambda:None,
             iter_content=lambda size:iter([b'<html>login</html>']), close=lambda:None)
-        with tempfile.TemporaryDirectory() as temp, patch('scripts.crawlers.departments.body_images.get_with_tls_policy', return_value=(response,False)) as fetch:
+        with tempfile.TemporaryDirectory() as temp, patch('scripts.crawlers.common.body_images.get_with_tls_policy', return_value=(response,False)) as fetch:
             args=dict(session=object(),page_url='https://example.org',output_dir=Path(temp)/'images',project_root=Path(temp))
             items=[{'order':1,'src':'/a.png','alt':''}]
             records=save_body_images(items,**args,download=False)

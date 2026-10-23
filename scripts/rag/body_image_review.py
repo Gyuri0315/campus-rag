@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from scripts.text_cleaning import clean_extracted_text
-from scripts.crawlers.common.storage import get_dataset_root
+from scripts.crawlers.common.storage import department_legacy_roots, get_dataset_root
+from scripts.crawlers.common.reader import infer_dataset_from_path
 
 
 def _document_paths(source_file: Path, project_root: Path) -> tuple[str, str, Path, Path] | None:
@@ -21,16 +22,22 @@ def _document_paths(source_file: Path, project_root: Path) -> tuple[str, str, Pa
     except ValueError:
         return None
     parts = relative.parts
-    marker = 3 if parts[:2] == ("files", "department") else 2
+    marker = next((index for index in range(2, len(parts) - 2)
+                   if parts[index:index + 2] == ("output", "json")), -1)
+    if marker == -1:
+        return None
     if len(parts) < marker + 3 or parts[0] != "files" or parts[marker:marker + 2] != ("output", "json"):
         return None
-    dataset = parts[marker - 1]
+    dataset = infer_dataset_from_path(source_file)
+    if not dataset:
+        return None
     document_relative = Path(*parts[marker + 2:])
     source_path = relative.as_posix()
     ocr_path = get_dataset_root(project_root, dataset) / "preprocessed" / "body_images" / document_relative
-    legacy_ocr = project_root / "files" / dataset / "preprocessed" / "body_images" / document_relative
-    if not ocr_path.is_file() and legacy_ocr.is_file():
-        ocr_path = legacy_ocr
+    for root in department_legacy_roots(project_root, dataset):
+        legacy_ocr = root / "preprocessed" / "body_images" / document_relative
+        if not ocr_path.is_file() and legacy_ocr.is_file():
+            ocr_path = legacy_ocr
     review_path = project_root / "files" / "_reviewed" / "body_image_ocr" / "reviews" / dataset / f"{source_file.stem}.json"
     return source_path, dataset, ocr_path, review_path
 

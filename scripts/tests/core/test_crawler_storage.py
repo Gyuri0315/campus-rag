@@ -4,12 +4,17 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from scripts.crawlers.common.storage import (
     StateLoadError, archive_document, empty_state, find_document_json,
     get_dataset_paths, load_state_with_migration, safe_component,
     save_state_atomic, state_migration_plan, write_document,
+    get_dataset_root, iter_dataset_roots,
 )
+from scripts.crawlers.common.reader import infer_dataset_from_path
+from scripts.migrations.crawler_storage import migrate_department_layout
+from scripts.main.paths import page_root
 
 
 class CrawlerStorageTests(unittest.TestCase):
@@ -20,6 +25,20 @@ class CrawlerStorageTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.temp.cleanup()
+
+    def test_disabled_main_routes_keep_existing_storage_locations(self) -> None:
+        expected_root = self.root / "files" / "pknu_main" / "커뮤니티" / "Stored board"
+        document = expected_root / "json" / "posts" / "existing.json"
+        document.parent.mkdir(parents=True)
+        document.write_text('{"type":"notice","url":"https://www.pknu.ac.kr/main/999"}', encoding="utf-8")
+        settings = {999: {"enabled": False, "category_path": ["커뮤니티", "Stored board"]}}
+        with (patch("scripts.main.routes.ROUTES", {}),
+              patch("scripts.main.routes.PAGE_SETTINGS", settings)):
+            paths = get_dataset_paths(self.root, "pknu_student_life")
+            self.assertEqual(expected_root, page_root(self.root, 999))
+            self.assertEqual(document, paths.document_json("Stored board", "existing"))
+            self.assertEqual(self.root / "files" / "pknu_main" / "_discovery" / "main_998",
+                             page_root(self.root, 998))
 
     def test_new_state_and_atomic_save(self) -> None:
         state, origin = load_state_with_migration(self.paths)
@@ -111,6 +130,48 @@ class CrawlerStorageTests(unittest.TestCase):
             safe_component("C:outside", "category")
         with self.assertRaises(ValueError):
             safe_component("CON", "category")
+
+    def test_hierarchical_department_paths_keep_dataset_identity(self) -> None:
+        root = get_dataset_root(self.root, "ce")
+        self.assertEqual(self.root / "files" / "department" / "정보융합대학" / "컴퓨터·인공지능공학부" / "ce", root)
+        document = root / "output" / "json" / "category" / "doc.json"
+        document.parent.mkdir(parents=True)
+        document.write_text("{}", encoding="utf-8")
+        self.assertEqual("ce", infer_dataset_from_path(document))
+        self.assertEqual([root], list(iter_dataset_roots(self.root)))
+
+    def test_department_migration_preserves_files_ids_and_updates_links(self) -> None:
+        paths = {"ce": ("College", "Faculty", "ce")}
+        source = self.root / "files" / "ce"
+        attachment = source / "output" / "files" / "doc" / "test.pdf"
+        attachment.parent.mkdir(parents=True)
+        attachment.write_bytes(b"unchanged PDF bytes")
+        payload = {"slug": "same-slug", "content_hash": "same-hash", "text": "files/ce/quoted-text",
+                   "saved_path": "files/ce/output/files/doc/test.pdf", "embedding": [0.1, 0.2]}
+        document = source / "output" / "json" / "doc.json"
+        document.parent.mkdir(parents=True)
+        document.write_text(json.dumps(payload), encoding="utf-8")
+        timestamp = document.stat().st_mtime_ns
+        review = self.root / "files" / "_reviewed" / "preview.html"
+        review.parent.mkdir(parents=True)
+        review.write_text('<a href="../ce/output/files/doc/test.pdf">PDF</a>', encoding="utf-8")
+        plan = migrate_department_layout(self.root, storage_paths=paths)
+        self.assertEqual(1, plan["moves"])
+        self.assertTrue(source.is_dir())
+        report = migrate_department_layout(self.root, apply=True, storage_paths=paths)
+        target = self.root / "files" / "department" / "College" / "Faculty" / "ce"
+        self.assertFalse(source.exists())
+        self.assertEqual(b"unchanged PDF bytes", (target / "output/files/doc/test.pdf").read_bytes())
+        updated = json.loads((target / "output/json/doc.json").read_text(encoding="utf-8"))
+        expected = {**payload, "saved_path": "files/department/College/Faculty/ce/output/files/doc/test.pdf"}
+        self.assertEqual(expected, updated)
+        self.assertEqual(timestamp, (target / "output/json/doc.json").stat().st_mtime_ns)
+        self.assertIn("../department/College/Faculty/ce/output/files/doc/test.pdf", review.read_text(encoding="utf-8"))
+        self.assertEqual(2, report["verified_files"])
+        self.assertEqual(0, migrate_department_layout(self.root, storage_paths=paths)["moves"])
+        source.mkdir()
+        with self.assertRaises(FileExistsError):
+            migrate_department_layout(self.root, apply=True, storage_paths=paths)
 
 
 if __name__ == "__main__":

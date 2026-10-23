@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
 import unittest
 from contextlib import nullcontext
 from unittest.mock import patch
 
-from scripts.crawlers import pknu_student_life
 from scripts.main import run as main_run
 from scripts.main import routes
 
@@ -20,36 +18,30 @@ class MainRouteTests(unittest.TestCase):
                 routes._build_routes()
 
     def test_runner_delegates_only_registered_pages(self) -> None:
-        class Stats:
-            failed = 0
+        def collected(items, **options):
+            self.assertTrue(all(item["category_path"][0] == options["category"]
+                                for item in items))
+            for item in items:
+                item["status"] = "completed"
+            return {"status": "completed"}
 
-            def to_dict(self):
-                return {"failed": 0}
-
-        class RouteReport:
-            def read_text(self, *, encoding):
-                return json.dumps({"routes": [
-                    {"page_id": 95, "status": "success", "route": "board"}
-                ]})
-
-            def relative_to(self, root):
-                return main_run.DEFAULT_REPORT.relative_to(root)
-
-        with (patch.object(main_run, "STUDENT_LIFE_ROUTE_REPORT", RouteReport()),
-              patch.object(main_run, "_write_json") as write_json,
-              patch("scripts.crawlers.pknu_student_life.run", return_value=Stats()) as student_life,
-              patch("scripts.crawlers.pknu_notice.run_crawl", return_value=Stats()) as notice):
-            report = main_run.execute([95, 163, 434, 999], year=2026,
+        with (patch.object(main_run, "_write_json") as write_json,
+              patch("scripts.main.categories.student_life.execute", side_effect=collected) as student_life,
+              patch("scripts.main.categories.community.execute", side_effect=collected) as community,
+              patch("scripts.main.categories.university_intro.execute", side_effect=collected) as intro):
+            report = main_run.execute([95, 163, 434, 38, 39, 999], year=2026,
                                       months=list(range(1, 13)), full_resync=False,
                                       board_pages=1, report_path=main_run.DEFAULT_REPORT)
 
-        self.assertEqual(student_life.call_count, 2)
-        self.assertEqual(student_life.call_args_list[0].kwargs["page_ids"], (95,))
-        self.assertEqual(student_life.call_args_list[1].args[0], "guide")
-        notice.assert_called_once()
+        student_life.assert_called_once()
+        community.assert_called_once()
+        intro.assert_called_once()
+        self.assertEqual([item["page_id"] for item in student_life.call_args.args[0]], [95, 434])
+        self.assertEqual([item["page_id"] for item in community.call_args.args[0]], [163])
+        self.assertEqual([item["page_id"] for item in intro.call_args.args[0]], [38, 39])
         statuses = {row["page_id"]: row["status"] for row in report["routes"]}
-        self.assertEqual(statuses, {95: "success", 163: "completed",
-                                    434: "completed", 999: "needs_review"})
+        self.assertEqual(statuses, {95: "completed", 163: "completed", 434: "completed",
+                                    38: "completed", 39: "completed", 999: "needs_review"})
         self.assertEqual(report["status"], "needs_review")
         write_json.assert_called_once()
 
@@ -60,7 +52,7 @@ class MainRouteTests(unittest.TestCase):
             "attachments": [{"title": "안내서", "text_preview": "« OCR 결과", "text_status": "success"}],
         }
         with (patch.object(main_run, "_write_json"),
-              patch.object(pknu_student_life, "build_session", return_value=nullcontext(object())),
+              patch("scripts.main.categories.student_life.build_session", return_value=nullcontext(object())),
               patch("scripts.main.collectors.curriculum_files.collect_curriculum_files",
                     return_value=result)):
             report = main_run.execute([106], year=2026, months=list(range(1, 13)),

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import re
 from urllib.parse import urljoin, urlsplit
 
-from bs4 import NavigableString, Tag
+from bs4 import Comment, NavigableString, Tag
 
 
 FLOW_CLASSES = {"daStep": ".dasCont", "stFlw_B": ".stfCont_B",
@@ -13,6 +14,12 @@ FLOW_CLASSES = {"daStep": ".dasCont", "stFlw_B": ".stfCont_B",
 
 
 def clean_text(tag: Tag) -> str:
+    if tag.name in {"s", "strike", "del"}:
+        return "[취소선: " + re.sub(r"\s+", " ", tag.get_text(" ", strip=True)).strip() + "]"
+    if tag.select_one("s, strike, del"):
+        tag = deepcopy(tag)
+        for deleted in reversed(tag.select("s, strike, del")):
+            deleted.replace_with(clean_text(deleted))
     return re.sub(r"\s+", " ", tag.get_text(" ", strip=True)).strip()
 
 
@@ -110,6 +117,81 @@ def parse_organization_chart(chart: Tag) -> dict:
     return {"type": "organization_chart", "layout": "orgCont", "nodes": nodes}
 
 
+def parse_system_organization_chart(chart: Tag) -> dict:
+    """Preserve CMS chart levels, paired sibling lists, links and side branches."""
+    nodes: list[dict] = []
+
+    def add(element: Tag, parent: int | None, kind: str = "unit") -> int:
+        label = deepcopy(element)
+        for decoration in label.select("ul, ol, script, style, img, i, .flagship-line, .flagship-dot"):
+            decoration.decompose()
+        anchor = label.find("a")
+        text = clean_text(anchor or label)
+        if not text:
+            raise ValueError("empty system organization node")
+        href = anchor.get("href") if anchor else None
+        notes = []
+        if anchor:
+            anchor.decompose()
+            remainder = clean_text(label).lstrip("※ ")
+            if remainder:
+                notes.append(remainder)
+        order = len(nodes) + 1
+        nodes.append({"order": order, "text": text, "kind": kind,
+                      "level": nodes[parent - 1]["level"] + 1 if parent else 0,
+                      "parent_order": parent, "href": href, "notes": notes})
+        return order
+
+    def walk(items: Tag, parent: int) -> None:
+        previous = None
+        for item in items.find_all("li", recursive=False):
+            nested = item.find(["ul", "ol"], recursive=False)
+            label = deepcopy(item)
+            for child in label.find_all(["ul", "ol"]):
+                child.decompose()
+            if not clean_text(label):
+                if nested and nested.find("li"):
+                    if previous is None:
+                        raise ValueError("organization list branch has no preceding parent")
+                    walk(nested, previous)
+                continue
+            previous = add(item, parent)
+            if nested:
+                walk(nested, previous)
+
+    president = chart.select_one(".system_step1")
+    divisions = chart.select_one(".system_step4")
+    if president is None or divisions is None:
+        raise ValueError("system organization chart levels changed")
+    root_order = add(president, None)
+    officers = chart.select_one(".system_step2")
+    if officers:
+        for group in officers.find_all("div", recursive=False):
+            if "flagship-branch" in group.get("class", []):
+                branch = group.select_one(".flagship-box")
+                if branch:
+                    add(branch, root_order, "side_branch")
+            else:
+                for items in group.find_all("ul", recursive=False):
+                    for item in items.find_all("li", recursive=False):
+                        add(item, root_order, "associated_body")
+        for items in officers.find_all("ul", recursive=False):
+            for item in items.find_all("li", recursive=False):
+                add(item, root_order, "officer")
+    for column in divisions.find_all("div", recursive=False):
+        group_order = None
+        for element in column.find_all(recursive=False):
+            if element.name == "h3":
+                group_order = add(element, root_order, "display_group")
+            elif element.name in {"ul", "ol"}:
+                if group_order is None:
+                    raise ValueError("organization division heading missing")
+                walk(element, group_order)
+    if len(nodes) == 1:
+        raise ValueError("organization chart has no branches")
+    return {"type": "organization_chart", "layout": "system_conts", "nodes": nodes}
+
+
 def table_reference_links(container: Tag, page_url: str) -> tuple[dict, ...]:
     """Record table link targets and row labels without visiting the targets."""
     links = []
@@ -149,6 +231,8 @@ def _blocks(element: Tag) -> list[dict]:
         return [parse_flow(element)]
     if "orgCont" in element.get("class", []):
         return [parse_organization_chart(element)]
+    if "system_conts" in element.get("class", []):
+        return [parse_system_organization_chart(element)]
     if element.name in {"ul", "ol"} and element.find("li", recursive=False):
         items = []
         for child in element.children:
@@ -178,7 +262,7 @@ def _blocks(element: Tag) -> list[dict]:
         for child in children:
             if isinstance(child, Tag):
                 blocks.extend(_blocks(child))
-            elif isinstance(child, NavigableString) and child.strip():
+            elif isinstance(child, NavigableString) and not isinstance(child, Comment) and child.strip():
                 blocks.append({"type": "paragraph", "text": str(child).strip()})
         return blocks
     content = clean_text(element)
@@ -209,10 +293,16 @@ def _render_blocks(blocks: list[dict]) -> list[str]:
                          + (f': {step["description"]}' if step["description"] else '')
                          for step in block["steps"])
         elif block["type"] == "organization_chart":
-            lines.extend("  " * node["level"] + "- " + node["text"]
-                         for node in block["nodes"])
+            for node in block["nodes"]:
+                lines.append("  " * node["level"] + "- " + node["text"])
+                lines.extend("  " * (node["level"] + 1) + note
+                             for note in node.get("notes", []))
         elif block["type"] == "image":
             lines.append("[이미지]" + (f' {block["alt"]}' if block["alt"] else ""))
+        elif block["type"] == "card":
+            if lines and lines[-1] != "":
+                lines.append("")
+            lines.append(block["content"])
     return lines
 
 
@@ -223,6 +313,41 @@ def render_sections(sections: list[dict]) -> str:
         if lines:
             parts.append("\n".join(lines))
     return "\n\n".join(parts)
+
+
+def extract_card_structure(container: Tag, *, selector: str, title_selector: str,
+                           field_selectors: dict[str, str]) -> dict:
+    """Keep each selected text card intact without inferring links between fields."""
+    if (not isinstance(field_selectors, dict) or not field_selectors
+            or any(not isinstance(name, str) or not name or not isinstance(css, str) or not css
+                   for name, css in field_selectors.items())):
+        raise ValueError("card field selectors are missing or invalid")
+    elements = container.select(selector)
+    if not elements:
+        raise ValueError("card list is missing")
+    cards = []
+    for order, element in enumerate(elements, 1):
+        card = deepcopy(element)
+        for excluded in card.select("script, style, noscript, img, picture, svg"):
+            if excluded.parent is not None:
+                excluded.decompose()
+        headings = card.select(title_selector)
+        if len(headings) != 1 or not clean_text(headings[0]):
+            raise ValueError("card title is missing or ambiguous")
+        title = clean_text(headings[0])
+        fields = {}
+        for name, css in field_selectors.items():
+            values = [clean_text(node) for node in card.select(css) if clean_text(node)]
+            if not values:
+                raise ValueError(f"card field is missing: {name}")
+            fields[name] = values
+        content = "\n".join([title, *(value for values in fields.values() for value in values)])
+        cards.append({"type": "card", "order": order, "title": title,
+                      "fields": fields, "content": content})
+    sections = [{"heading": "", "level": 0, "blocks": cards}]
+    return {"sections": sections, "card_count": len(cards), "table_count": 0,
+            "flow_count": 0, "organization_chart_count": 0,
+            "content": render_sections(sections)}
 
 
 def _count_blocks(blocks: list[dict], kind: str) -> int:
@@ -240,6 +365,8 @@ def extract_structure(container: Tag) -> dict:
     sections: list[dict] = []
     current = None
     for element in root.children:
+        if isinstance(element, Comment):
+            continue
         if isinstance(element, NavigableString):
             value = str(element).strip()
             if not value:

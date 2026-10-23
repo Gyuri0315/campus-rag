@@ -21,8 +21,9 @@ from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup, Tag
 
-from scripts.crawlers.departments.body_images import collect_body_images, save_body_images
-from scripts.crawlers.pknu_student_life import build_session
+from scripts.crawlers.common.body_images import collect_body_images, save_body_images
+from scripts.main.common.http import build_session
+from scripts.main.routes import body_image_ocr_enabled
 from scripts.main.collectors.tuition import collect_main_102_tuition
 from scripts.main.collectors.organization import collect_main_533_org
 from scripts.extractors.image_ocr import VERSION, extract_image, require_ocr_languages
@@ -341,6 +342,18 @@ def inspect_images(root: Tag | None, page_id: int, page_url: str, session,
                 for record in prior] if reusable else
                save_body_images(candidates, session=session, page_url=page_url,
                                 output_dir=output / "images", project_root=ROOT))
+    if not body_image_ocr_enabled():
+        entry = {"url": page_url, "status": "collected" if records and all(
+                 record.get("status") == "saved" for record in records) else "failed",
+                 "images": [{**record, "ocr_status": "not_requested", "blocks": []} for record in records],
+                 "image_text_extraction": "not_requested", "processed_at": datetime.now(timezone.utc).isoformat()}
+        if candidates and not target.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(json.dumps(entry, ensure_ascii=False, indent=2), encoding="utf-8")
+        return {"status": entry["status"], "image_count": len(candidates),
+                "saved_count": sum(record.get("status") == "saved" for record in records),
+                "ocr_block_count": 0, "ocr_region_count": 0, "spacing_restored_blocks": 0,
+                "ocr_path": None, "image_text_extraction": "not_requested", "images": entry["images"]}
     entry = {"source_path": f"files/pknu_main/_discovery/raw/{page_id:04}.txt",
              "url": page_url, "images": [], "processed_at": datetime.now(timezone.utc).isoformat(),
              "ocr_version": VERSION, "language": language, "ocr_psm": ocr_psm,
@@ -459,7 +472,7 @@ def main() -> None:
     unknown = set(args.page_ids) - pages.keys()
     if unknown:
         parser.error(f"Page IDs not in catalog: {sorted(unknown)}")
-    if any(pages[page_id]["page_type"] == "image_only" for page_id in args.page_ids):
+    if body_image_ocr_enabled() and any(pages[page_id]["page_type"] == "image_only" for page_id in args.page_ids):
         try:
             require_ocr_languages(args.tesseract, args.language, args.tessdata)
         except (OSError, subprocess.SubprocessError, RuntimeError) as exc:

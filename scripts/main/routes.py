@@ -1,13 +1,25 @@
 """Verified main-site collection rules loaded from pages.json."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
+from scripts.main.categories.registry import category_label
 
 
 CONFIG_FILE = Path(__file__).with_name("pages.json")
-_rows = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))["pages"]
+_configuration = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+COLLECTION_POLICY = _configuration.get("collection_policy", {})
+if not isinstance(COLLECTION_POLICY, dict) or type(COLLECTION_POLICY.get("body_image_ocr", True)) is not bool:
+    raise ValueError("collection_policy.body_image_ocr must be a boolean")
+_rows = _configuration["pages"]
+
+
+def body_image_ocr_enabled(options: dict | None = None) -> bool:
+    """The main-site policy takes precedence over individual page OCR options."""
+    return COLLECTION_POLICY.get("body_image_ocr", True) and (options or {}).get("ocr_body_images", True)
+
+
 PAGE_SETTINGS: dict[int, dict] = {}
 for _row in _rows:
     _id = _row["page_id"]
@@ -16,6 +28,14 @@ for _row in _rows:
     if _row.get("enabled"):
         if not _row.get("handler") or not _row.get("category_path"):
             raise ValueError(f"page {_id} needs a handler and category_path")
+        category_label(_row["category_path"][0])
+        if not isinstance(_row.get("options", {}), dict):
+            raise ValueError(f"page {_id} options must be an object")
+        if type(_row.get("options", {}).get("collect_body_images", True)) is not bool:
+            raise ValueError(f"page {_id} collect_body_images must be a boolean")
+        _limit = _row.get("options", {}).get("attachment_limit")
+        if _limit is not None and (type(_limit) is not int or _limit < 1):
+            raise ValueError(f"page {_id} attachment_limit must be a positive integer")
         for _part in _row["category_path"]:
             if not isinstance(_part, str) or not _part or _part in {".", ".."} or any(c in _part for c in '/\\:*?"<>|'):
                 raise ValueError(f"invalid category component on page {_id}")
@@ -29,6 +49,7 @@ class MainRoute:
     category_path: tuple[str, ...] = ()
     follow_links: bool = True
     download_attachments: bool = True
+    options: dict = field(default_factory=dict)
 
     @property
     def url(self) -> str:
@@ -67,7 +88,8 @@ def _build_routes() -> dict[int, MainRoute]:
                 raise ValueError(f"/main/{page_id} has multiple handlers")
             row = PAGE_SETTINGS.get(page_id, {})
             routes[page_id] = MainRoute(page_id, handler, tuple(row.get("category_path", ())),
-                                        row.get("follow_links", True), row.get("download_attachments", True))
+                                        row.get("follow_links", True), row.get("download_attachments", True),
+                                        row.get("options", {}))
     if routes.keys() & EXCLUDED_PAGE_IDS:
         raise ValueError(f"excluded main pages have handlers: {sorted(routes.keys() & EXCLUDED_PAGE_IDS)}")
     if NO_FOLLOW_LINK_PAGE_IDS - set(STATIC_PAGE_IDS):
@@ -76,9 +98,8 @@ def _build_routes() -> dict[int, MainRoute]:
 
 
 ROUTES = _build_routes()
-STUDENT_LIFE_PAGE_IDS = frozenset(ROUTES.keys() - set(ACADEMIC_CALENDAR_PAGE_IDS)
-    - set(MAJOR_PROGRAM_PAGE_IDS) - set(NOTICE_PAGE_IDS) - set(TODAY_PAGE_IDS)
-    - set(GUIDE_PAGE_IDS) - set(CURRICULUM_FILE_PAGE_IDS))
+STUDENT_LIFE_PAGE_IDS = frozenset(i for i, route in ROUTES.items()
+                                 if route.category_path[0] == "대학생활")
 CONFIGURED_PAGE_IDS = frozenset(ROUTES)
 
 

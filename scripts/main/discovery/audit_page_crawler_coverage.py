@@ -22,7 +22,8 @@ from urllib.parse import parse_qs, urlsplit
 from scripts.crawlers.departments.adapters.numeric_cms import NumericCMSAdapter
 from scripts.main.collectors.adapter import MainListParserMismatch, PknuMainAdapter
 from scripts.crawlers.pknu_notice import parse_list_page
-from scripts.crawlers import pknu_student_life
+from scripts.main.collectors import static_pages as static_crawler, guides
+from scripts.main import routes
 from scripts.main.discovery.inventory_pages import DEFAULT_OUTPUT, inventory_soup
 from scripts.main.routes import (ACADEMIC_CALENDAR_PAGE_IDS, MAJOR_PROGRAM_PAGE_IDS,
                                  TUITION_PAGE_IDS, ORG_PAGE_IDS)
@@ -98,26 +99,26 @@ def test_page(catalog: dict, inventory: dict, folder: Path, adapter: NumericCMSA
               compact_cache: dict[int, str]) -> dict:
     page_id = catalog["page_id"]
     configured = (["pknu_notice.list"] if page_id == 163 else [])
-    if page_id in pknu_student_life.STATIC_PAGE_IDS:
-        configured.append("pknu_student_life.static")
-    if page_id in pknu_student_life.BOARD_PAGE_IDS:
-        configured.append("pknu_student_life.board")
-    if page_id in pknu_student_life.LINK_HUB_PAGE_IDS:
-        configured.append("pknu_student_life.link_hub")
-    if page_id in pknu_student_life.REDIRECT_PAGE_TARGETS:
-        configured.append("pknu_student_life.redirect")
-    if page_id in pknu_student_life.FILE_PAGE_IDS:
-        configured.append("pknu_student_life.file")
+    if page_id in routes.STATIC_PAGE_IDS:
+        configured.append("main.static")
+    if page_id in routes.BOARD_PAGE_IDS:
+        configured.append("main.board")
+    if page_id in routes.LINK_HUB_PAGE_IDS:
+        configured.append("main.link_hub")
+    if page_id in routes.REDIRECT_PAGE_TARGETS:
+        configured.append("main.redirect")
+    if page_id in routes.FILE_PAGE_IDS:
+        configured.append("main.file")
     if page_id in TUITION_PAGE_IDS:
-        configured.append("pknu_student_life.tuition")
+        configured.append("main.tuition")
     if page_id in ORG_PAGE_IDS:
-        configured.append("pknu_student_life.organization")
+        configured.append("main.organization")
     if page_id in ACADEMIC_CALENDAR_PAGE_IDS:
         configured.append("main.academic_calendar")
     if page_id in MAJOR_PROGRAM_PAGE_IDS:
         configured.append("main.major_program")
     if page_id == 434:
-        configured.append("pknu_student_life.guide")
+        configured.append("main.guide")
     result = {
         "page_id": page_id, "url": catalog["url"], "title": catalog["title"],
         "page_type": catalog["page_type"], "source_status": catalog["status"],
@@ -137,11 +138,11 @@ def test_page(catalog: dict, inventory: dict, folder: Path, adapter: NumericCMSA
         destination = catalog["crawler_hints"].get("destination_url") or ""
         codes.append("INVALID_REDIRECT_DESTINATION" if not destination or "/main/null" in destination
                      else "UNTESTED_REDIRECT_DESTINATION")
-        if "pknu_student_life.redirect" in configured:
+        if "main.redirect" in configured:
             result["configured_result"] = "destination_unverified_offline"
     elif kind == "file_endpoint":
         codes.append("BINARY_RESPONSE")
-        if "pknu_student_life.file" in configured:
+        if "main.file" in configured:
             result["configured_result"] = "file_unverified_offline"
     else:
         raw_path = inventory.get("raw_path")
@@ -191,13 +192,13 @@ def test_page(catalog: dict, inventory: dict, folder: Path, adapter: NumericCMSA
                         result["outcome"] = "list_parsed"
                     if page_id == 163:
                         result["configured_result"] = "list_parsed_detail_untested" if main_items else "failed"
-                    elif "pknu_student_life.board" in configured:
+                    elif "main.board" in configured:
                         result["configured_result"] = "list_parsed_detail_untested" if main_items else "failed"
                 else:
                     # Use the existing student-life fetch_static_page code with a saved
                     # HTML response and no network call or production state mutation.
-                    with patch.object(pknu_student_life, "fetch", return_value=CachedResponse(compact)):
-                        parsed = pknu_student_life.fetch_static_page(None, page_id)
+                    with patch.object(static_crawler, "fetch", return_value=CachedResponse(compact)):
+                        parsed = static_crawler.fetch_static_page(None, page_id)
                     student_text = parsed.content
                     student_anchor = contains_body_anchor(student_text, inventory.get("content_summary", ""))
                     result["parser_results"]["student_life_static"] = {
@@ -251,17 +252,17 @@ def test_page(catalog: dict, inventory: dict, folder: Path, adapter: NumericCMSA
                             main_anchor is True and main_static["status"] == "ready"
                         ):
                             codes.append("NUMERIC_ADAPTER_NAV_ONLY")
-                    if "pknu_student_life.static" in configured:
+                    if "main.static" in configured:
                         if parsed.status != "ready" or student_anchor is False:
                             result["configured_result"] = "failed"
                         else:
                             result["configured_result"] = "text_parsed_structure_unverified" if kind == "table_page" else "text_parsed"
-                    if "pknu_student_life.link_hub" in configured:
+                    if "main.link_hub" in configured:
                         result["configured_result"] = "links_identified_targets_untested" if catalog["crawler_hints"].get("content_link_examples") else "failed"
                     if page_id == 434:
-                        with patch.object(pknu_student_life, "resolve_media_pdf_url",
+                        with patch.object(guides, "resolve_media_pdf_url",
                                           side_effect=lambda _session, media_id: f"https://www.pknu.ac.kr/unverified/{media_id}.pdf"):
-                            guide_items = pknu_student_life.parse_guide_items_from_html(None, compact)
+                            guide_items = guides.parse_guide_items_from_html(None, compact)
                         result["parser_results"]["guide_media_candidates"] = len(guide_items)
                         result["configured_result"] = "pdf_candidates_only" if guide_items else "failed"
                         codes.append("GUIDE_FILES_NOT_TESTED")
@@ -270,7 +271,7 @@ def test_page(catalog: dict, inventory: dict, folder: Path, adapter: NumericCMSA
                 codes.append("PARSER_EXCEPTION")
     if catalog["crawler_hints"].get("duplicate_content_of_page_id") is not None:
         codes.append("DUPLICATE_CONTENT_CANDIDATE")
-    if "pknu_student_life.static" in configured:
+    if "main.static" in configured:
         if status == "exists" and kind in {"board", "link_hub", "attachment_only", "image_only", "embedded_content"}:
             result["configured_result"] = "wrong_page_type"
             codes.append("CONFIGURED_TARGET_WRONG_TYPE")
@@ -301,12 +302,12 @@ def replay_static_crawler(compact_cache: dict[int, str], pages: list[dict]) -> d
             saved[int(match.group(1))] = doc
         return Path("in-memory")
 
-    with patch.object(pknu_student_life, "STATIC_PAGE_IDS", tuple(range(1, 534))), \
-         patch.object(pknu_student_life, "fetch", side_effect=replay_fetch), \
-         patch.object(pknu_student_life, "save_json", side_effect=capture_save), \
-         patch.object(pknu_student_life, "log_event", return_value=None), \
-         patch.object(pknu_student_life, "log", MagicMock()):
-        stats = pknu_student_life.crawl_static_pages(None, {"items": {}}, full_resync=True)
+    with patch.object(static_crawler, "STATIC_PAGE_IDS", tuple(i for i in compact_cache if i in routes.STATIC_PAGE_IDS)), \
+         patch.object(static_crawler, "fetch", side_effect=replay_fetch), \
+         patch.object(static_crawler, "save_json", side_effect=capture_save), \
+         patch.object(static_crawler, "log_event", return_value=None), \
+         patch.object(static_crawler, "log", MagicMock()):
+        stats = static_crawler.crawl_static_pages(None, {"items": {}}, full_resync=True)
     false_success = []
     for page in pages:
         page_id = page["page_id"]
@@ -379,7 +380,7 @@ def run(folder: Path, output: Path) -> dict:
         "source_checked_at_range": catalog["checked_at_range"],
         "parsers": ["PknuMainAdapter.analyze_section/parse_list/parse_static",
                     "NumericCMSAdapter (comparison only)", "pknu_notice.parse_list_page (comparison only)",
-                    "pknu_student_life.fetch_static_page"],
+                    "static_crawler.fetch_static_page"],
         "counts": {"pages": len(pages), "outcome": dict(Counter(page["outcome"] for page in pages)),
                    "configured_routes": sum(bool(page["configured_routes"]) for page in pages),
                    "configured_result": dict(Counter(page["configured_result"] for page in pages if page["configured_routes"])),

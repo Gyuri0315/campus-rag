@@ -82,7 +82,7 @@ def safe_component(value: object, label: str) -> str:
     component = str(value or "").strip()
     if not component or component in {".", ".."} or Path(component).is_absolute():
         raise ValueError(f"invalid {label}: {value!r}")
-    if "/" in component or "\\" in component or "\x00" in component or re.search(r'[<>:"|?*]', component):
+    if component.endswith(".") or "/" in component or "\\" in component or re.search(r'[<>:"|?*\x00-\x1f]', component):
         raise ValueError(f"invalid {label}: {value!r}")
     stem = component.split(".", 1)[0].upper()
     if stem in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)), *(f"LPT{i}" for i in range(1, 10))}:
@@ -91,13 +91,38 @@ def safe_component(value: object, label: str) -> str:
 
 
 @lru_cache(maxsize=1)
-def department_datasets() -> frozenset[str]:
+def department_storage_paths() -> dict[str, tuple[str, ...]]:
     registry = Path(__file__).resolve().parents[1] / "departments" / "registry.json"
     payload = json.loads(registry.read_text(encoding="utf-8"))
-    return frozenset(str(row["dataset"]) for row in payload["departments"])
+    return {row["dataset"]: validate_storage_path(row["dataset"], row.get("storage_path"))
+            for row in payload["departments"]}
 
 
-def get_dataset_root(project_root: Path, dataset: str, *, group: str | None = None) -> Path:
+def validate_storage_path(dataset: str, storage_path: Iterable[str] | None) -> tuple[str, ...]:
+    if storage_path is None:
+        return (safe_component(dataset, "dataset"),)
+    if not isinstance(storage_path, (tuple, list)) or not storage_path:
+        raise ValueError("storage_path must be a non-empty list of directory names")
+    parts = tuple(safe_component(part, "storage_path") for part in storage_path)
+    if parts[-1] != dataset:
+        raise ValueError("storage_path must end with the dataset alias")
+    return parts
+
+
+def department_datasets() -> frozenset[str]:
+    return frozenset(department_storage_paths())
+
+
+def department_legacy_roots(project_root: Path, dataset: str) -> tuple[Path, Path]:
+    files = project_root.resolve() / "files"
+    dataset = safe_component(dataset, "dataset")
+    return files / dataset, files / "department" / dataset
+
+
+def get_dataset_root(
+    project_root: Path, dataset: str, *, group: str | None = None,
+    storage_path: Iterable[str] | None = None,
+) -> Path:
     dataset_name = safe_component(dataset, "dataset")
     if group not in {None, "department"}:
         raise ValueError(f"unsupported dataset group: {group}")
@@ -105,27 +130,43 @@ def get_dataset_root(project_root: Path, dataset: str, *, group: str | None = No
     if dataset_name in {"pknu_notice", "pknu_student_life"}:
         return files / "pknu_main"
     if group == "department" or dataset_name in department_datasets():
-        return files / "department" / dataset_name
+        parts = (validate_storage_path(dataset_name, storage_path) if storage_path is not None
+                 else department_storage_paths().get(dataset_name, (dataset_name,)))
+        return files.joinpath("department", *parts)
     return files / dataset_name
 
 
 def iter_dataset_roots(project_root: Path):
-    """Find grouped departments and legacy dataset folders for read-only tools."""
+    """Yield dataset leaves, never the college/faculty container directories."""
     files = project_root.resolve() / "files"
     if files.is_dir():
         for root in sorted(files.iterdir()):
             if root.is_dir() and root.name == "department":
-                yield from (p for p in sorted(root.iterdir()) if p.is_dir())
+                def leaves(parent: Path):
+                    for child in sorted(parent.iterdir()):
+                        if not child.is_dir() or child.name.startswith("_"):
+                            continue
+                        if child.name in department_datasets() or any(
+                            (child / marker).exists() for marker in
+                            ("output", "preprocessed", "vectorized", "state.json")
+                        ):
+                            yield child
+                        else:
+                            yield from leaves(child)
+                yield from leaves(root)
             elif root.is_dir() and not root.name.startswith("_"):
                 yield root
 
 
-def get_dataset_paths(project_root: Path, dataset: str, *, group: str | None = None) -> DatasetPaths:
+def get_dataset_paths(
+    project_root: Path, dataset: str, *, group: str | None = None,
+    storage_path: Iterable[str] | None = None,
+) -> DatasetPaths:
     dataset_name = safe_component(dataset, "dataset")
     if dataset_name in {"pknu_notice", "pknu_student_life"}:
         from scripts.main.paths import get_main_dataset_paths
         return get_main_dataset_paths(project_root, dataset_name)
-    root = get_dataset_root(project_root, dataset_name, group=group)
+    root = get_dataset_root(project_root, dataset_name, group=group, storage_path=storage_path)
     output = root / "output"
     return DatasetPaths(
         project_root=project_root.resolve(), dataset=dataset_name, root=root,

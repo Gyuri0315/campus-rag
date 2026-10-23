@@ -1,36 +1,50 @@
-"""Download only the PDF attachments on the verified curriculum pages."""
+"""Download and preprocess selected PDFs on registered curriculum and guide pages."""
 
 from __future__ import annotations
-
-import hashlib
-import json
-import re
-import shutil
-import subprocess
-import unicodedata
-from pathlib import Path
-from urllib.parse import urljoin, urlsplit
-
-import requests
 from bs4 import BeautifulSoup
-
+from pathlib import Path
 from scripts.crawlers.common.schema import (
-    apply_common_schema, attachment_text, build_attachment, document_slug,
-    now_kst, sanitize_attachment_filename, url_source_id, validate_common_document,
+    apply_common_schema,
+    attachment_text,
+    build_attachment,
+    document_slug,
+    now_kst,
+    sanitize_attachment_filename,
+    url_source_id,
+    validate_common_document,
 )
 from scripts.crawlers.common.storage import get_dataset_paths
 from scripts.main.paths import page_json
+from scripts.main.common.documents import normalize_title
+from scripts.main.common.http import resolve_media_pdf_url
+from scripts.main.routes import CURRICULUM_FILE_PAGE_IDS, ROUTES
+from urllib.parse import urljoin, urlsplit
+import hashlib
+import json
+import re
+import requests
+import shutil
+import subprocess
+import unicodedata
 
 
 ROOT = Path(__file__).resolve().parents[3]
 PATHS = get_dataset_paths(ROOT, "pknu_student_life")
-PAGE_IDS = frozenset({106, 362})
+PAGE_IDS = frozenset(CURRICULUM_FILE_PAGE_IDS)
 SUBCATEGORY = "교육과정"
 MAX_HTML_BYTES = 2 * 1024 * 1024
 MAX_PDF_BYTES = 80 * 1024 * 1024
 PDF_PREPROCESSOR_VERSION = 3
 OCR_DPI = 180
 OCR_LANGUAGE = "kor+eng"
+
+
+def _validate_pdf_url(file_url: str) -> None:
+    parsed = urlsplit(file_url)
+    if (parsed.scheme != "https" or parsed.hostname != "www.pknu.ac.kr"
+            or not parsed.path.startswith("/upload/")
+            or Path(parsed.path).suffix.lower() != ".pdf"):
+        raise ValueError(f"unexpected curriculum attachment URL: {file_url}")
 
 
 def parse_curriculum_attachments(html: str, page_id: int) -> tuple[str, list[dict[str, str]]]:
@@ -42,25 +56,43 @@ def parse_curriculum_attachments(html: str, page_id: int) -> tuple[str, list[dic
     if title is None or body is None:
         raise ValueError("curriculum content container changed")
     page_url = f"https://www.pknu.ac.kr/main/{page_id}"
+    options = ROUTES[page_id].options
+    title_filter = options.get("attachment_title_contains", "")
     attachments: list[dict[str, str]] = []
     seen: set[str] = set()
     for anchor in body.select('a[download][href], a[href$=".pdf" i]'):
+        label = (anchor.get("download") or anchor.get_text(" ", strip=True)).strip()
+        if title_filter and title_filter not in label:
+            continue
         file_url = urljoin(page_url, (anchor.get("href") or "").strip())
-        parsed = urlsplit(file_url)
-        if (parsed.scheme != "https" or parsed.hostname != "www.pknu.ac.kr"
-                or not parsed.path.startswith("/upload/")
-                or Path(parsed.path).suffix.lower() != ".pdf"):
-            raise ValueError(f"unexpected curriculum attachment URL: {file_url}")
+        _validate_pdf_url(file_url)
         if file_url in seen:
             continue
         seen.add(file_url)
-        label = (anchor.get("download") or anchor.get_text(" ", strip=True)).strip()
         if not label:
             raise ValueError("curriculum attachment has no label")
         filename = sanitize_attachment_filename(
             label if label.lower().endswith(".pdf") else f"{label}.pdf"
         )
         attachments.append({"title": label, "filename": filename, "url": file_url})
+    if options.get("include_embedded_pdfs"):
+        for viewer in body.select('.uploadPdf[data-id]'):
+            label_node = viewer.find_previous_sibling(["li", "ul"])
+            if label_node is not None and label_node.name == "ul":
+                labels = label_node.find_all("li", recursive=False)
+                label_node = labels[-1] if labels else None
+            label = normalize_title(label_node.get_text(" ", strip=True)) if label_node else ""
+            if title_filter and title_filter not in label:
+                continue
+            media_id = str(viewer.get("data-id") or "").strip()
+            if not label or not media_id.isdigit():
+                raise ValueError("embedded PDF label or media ID missing")
+            if f"media:{media_id}" in seen:
+                continue
+            seen.add(f"media:{media_id}")
+            attachments.append({"title": label,
+                                "filename": sanitize_attachment_filename(f"{label}.pdf"),
+                                "media_id": media_id})
     if not attachments or len(attachments) > 20:
         raise ValueError(f"unexpected curriculum attachment count: {len(attachments)}")
     return title.get_text(" ", strip=True), attachments
@@ -93,8 +125,9 @@ def _sha256(path: Path) -> str:
 def _download_pdf(
     session: requests.Session, page_url: str, candidate: dict[str, str],
     slug: str, existing_doc: dict | None, *, full_resync: bool,
+    subcategory: str = SUBCATEGORY,
 ) -> dict:
-    destination = PATHS.attachment_file(SUBCATEGORY, slug, candidate["filename"])
+    destination = PATHS.attachment_file(subcategory, slug, candidate["filename"])
     old_attachment = (existing_doc.get("attachments") or [{}])[0] if existing_doc else {}
     reusable = (
         not full_resync
@@ -287,16 +320,24 @@ def collect_curriculum_files(
             payload.extend(chunk)
         html = payload.decode(response.encoding or "utf-8")
     page_title, candidates = parse_curriculum_attachments(html, page_id)
+    route = ROUTES[page_id]
+    subcategory = route.options.get("document_subcategory", route.category_path[-1])
+    for candidate in candidates:
+        if candidate.get("media_id"):
+            candidate["url"] = resolve_media_pdf_url(session, candidate["media_id"])
+            _validate_pdf_url(candidate["url"])
+    candidates = list({candidate["url"]: candidate for candidate in candidates}.values())
 
     pending: list[tuple[Path, dict]] = []
     summaries: list[dict] = []
     for index, candidate in enumerate(candidates, start=1):
         source_id = f"main:{page_id}:attachment:{url_source_id(candidate['url'])}"
         slug = document_slug("pknu_student_life", source_id)
-        doc_path = PATHS.document_json(SUBCATEGORY, slug, kind="attachments")
+        doc_path = PATHS.document_json(subcategory, slug, kind="attachments")
         existing_doc = _existing_document(doc_path)
         attachment = _download_pdf(
             session, page_url, candidate, slug, existing_doc, full_resync=full_resync,
+            subcategory=subcategory,
         )
         old_attachment = (existing_doc.get("attachments") or [{}])[0] if existing_doc else {}
         if (not full_resync and existing_doc
@@ -336,8 +377,8 @@ def collect_curriculum_files(
         )
         doc = apply_common_schema(
             {"url": page_url, "pdf_url": candidate["url"], "title": candidate["title"],
-             "category": "대학생활", "subcategory": SUBCATEGORY,
-             "tags": [SUBCATEGORY, page_title], "content": content or candidate["title"],
+             "category": route.category_path[0], "subcategory": subcategory,
+             "tags": [subcategory, page_title], "content": content or candidate["title"],
              "attachments": [attachment], "pages": pages, "page_count": len(pages),
              "preprocessor_version": PDF_PREPROCESSOR_VERSION,
              "ocr_page_count": sum(page.get("method") == "ocr" for page in pages)},
@@ -377,7 +418,7 @@ def collect_curriculum_files(
 
     manifest = {
         "page_id": page_id, "source_url": page_url, "title": page_title,
-        "category": "대학생활", "subcategory": SUBCATEGORY,
+        "category": route.category_path[0], "subcategory": subcategory,
         "retrieved_at": now_kst(), "status": "needs_review" if any(
             item["status"] != "success" for item in summaries) else "success",
         "attachment_count": len(summaries), "attachments": summaries,

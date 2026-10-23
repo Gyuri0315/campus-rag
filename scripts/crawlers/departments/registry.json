@@ -3,6 +3,7 @@
   "departments": [
     {
       "dataset": "chss",
+      "storage_path": ["인문사회과학대학", "chss"],
       "name": "인문사회과학대학",
       "college": "인문사회과학대학",
       "department": null,
@@ -55,6 +56,7 @@
     },
     {
       "dataset": "kukmun",
+      "storage_path": ["인문사회과학대학", "국어국문학과", "kukmun"],
       "name": "국어국문학과",
       "college": "인문사회과학대학",
       "department": "국어국문학과",
@@ -217,6 +219,7 @@
     },
     {
       "dataset": "english",
+      "storage_path": ["인문사회과학대학", "영어영문학부", "english"],
       "name": "영어영문학부",
       "college": "인문사회과학대학",
       "department": "영어영문학부",
@@ -321,6 +324,7 @@
     },
     {
       "dataset": "japanese",
+      "storage_path": ["인문사회과학대학", "일어일문학부", "japanese"],
       "name": "일어일문학부",
       "college": "인문사회과학대학",
       "department": "일어일문학부",
@@ -514,6 +518,7 @@
     },
     {
       "dataset": "history",
+      "storage_path": ["인문사회과학대학", "사학과", "history"],
       "name": "사학과",
       "college": "인문사회과학대학",
       "department": "사학과",
@@ -617,6 +622,7 @@
     },
     {
       "dataset": "econ",
+      "storage_path": ["인문사회과학대학", "경제학과", "econ"],
       "name": "경제학과",
       "college": "인문사회과학대학",
       "department": "경제학과",
@@ -741,6 +747,7 @@
     },
     {
       "dataset": "pknulaw",
+      "storage_path": ["인문사회과학대학", "법학과", "pknulaw"],
       "name": "법학과",
       "college": "인문사회과학대학",
       "department": "법학과",
@@ -995,6 +1002,7 @@
     },
     {
       "dataset": "pknupa",
+      "storage_path": ["인문사회과학대학", "행정복지학부", "pknupa"],
       "name": "행정복지학부",
       "college": "인문사회과학대학",
       "department": "행정복지학부",
@@ -1188,6 +1196,7 @@
     },
     {
       "dataset": "ps1",
+      "storage_path": ["인문사회과학대학", "행정복지학부", "사회복지학전공", "ps1"],
       "name": "행정복지학부",
       "college": "인문사회과학대학",
       "department": "행정복지학부",
@@ -1403,6 +1412,7 @@
     },
     {
       "dataset": "dias",
+      "storage_path": ["인문사회과학대학", "국제지역학부", "dias"],
       "name": "국제지역학부",
       "college": "인문사회과학대학",
       "department": "국제지역학부",
@@ -1476,6 +1486,7 @@
     },
     {
       "dataset": "chinese",
+      "storage_path": ["인문사회과학대학", "중국학과", "chinese"],
       "name": "중국학과",
       "college": "인문사회과학대학",
       "department": "중국학과",
@@ -1588,6 +1599,7 @@
     },
     {
       "dataset": "politics",
+      "storage_path": ["인문사회과학대학", "정치외교학과", "politics"],
       "name": "정치외교학과",
       "college": "인문사회과학대학",
       "department": "정치외교학과",
@@ -1751,6 +1763,7 @@
     },
     {
       "dataset": "education",
+      "storage_path": ["인문사회과학대학", "유아교육과", "education"],
       "name": "유아교육과",
       "college": "인문사회과학대학",
       "department": "유아교육과",
@@ -1923,6 +1936,7 @@
     },
     {
       "dataset": "fashion",
+      "storage_path": ["인문사회과학대학", "패션디자인학과", "fashion"],
       "name": "패션디자인학과",
       "college": "인문사회과학대학",
       "department": "패션디자인학과",
@@ -2056,6 +2070,7 @@
     },
     {
       "dataset": "hssliberal",
+      "storage_path": ["인문사회과학대학", "인문사회과학대학 자유전공학부", "hssliberal"],
       "name": "인문사회과학대학 자유전공학부",
       "college": "인문사회과학대학",
       "department": "인문사회과학대학 자유전공학부",
@@ -2118,6 +2133,7 @@
     },
     {
       "dataset": "cns",
+      "storage_path": ["자연과학대학", "cns"],
       "name": "자연과학대학",
       "college": "자연과학대학",
       "department": null,
@@ -2178,6 +2194,7 @@
     },
     {
       "dataset": "math",
+      "storage_path": ["자연과학대학", "응용수학과", "math"],
       "name": "응용수학과",
       "college": "자연과학대학",
       "department": "응용수학과",
@@ -2268,6 +2285,7 @@
     },
     {
       "dataset": "physics",
+      "storage_path": ["자연과학대학", "물리학과", "physics"],
       "name": "물리학과",
       "college": "자연과학대학",
       "department": "물리학과",
@@ -2380,6 +2398,7 @@
     },
     {
       "dataset": "chem",
+      "storage_path": ["자연과학대학", "화학과", "chem"],
       "name": "화학과",
       "college": "자연과학대학",
       "department": "화학과",
@@ -2481,6 +2500,7 @@
     },
     {
       "dataset": "microbiology",
+      "storage_path": ["자연과학대학", "미생물학과", "microbiology"],
       "name": "미생물학과",
       "college": "자연과학대학",
       "department": "미생물학과",
@@ -2582,6 +2602,7 @@
     },
     {
       "dataset": "nursing",
+      "storage_path": ["자연과학대학", "간호학과", "nursing"],
       "name": "간호학과",
       "college": "자연과학대학",
       "department": "간호학과",
@@ -2665,6 +2686,7 @@
     },
     {
       "dataset": "scicomp",
+      "storage_path": ["자연과학대학", "과학컴퓨팅학과", "scicomp"],
       "name": "과학컴퓨팅학과",
       "college": "자연과학대학",
       "department": "과학컴퓨팅학과",
@@ -2768,6 +2790,7 @@
     },
     {
       "dataset": "nsum",
+      "storage_path": ["자연과학대학", "자연과학대학 자유전공학부", "nsum"],
       "name": "자연과학대학 자유전공학부",
       "college": "자연과학대학",
       "department": "자연과학대학 자유전공학부",
@@ -2893,6 +2916,7 @@
     },
     {
       "dataset": "cba",
+      "storage_path": ["경영대학", "cba"],
       "name": "경영대학",
       "college": "경영대학",
       "department": null,
@@ -2926,6 +2950,7 @@
     },
     {
       "dataset": "dba",
+      "storage_path": ["경영대학", "경영학부", "dba"],
       "name": "경영학부",
       "college": "경영대학",
       "department": "경영학부",
@@ -3089,6 +3114,7 @@
     },
     {
       "dataset": "pknudic",
+      "storage_path": ["경영대학", "국제통상학부", "pknudic"],
       "name": "국제통상학부",
       "college": "경영대학",
       "department": "국제통상학부",
@@ -3150,6 +3176,7 @@
     },
     {
       "dataset": "cbaliberal",
+      "storage_path": ["경영대학", "경영대학 자유전공학부", "cbaliberal"],
       "name": "경영대학 자유전공학부",
       "college": "경영대학",
       "department": "경영대학 자유전공학부",
@@ -3213,6 +3240,7 @@
     },
     {
       "dataset": "coe",
+      "storage_path": ["공과대학", "coe"],
       "name": "공과대학",
       "college": "공과대학",
       "department": null,
@@ -3578,6 +3606,7 @@
     },
     {
       "dataset": "electric-eng",
+      "storage_path": ["공과대학", "전기공학부", "전기공학전공", "electric-eng"],
       "name": "전기공학부",
       "college": "공과대학",
       "department": "전기공학부",
@@ -3643,6 +3672,7 @@
     },
     {
       "dataset": "control",
+      "storage_path": ["공과대학", "전기공학부", "제어계측공학전공", "control"],
       "name": "전기공학부",
       "college": "공과대학",
       "department": "전기공학부",
@@ -3748,6 +3778,7 @@
     },
     {
       "dataset": "semicon",
+      "storage_path": ["공과대학", "전기공학부", "디스플레이반도체공학전공", "semicon"],
       "name": "전기공학부",
       "college": "공과대학",
       "department": "전기공학부",
@@ -3823,6 +3854,7 @@
     },
     {
       "dataset": "me",
+      "storage_path": ["공과대학", "기계공학부", "기계학전공", "me"],
       "name": "기계공학부",
       "college": "공과대학",
       "department": "기계공학부",
@@ -3907,6 +3939,7 @@
     },
     {
       "dataset": "mae",
+      "storage_path": ["공과대학", "기계공학부", "기계설계공학전공", "mae"],
       "name": "기계공학부",
       "college": "공과대학",
       "department": "기계공학부",
@@ -3980,6 +4013,7 @@
     },
     {
       "dataset": "ref",
+      "storage_path": ["공과대학", "에너지수송시스템공학부", "냉동공조공학전공", "ref"],
       "name": "에너지수송시스템공학부",
       "college": "공과대학",
       "department": "에너지수송시스템공학부",
@@ -4065,6 +4099,7 @@
     },
     {
       "dataset": "mse",
+      "storage_path": ["공과대학", "에너지수송시스템공학부", "기계시스템공학전공", "mse"],
       "name": "에너지수송시스템공학부",
       "college": "공과대학",
       "department": "에너지수송시스템공학부",
@@ -4208,6 +4243,7 @@
     },
     {
       "dataset": "name",
+      "storage_path": ["공과대학", "에너지수송시스템공학부", "조선해양시스템공학전공", "name"],
       "name": "에너지수송시스템공학부",
       "college": "공과대학",
       "department": "에너지수송시스템공학부",
@@ -4311,6 +4347,7 @@
     },
     {
       "dataset": "chemeng",
+      "storage_path": ["공과대학", "화학공학과", "chemeng"],
       "name": "화학공학과",
       "college": "공과대학",
       "department": "화학공학과",
@@ -4372,6 +4409,7 @@
     },
     {
       "dataset": "induseng",
+      "storage_path": ["공과대학", "고분자화학소재공학부", "에너지화학소재공학전공", "induseng"],
       "name": "고분자화학소재공학부",
       "college": "공과대학",
       "department": "고분자화학소재공학부",
@@ -4457,6 +4495,7 @@
     },
     {
       "dataset": "polymer",
+      "storage_path": ["공과대학", "고분자화학소재공학부", "고분자공학전공", "polymer"],
       "name": "고분자화학소재공학부",
       "college": "공과대학",
       "department": "고분자화학소재공학부",
@@ -4512,6 +4551,7 @@
     },
     {
       "dataset": "nano",
+      "storage_path": ["공과대학", "나노융합반도체공학부", "나노융합공학전공", "nano"],
       "name": "나노융합반도체공학부",
       "college": "공과대학",
       "department": "나노융합반도체공학부",
@@ -4587,6 +4627,7 @@
     },
     {
       "dataset": "semiconductor",
+      "storage_path": ["공과대학", "나노융합반도체공학부", "차세대반도체공학전공", "semiconductor"],
       "name": "나노융합반도체공학부",
       "college": "공과대학",
       "department": "나노융합반도체공학부",
@@ -4652,6 +4693,7 @@
     },
     {
       "dataset": "sme",
+      "storage_path": ["공과대학", "시스템경영안전공학부", "sme"],
       "name": "시스템경영안전공학부",
       "college": "공과대학",
       "department": "시스템경영안전공학부",
@@ -4797,6 +4839,7 @@
     },
     {
       "dataset": "safety",
+      "storage_path": ["공과대학", "시스템경영안전공학부", "안전공학전공", "safety"],
       "name": "시스템경영안전공학부",
       "college": "공과대학",
       "department": "시스템경영안전공학부",
@@ -4891,6 +4934,7 @@
     },
     {
       "dataset": "fire",
+      "storage_path": ["공과대학", "소방공학과", "fire"],
       "name": "소방공학과",
       "college": "공과대학",
       "department": "소방공학과",
@@ -4973,6 +5017,7 @@
     },
     {
       "dataset": "metal",
+      "storage_path": ["공과대학", "융합소재공학부", "금속공학전공", "metal"],
       "name": "융합소재공학부",
       "college": "공과대학",
       "department": "융합소재공학부",
@@ -5028,6 +5073,7 @@
     },
     {
       "dataset": "materials-engineering",
+      "storage_path": ["공과대학", "융합소재공학부", "재료공학전공", "materials-engineering"],
       "name": "융합소재공학부",
       "college": "공과대학",
       "department": "융합소재공학부",
@@ -5092,6 +5138,7 @@
     },
     {
       "dataset": "materials",
+      "storage_path": ["공과대학", "융합소재공학부", "신소재시스템공학전공", "materials"],
       "name": "융합소재공학부",
       "college": "공과대학",
       "department": "융합소재공학부",
@@ -5157,6 +5204,7 @@
     },
     {
       "dataset": "archieng",
+      "storage_path": ["공과대학", "건축공학과", "archieng"],
       "name": "건축공학과",
       "college": "공과대학",
       "department": "건축공학과",
@@ -5250,6 +5298,7 @@
     },
     {
       "dataset": "civil",
+      "storage_path": ["공과대학", "지속가능공학부", "토목공학전공", "civil"],
       "name": "지속가능공학부",
       "college": "공과대학",
       "department": "지속가능공학부",
@@ -5304,6 +5353,7 @@
     },
     {
       "dataset": "ecoeng",
+      "storage_path": ["공과대학", "지속가능공학부", "생태공학전공", "ecoeng"],
       "name": "지속가능공학부",
       "college": "공과대학",
       "department": "지속가능공학부",
@@ -5388,6 +5438,7 @@
     },
     {
       "dataset": "engopen",
+      "storage_path": ["공과대학", "공과대학 자유전공학부", "engopen"],
       "name": "공과대학 자유전공학부",
       "college": "공과대학",
       "department": "공과대학 자유전공학부",
@@ -5490,6 +5541,7 @@
     },
     {
       "dataset": "fishsci",
+      "storage_path": ["수산과학대학", "fishsci"],
       "name": "수산과학대학",
       "college": "수산과학대학",
       "department": null,
@@ -5796,6 +5848,7 @@
     },
     {
       "dataset": "food",
+      "storage_path": ["수산과학대학", "식품과학부", "식품공학전공", "food"],
       "name": "식품과학부",
       "college": "수산과학대학",
       "department": "식품과학부",
@@ -5860,6 +5913,7 @@
     },
     {
       "dataset": "nulife",
+      "storage_path": ["수산과학대학", "식품과학부", "식품영양학전공", "nulife"],
       "name": "식품과학부",
       "college": "수산과학대학",
       "department": "식품과학부",
@@ -5944,6 +5998,7 @@
     },
     {
       "dataset": "biotech",
+      "storage_path": ["수산과학대학", "생물공학과", "biotech"],
       "name": "생물공학과",
       "college": "수산과학대학",
       "department": "생물공학과",
@@ -6026,6 +6081,7 @@
     },
     {
       "dataset": "mpsm",
+      "storage_path": ["수산과학대학", "해양생산시스템관리학부", "mpsm"],
       "name": "해양생산시스템관리학부",
       "college": "수산과학대학",
       "department": "해양생산시스템관리학부",
@@ -6312,6 +6368,7 @@
     },
     {
       "dataset": "aqua-culture",
+      "storage_path": ["수산과학대학", "수산생명과학부", "양식응용생명과학전공", "aqua-culture"],
       "name": "수산생명과학부",
       "college": "수산과학대학",
       "department": "수산생명과학부",
@@ -6416,6 +6473,7 @@
     },
     {
       "dataset": "marinebio",
+      "storage_path": ["수산과학대학", "수산생명과학부", "자원생물학전공", "marinebio"],
       "name": "수산생명과학부",
       "college": "수산과학대학",
       "department": "수산생명과학부",
@@ -6500,6 +6558,7 @@
     },
     {
       "dataset": "aquamed",
+      "storage_path": ["수산과학대학", "수산생명의학과", "aquamed"],
       "name": "수산생명의학과",
       "college": "수산과학대학",
       "department": "수산생명의학과",
@@ -6582,6 +6641,7 @@
     },
     {
       "dataset": "fedu",
+      "storage_path": ["수산과학대학", "수해양산업교육과", "fedu"],
       "name": "수해양산업교육과",
       "college": "수산과학대학",
       "department": "수해양산업교육과",
@@ -6704,6 +6764,7 @@
     },
     {
       "dataset": "dmfbe",
+      "storage_path": ["수산과학대학", "해양수산경영경제학부", "dmfbe"],
       "name": "해양수산경영경제학부",
       "college": "수산과학대학",
       "department": "해양수산경영경제학부",
@@ -6717,6 +6778,7 @@
     },
     {
       "dataset": "mbe",
+      "storage_path": ["수산과학대학", "해양수산경영경제학부", "해양수산경영학전공", "mbe"],
       "name": "해양수산경영경제학부",
       "college": "수산과학대학",
       "department": "해양수산경영경제학부",
@@ -6811,6 +6873,7 @@
     },
     {
       "dataset": "ree",
+      "storage_path": ["수산과학대학", "해양수산경영경제학부", "자원환경경제학전공", "ree"],
       "name": "해양수산경영경제학부",
       "college": "수산과학대학",
       "department": "해양수산경영경제학부",
@@ -6866,6 +6929,7 @@
     },
     {
       "dataset": "fisheries",
+      "storage_path": ["수산과학대학", "수산과학대학 자유전공학부", "fisheries"],
       "name": "수산과학대학 자유전공학부",
       "college": "수산과학대학",
       "department": "수산과학대학 자유전공학부",
@@ -6929,6 +6993,7 @@
     },
     {
       "dataset": "enma",
+      "storage_path": ["환경·해양대학", "enma"],
       "name": "환경·해양대학",
       "college": "환경·해양대학",
       "department": null,
@@ -6981,6 +7046,7 @@
     },
     {
       "dataset": "env-eng",
+      "storage_path": ["환경·해양대학", "지구환경시스템과학부", "환경공학전공", "env-eng"],
       "name": "지구환경시스템과학부",
       "college": "환경·해양대학",
       "department": "지구환경시스템과학부",
@@ -7055,6 +7121,7 @@
     },
     {
       "dataset": "pkuocean",
+      "storage_path": ["환경·해양대학", "지구환경시스템과학부", "해양학전공", "pkuocean"],
       "name": "지구환경시스템과학부",
       "college": "환경·해양대학",
       "department": "지구환경시스템과학부",
@@ -7140,6 +7207,7 @@
     },
     {
       "dataset": "earth",
+      "storage_path": ["환경·해양대학", "지구환경시스템과학부", "환경지질과학전공", "earth"],
       "name": "지구환경시스템과학부",
       "college": "환경·해양대학",
       "department": "지구환경시스템과학부",
@@ -7224,6 +7292,7 @@
     },
     {
       "dataset": "envatm",
+      "storage_path": ["환경·해양대학", "지구환경시스템과학부", "환경대기과학전공", "envatm"],
       "name": "지구환경시스템과학부",
       "college": "환경·해양대학",
       "department": "지구환경시스템과학부",
@@ -7318,6 +7387,7 @@
     },
     {
       "dataset": "geoinfo",
+      "storage_path": ["환경·해양대학", "지구환경시스템과학부", "공간정보시스템공학전공", "geoinfo"],
       "name": "지구환경시스템과학부",
       "college": "환경·해양대학",
       "department": "지구환경시스템과학부",
@@ -7488,6 +7558,7 @@
     },
     {
       "dataset": "oceaneng",
+      "storage_path": ["환경·해양대학", "해양공학과", "oceaneng"],
       "name": "해양공학과",
       "college": "환경·해양대학",
       "department": "해양공학과",
@@ -7590,6 +7661,7 @@
     },
     {
       "dataset": "ere",
+      "storage_path": ["환경·해양대학", "에너지자원공학과", "ere"],
       "name": "에너지자원공학과",
       "college": "환경·해양대학",
       "department": "에너지자원공학과",
@@ -7672,6 +7744,7 @@
     },
     {
       "dataset": "lem",
+      "storage_path": ["환경·해양대학", "환경·해양대학 자유전공학부", "lem"],
       "name": "환경·해양대학 자유전공학부",
       "college": "환경·해양대학",
       "department": "환경·해양대학 자유전공학부",
@@ -7735,6 +7808,7 @@
     },
     {
       "dataset": "itc",
+      "storage_path": ["정보융합대학", "itc"],
       "name": "정보융합대학",
       "college": "정보융합대학",
       "department": null,
@@ -7770,6 +7844,7 @@
     },
     {
       "dataset": "bigdata",
+      "storage_path": ["정보융합대학", "데이터정보과학부", "빅데이터융합전공", "bigdata"],
       "name": "데이터정보과학부",
       "college": "정보융합대학",
       "department": "데이터정보과학부",
@@ -7874,6 +7949,7 @@
     },
     {
       "dataset": "stat",
+      "storage_path": ["정보융합대학", "데이터정보과학부", "통계·데이터사이언스전공", "stat"],
       "name": "데이터정보과학부",
       "college": "정보융합대학",
       "department": "데이터정보과학부",
@@ -7979,6 +8055,7 @@
     },
     {
       "dataset": "masscom",
+      "storage_path": ["정보융합대학", "미디어커뮤니케이션학부", "언론정보전공", "masscom"],
       "name": "미디어커뮤니케이션학부",
       "college": "정보융합대학",
       "department": "미디어커뮤니케이션학부",
@@ -8116,6 +8193,7 @@
     },
     {
       "dataset": "humanict",
+      "storage_path": ["정보융합대학", "미디어커뮤니케이션학부", "미디어ICT공학전공", "humanict"],
       "name": "미디어커뮤니케이션학부",
       "college": "정보융합대학",
       "department": "미디어커뮤니케이션학부",
@@ -8131,6 +8209,7 @@
     },
     {
       "dataset": "bme",
+      "storage_path": ["정보융합대학", "스마트헬스케어학부", "의공학전공", "bme"],
       "name": "스마트헬스케어학부",
       "college": "정보융합대학",
       "department": "스마트헬스케어학부",
@@ -8215,6 +8294,7 @@
     },
     {
       "dataset": "marinesports",
+      "storage_path": ["정보융합대학", "스마트헬스케어학부", "해양스포츠전공", "marinesports"],
       "name": "스마트헬스케어학부",
       "college": "정보융합대학",
       "department": "스마트헬스케어학부",
@@ -8300,6 +8380,7 @@
     },
     {
       "dataset": "humanbio",
+      "storage_path": ["정보융합대학", "스마트헬스케어학부", "휴먼바이오융합전공", "humanbio"],
       "name": "스마트헬스케어학부",
       "college": "정보융합대학",
       "department": "스마트헬스케어학부",
@@ -8375,6 +8456,7 @@
     },
     {
       "dataset": "ee",
+      "storage_path": ["정보융합대학", "전자정보통신공학부", "전자공학전공", "ee"],
       "name": "전자정보통신공학부",
       "college": "정보융합대학",
       "department": "전자정보통신공학부",
@@ -8500,6 +8582,7 @@
     },
     {
       "dataset": "ice",
+      "storage_path": ["정보융합대학", "전자정보통신공학부", "정보통신공학전공", "ice"],
       "name": "전자정보통신공학부",
       "college": "정보융합대학",
       "department": "전자정보통신공학부",
@@ -8684,6 +8767,7 @@
     },
     {
       "dataset": "pknuarchi",
+      "storage_path": ["정보융합대학", "조형학부", "건축학전공", "pknuarchi"],
       "name": "조형학부",
       "college": "정보융합대학",
       "department": "조형학부",
@@ -8768,6 +8852,7 @@
     },
     {
       "dataset": "industrial",
+      "storage_path": ["정보융합대학", "조형학부", "공업디자인전공", "industrial"],
       "name": "조형학부",
       "college": "정보융합대학",
       "department": "조형학부",
@@ -8854,6 +8939,7 @@
     },
     {
       "dataset": "visual",
+      "storage_path": ["정보융합대학", "조형학부", "시각디자인전공", "visual"],
       "name": "조형학부",
       "college": "정보융합대학",
       "department": "조형학부",
@@ -9008,6 +9094,7 @@
     },
     {
       "dataset": "ce",
+      "storage_path": ["정보융합대학", "컴퓨터·인공지능공학부", "ce"],
       "name": "컴퓨터·인공지능공학부",
       "college": "정보융합대학",
       "department": "컴퓨터·인공지능공학부",
@@ -9182,6 +9269,7 @@
     },
     {
       "dataset": "digitalfinance",
+      "storage_path": ["정보융합대학", "디지털금융학과", "digitalfinance"],
       "name": "디지털금융학과",
       "college": "정보융합대학",
       "department": "디지털금융학과",
@@ -9263,6 +9351,7 @@
     },
     {
       "dataset": "smartmobility",
+      "storage_path": ["정보융합대학", "스마트모빌리티공학과", "smartmobility"],
       "name": "스마트모빌리티공학과",
       "college": "정보융합대학",
       "department": "스마트모빌리티공학과",
@@ -9345,6 +9434,7 @@
     },
     {
       "dataset": "liberalitc",
+      "storage_path": ["정보융합대학", "정보융합대학 자유전공학부", "liberalitc"],
       "name": "정보융합대학 자유전공학부",
       "college": "정보융합대학",
       "department": "정보융합대학 자유전공학부",
@@ -9399,6 +9489,7 @@
     },
     {
       "dataset": "future",
+      "storage_path": ["미래융합학부", "future"],
       "name": "미래융합학부",
       "college": "미래융합학부",
       "department": null,
@@ -9471,6 +9562,7 @@
     },
     {
       "dataset": "lifelong",
+      "storage_path": ["미래융합학부", "평생교육·상담학전공", "lifelong"],
       "name": "평생교육·상담학전공",
       "college": "미래융합학부",
       "department": null,
@@ -9633,6 +9725,7 @@
     },
     {
       "dataset": "safe",
+      "storage_path": ["미래융합학부", "경찰범죄심리학전공", "safe"],
       "name": "경찰범죄심리학전공",
       "college": "미래융합학부",
       "department": null,
@@ -9696,6 +9789,7 @@
     },
     {
       "dataset": "welfare",
+      "storage_path": ["미래융합학부", "사회복지서비스학전공", "welfare"],
       "name": "사회복지서비스학전공",
       "college": "미래융합학부",
       "department": null,
@@ -9752,6 +9846,7 @@
     },
     {
       "dataset": "msce",
+      "storage_path": ["미래융합학부", "기계조선에너지시스템공학전공", "msce"],
       "name": "기계조선에너지시스템공학전공",
       "college": "미래융합학부",
       "department": null,
@@ -9852,6 +9947,7 @@
     },
     {
       "dataset": "eese",
+      "storage_path": ["미래융합학부", "전기전자SW공학전공", "eese"],
       "name": "전기전자SW공학전공",
       "college": "미래융합학부",
       "department": null,
@@ -9942,6 +10038,7 @@
     },
     {
       "dataset": "duem",
+      "storage_path": ["글로벌자율전공학부", "duem"],
       "name": "글로벌자율전공학부",
       "college": "글로벌자율전공학부",
       "department": "글로벌자율전공학부",
@@ -10025,6 +10122,7 @@
     },
     {
       "dataset": "college",
+      "storage_path": ["학부대학", "college"],
       "name": "학부대학",
       "college": "학부대학",
       "department": "학부대학",
@@ -10083,6 +10181,1173 @@
           "document_type": "notice",
           "bbs_id": "2400350",
           "enabled": true
+        }
+      ]
+    },
+    {
+      "dataset": "axic",
+      "storage_path": [
+        "AX혁신대학",
+        "axic"
+      ],
+      "name": "AX혁신대학",
+      "college": "AX혁신대학",
+      "department": null,
+      "majors": [],
+      "base_url": "https://axic.pknu.ac.kr/axic",
+      "site_prefix": "axic",
+      "source_catalog_key": "axic.pknu.ac.kr/axic",
+      "compatibility": "○",
+      "enabled": true,
+      "sections": [
+        {
+          "id": "menu_8895",
+          "name": "위원장 인사말",
+          "category": "AX혁신대학 소개",
+          "kind": "static_page",
+          "path": "/axic/8895",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8896",
+          "name": "교육목적 및 인재상",
+          "category": "AX혁신대학 소개",
+          "kind": "static_page",
+          "path": "/axic/8896",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8897",
+          "name": "연혁",
+          "category": "AX혁신대학 소개",
+          "kind": "static_page",
+          "path": "/axic/8897",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8898",
+          "name": "조직 및 현황",
+          "category": "AX혁신대학 소개",
+          "kind": "static_page",
+          "path": "/axic/8898",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8899",
+          "name": "찾아오시는 길",
+          "category": "AX혁신대학 소개",
+          "kind": "static_page",
+          "path": "/axic/8899",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8902",
+          "name": "교수진",
+          "category": "교육",
+          "kind": "static_page",
+          "path": "/axic/8902",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_9101",
+          "name": "교육과정 - AX지속가능융합학과",
+          "category": "교육",
+          "kind": "static_page",
+          "path": "/axic/9101",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_9102",
+          "name": "교육과정 - AI융합시스템공학과",
+          "category": "교육",
+          "kind": "static_page",
+          "path": "/axic/9102",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8892",
+          "name": "연구원/부속기관",
+          "category": "연구원_부속기관",
+          "kind": "static_page",
+          "path": "/axic/8892",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8909",
+          "name": "공지사항",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axic/8909",
+          "document_type": "notice",
+          "bbs_id": "2405973",
+          "enabled": true
+        },
+        {
+          "id": "menu_8910",
+          "name": "AX혁신대학 뉴스",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axic/8910",
+          "document_type": "notice",
+          "bbs_id": "2405974",
+          "enabled": true
+        },
+        {
+          "id": "menu_8912",
+          "name": "자료실",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axic/8912",
+          "document_type": "notice",
+          "bbs_id": "2406049",
+          "enabled": true
+        },
+        {
+          "id": "menu_8913",
+          "name": "갤러리",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axic/8913",
+          "document_type": "notice",
+          "bbs_id": "2405977",
+          "enabled": true
+        },
+        {
+          "id": "menu_9017",
+          "name": "Q&A",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axic/9017",
+          "document_type": "notice",
+          "bbs_id": "2405975",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "dataset": "axcs",
+      "storage_path": [
+        "AX혁신대학",
+        "AX지속가능융합학과",
+        "axcs"
+      ],
+      "name": "AX지속가능융합학과",
+      "college": "AX혁신대학",
+      "department": "AX지속가능융합학과",
+      "majors": [],
+      "base_url": "https://icms.pknu.ac.kr/axcs",
+      "site_prefix": "axcs",
+      "source_catalog_key": "icms.pknu.ac.kr/axcs",
+      "compatibility": "○",
+      "enabled": true,
+      "crawl_all_board_pages": true,
+      "excluded_categories": [
+        {
+          "category": "대학원",
+          "menu_paths": [
+            "/axcs/9131"
+          ],
+          "reason": "현재 대학원 카테고리는 미구현이므로 사용자 요청에 따라 수집 제외",
+          "fetched": false
+        }
+      ],
+      "menu_aliases": [
+        {
+          "path": "/axcs/8951",
+          "representative_path": "/axcs/8957",
+          "category": "학과안내",
+          "basis": "상위 메뉴 접속 시 확인한 실제 리디렉션 목적지",
+          "final_url": "https://icms.pknu.ac.kr/axcs/8957",
+          "verified": true
+        },
+        {
+          "path": "/axcs/8952",
+          "representative_path": "/axcs/8961",
+          "category": "학사정보",
+          "basis": "상위 메뉴 접속 시 확인한 실제 리디렉션 목적지",
+          "final_url": "https://icms.pknu.ac.kr/axcs/8961",
+          "verified": true,
+          "warning": "목적지 교과목 개요는 미완성 샘플 본문이므로 검토 필요"
+        },
+        {
+          "path": "/axcs/8954",
+          "representative_path": "/axcs/8965",
+          "category": "취업안내",
+          "basis": "상위 메뉴 접속 시 확인한 실제 리디렉션 목적지",
+          "final_url": "https://icms.pknu.ac.kr/axcs/8965",
+          "verified": true
+        },
+        {
+          "path": "/axcs/8955",
+          "representative_path": "/axcs/8967",
+          "category": "커뮤니티",
+          "basis": "상위 메뉴 접속 시 확인한 실제 리디렉션 목적지",
+          "final_url": "https://icms.pknu.ac.kr/axcs/8967",
+          "verified": true
+        }
+      ],
+      "sections": [
+        {
+          "id": "menu_9112",
+          "name": "학과장 인사말",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/9112",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8957",
+          "name": "학과 소개",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/8957",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8958",
+          "name": "교육목적 및 인재상",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/8958",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8959",
+          "name": "교수진 소개",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/8959",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8960",
+          "name": "오시는길",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/8960",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8962",
+          "name": "교육과정",
+          "category": "학사정보",
+          "kind": "static_page",
+          "path": "/axcs/8962",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8965",
+          "name": "진로 및 취업",
+          "category": "취업안내",
+          "kind": "static_page",
+          "path": "/axcs/8965",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8966",
+          "name": "취업게시판",
+          "category": "취업안내",
+          "kind": "board",
+          "path": "/axcs/8966",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406015"
+        },
+        {
+          "id": "menu_8967",
+          "name": "공지사항",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axcs/8967",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406013"
+        },
+        {
+          "id": "menu_8968",
+          "name": "자료실",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axcs/8968",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406014"
+        },
+        {
+          "id": "menu_9158",
+          "name": "학과 소식",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axcs/9158",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406189"
+        },
+        {
+          "id": "profile_19405959",
+          "name": "교수 상세정보 - 양현경 교수",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/8959?action=view&no=19405959",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405979",
+          "name": "교수 상세정보 - 김동현 부교수",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/8959?action=view&no=19405979",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405980",
+          "name": "교수 상세정보 - 원용선 교수(겸무)",
+          "category": "학과안내",
+          "kind": "static_page",
+          "path": "/axcs/8959?action=view&no=19405980",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8961",
+          "name": "교과목 개요",
+          "category": "학사정보",
+          "kind": "static_page",
+          "path": "/axcs/8961",
+          "document_type": "guide",
+          "enabled": true,
+          "source_type": "source_template",
+          "content_review": {
+            "status": "needs_review",
+            "reason": "상위 학사정보 메뉴가 이동하는 페이지에 불릿_1 및 디자인연구소 등 샘플 본문이 남아 있음"
+          }
+        },
+        {
+          "id": "menu_9131",
+          "name": "대학원",
+          "category": "대학원",
+          "kind": "static_page",
+          "path": "/axcs/9131",
+          "document_type": "guide",
+          "enabled": false,
+          "exclusion_reason": "현재 미구현인 대학원 카테고리는 사용자 요청에 따라 수집 제외"
+        }
+      ]
+    },
+    {
+      "dataset": "aics",
+      "storage_path": [
+        "AX혁신대학",
+        "AI융합시스템공학과",
+        "aics"
+      ],
+      "name": "AI융합시스템공학과",
+      "college": "AX혁신대학",
+      "department": "AI융합시스템공학과",
+      "majors": [],
+      "base_url": "https://icms.pknu.ac.kr/aics",
+      "site_prefix": "aics",
+      "source_catalog_key": "icms.pknu.ac.kr/aics",
+      "compatibility": "○",
+      "enabled": true,
+      "crawl_all_board_pages": true,
+      "excluded_categories": [
+        {
+          "category": "대학원",
+          "menu_paths": [],
+          "reason": "현재 미구현인 대학원 카테고리는 이전과 동일한 사용자 조건으로 수집 제외",
+          "fetched": false,
+          "present_in_navigation": false,
+          "policy": "향후 대학원 메뉴가 추가되어도 별도 구현 및 범위 변경 전에는 수집하지 않음"
+        }
+      ],
+      "menu_aliases": [
+        {
+          "path": "/aics/8973",
+          "canonical_path": "/aics/8978",
+          "category": "학과 소개",
+          "verified": true,
+          "basis": "현재 상위 메뉴의 실제 리디렉션 목적지"
+        },
+        {
+          "path": "/aics/8974",
+          "canonical_path": "/aics/8984",
+          "category": "교육과정",
+          "verified": true,
+          "basis": "현재 상위 메뉴의 실제 리디렉션 목적지"
+        },
+        {
+          "path": "/aics/8975",
+          "canonical_path": "/aics/8988",
+          "category": "연구",
+          "verified": true,
+          "basis": "현재 상위 메뉴의 실제 리디렉션 목적지"
+        },
+        {
+          "path": "/aics/8976",
+          "canonical_path": "/aics/8991",
+          "category": "입학 · 진로",
+          "verified": true,
+          "basis": "현재 상위 메뉴의 실제 리디렉션 목적지"
+        },
+        {
+          "path": "/aics/8977",
+          "canonical_path": "/aics/8994",
+          "category": "커뮤니티",
+          "verified": true,
+          "basis": "현재 상위 메뉴의 실제 리디렉션 목적지"
+        }
+      ],
+      "sections": [
+        {
+          "id": "menu_8978",
+          "name": "학과장 인사말",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8978",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8979",
+          "name": "학과 소개",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8979",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8980",
+          "name": "인재상 / 전공능력",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8980",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8981",
+          "name": "교수진",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8981",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8983",
+          "name": "찾아오시는 길",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8983",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_9151",
+          "name": "AX혁신대학 소개 영상",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/9151",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8984",
+          "name": "교육목표",
+          "category": "교육과정",
+          "kind": "static_page",
+          "path": "/aics/8984",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8985",
+          "name": "교육과정",
+          "category": "교육과정",
+          "kind": "static_page",
+          "path": "/aics/8985",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8986",
+          "name": "핵심 역량 트랙",
+          "category": "교육과정",
+          "kind": "static_page",
+          "path": "/aics/8986",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8987",
+          "name": "캡스톤 · 현장실습",
+          "category": "교육과정",
+          "kind": "static_page",
+          "path": "/aics/8987",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_9248",
+          "name": "졸업요건",
+          "category": "교육과정",
+          "kind": "static_page",
+          "path": "/aics/9248",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8988",
+          "name": "연구 분야",
+          "category": "연구",
+          "kind": "static_page",
+          "path": "/aics/8988",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8989",
+          "name": "연구실",
+          "category": "연구",
+          "kind": "static_page",
+          "path": "/aics/8989",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8990",
+          "name": "산학협력 · 연구 인프라",
+          "category": "연구",
+          "kind": "static_page",
+          "path": "/aics/8990",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8991",
+          "name": "입학 안내",
+          "category": "입학 · 진로",
+          "kind": "static_page",
+          "path": "/aics/8991",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8992",
+          "name": "졸업 후 진로",
+          "category": "입학 · 진로",
+          "kind": "static_page",
+          "path": "/aics/8992",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8993",
+          "name": "FAQ",
+          "category": "입학 · 진로",
+          "kind": "static_page",
+          "path": "/aics/8993",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8994",
+          "name": "공지사항",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/aics/8994",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406017"
+        },
+        {
+          "id": "menu_8995",
+          "name": "자료실",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/aics/8995",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406018"
+        },
+        {
+          "id": "menu_8996",
+          "name": "학과 소식 · 뉴스",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/aics/8996",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406019"
+        },
+        {
+          "id": "menu_8997",
+          "name": "Q&A",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/aics/8997",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406020"
+        },
+        {
+          "id": "menu_8998",
+          "name": "갤러리",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/aics/8998",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406021"
+        },
+        {
+          "id": "menu_8999",
+          "name": "학칙 및 규정",
+          "category": "커뮤니티",
+          "kind": "static_page",
+          "path": "/aics/8999",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405940",
+          "name": "교수 상세정보 - 하지환 교수(학과장)",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8981?action=view&no=19405940",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405941",
+          "name": "교수 상세정보 - 채용예정 교수",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8981?action=view&no=19405941",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405942",
+          "name": "교수 상세정보 - 채용예정 교수",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8981?action=view&no=19405942",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405943",
+          "name": "교수 상세정보 - 채용예정 교수",
+          "category": "학과 소개",
+          "kind": "static_page",
+          "path": "/aics/8981?action=view&no=19405943",
+          "document_type": "guide",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "dataset": "axliberal",
+      "storage_path": [
+        "AX혁신대학",
+        "AXIC자유전공학부",
+        "axliberal"
+      ],
+      "name": "AXIC자유전공학부",
+      "college": "AX혁신대학",
+      "department": "AXIC자유전공학부",
+      "majors": [],
+      "base_url": "https://icms.pknu.ac.kr/axliberal",
+      "site_prefix": "axliberal",
+      "source_catalog_key": "icms.pknu.ac.kr/axliberal",
+      "compatibility": "○",
+      "enabled": true,
+      "crawl_all_board_pages": true,
+      "requested_categories": [
+        "학부 소개",
+        "학사안내",
+        "커뮤니티/공지사항",
+        "커뮤니티/자료실"
+      ],
+      "excluded_sections": [
+        {
+          "category": "전공탐색",
+          "paths": [
+            "/axliberal/8931",
+            "/axliberal/8940",
+            "/axliberal/8942"
+          ],
+          "reason": "사용자 지정 범위 밖; 추가 수집 전 사용자 확인 필요",
+          "fetched": false
+        },
+        {
+          "category": "커뮤니티",
+          "name": "포토갤러리",
+          "paths": [
+            "/axliberal/8950"
+          ],
+          "reason": "사용자 지정 범위 밖; 추가 수집 전 사용자 확인 필요",
+          "fetched": false
+        },
+        {
+          "category": "커뮤니티",
+          "name": "카카오톡 채널",
+          "paths": [
+            "/axliberal/9003"
+          ],
+          "reason": "사용자 지정 범위 밖; 추가 수집 전 사용자 확인 필요",
+          "fetched": false
+        },
+        {
+          "category": "커뮤니티",
+          "name": "인스타그램",
+          "paths": [
+            "/axliberal/9004"
+          ],
+          "reason": "사용자 지정 범위 밖; 추가 수집 전 사용자 확인 필요",
+          "fetched": false
+        },
+        {
+          "category": "커뮤니티",
+          "name": "AXIC건의방",
+          "paths": [
+            "/axliberal/8949"
+          ],
+          "reason": "사용자 지정 범위 밖; 추가 수집 전 사용자 확인 필요",
+          "fetched": false
+        }
+      ],
+      "external_references": [
+        {
+          "id": "menu_8945",
+          "name": "학사일정",
+          "url": "https://icms.pknu.ac.kr/axliberal/8945",
+          "target_url": "https://www.pknu.ac.kr/main/31",
+          "followed_for_collection": false
+        },
+        {
+          "id": "menu_9015",
+          "name": "장학안내",
+          "url": "https://icms.pknu.ac.kr/axliberal/9015",
+          "target_url": "https://www.pknu.ac.kr/main/103",
+          "followed_for_collection": false
+        }
+      ],
+      "menu_aliases": [
+        {
+          "path": "/axliberal/8929",
+          "canonical_path": "/axliberal/8934",
+          "category": "학부 소개",
+          "basis": "현재 상위 메뉴 접속의 실제 목적지",
+          "verified": true
+        },
+        {
+          "path": "/axliberal/8932",
+          "canonical_path": "/axliberal/8943",
+          "category": "학사안내",
+          "basis": "현재 상위 메뉴 접속의 실제 목적지",
+          "verified": true
+        },
+        {
+          "path": "/axliberal/8934",
+          "canonical_path": "/axliberal/8935",
+          "verified": true,
+          "basis": "현재 본문 텍스트와 본문 이미지 주소 및 순서가 동일"
+        }
+      ],
+      "scope_policy": "등록된 요청 범위만 수집; 다른 메뉴 및 외부 연결 페이지 추가 수집은 사용자 확인 후 진행",
+      "sections": [
+        {
+          "id": "menu_8934",
+          "name": "단과대학 소개",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8934",
+          "document_type": "guide",
+          "enabled": false,
+          "source_type": "duplicate_reference",
+          "alias_of": "menu_8935",
+          "exclusion_reason": "현재 본문 및 이미지 주소가 자유전공학부 소개 /axliberal/8935와 동일하므로 대표 결과에 연결"
+        },
+        {
+          "id": "menu_8935",
+          "name": "자유전공학부 소개",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8935",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8936",
+          "name": "교수진 소개",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8936",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8937",
+          "name": "찾아오시는 길",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8937",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8943",
+          "name": "교육과정",
+          "category": "학사안내",
+          "kind": "static_page",
+          "path": "/axliberal/8943",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8945",
+          "name": "학사일정",
+          "category": "학사안내",
+          "kind": "static_page",
+          "path": "/axliberal/8945",
+          "document_type": "guide",
+          "enabled": false,
+          "source_type": "external_reference",
+          "reference_url": "https://www.pknu.ac.kr/main/31",
+          "exclusion_reason": "학교 메인 홈페이지로 이동하는 메뉴이며 기존 결과에 연결; 별도 내부 재수집하지 않음"
+        },
+        {
+          "id": "menu_9015",
+          "name": "장학안내",
+          "category": "학사안내",
+          "kind": "static_page",
+          "path": "/axliberal/9015",
+          "document_type": "guide",
+          "enabled": false,
+          "source_type": "external_reference",
+          "reference_url": "https://www.pknu.ac.kr/main/103",
+          "exclusion_reason": "학교 메인 홈페이지로 이동하는 메뉴이며 기존 결과에 연결; 별도 내부 재수집하지 않음"
+        },
+        {
+          "id": "menu_8947",
+          "name": "공지사항",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axliberal/8947",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406009"
+        },
+        {
+          "id": "menu_8948",
+          "name": "자료실",
+          "category": "커뮤니티",
+          "kind": "board",
+          "path": "/axliberal/8948",
+          "document_type": "notice",
+          "enabled": true,
+          "bbs_id": "2406010"
+        },
+        {
+          "id": "profile_19405899",
+          "name": "교수 상세정보 - 양현경 교수",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8936?action=view&no=19405899",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405922",
+          "name": "교수 상세정보 - 원용선 교수",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8936?action=view&no=19405922",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19405900",
+          "name": "교수 상세정보 - 하지환 부교수",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8936?action=view&no=19405900",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "profile_19406023",
+          "name": "교수 상세정보 - 김동현 부교수",
+          "category": "학부 소개",
+          "kind": "static_page",
+          "path": "/axliberal/8936?action=view&no=19406023",
+          "document_type": "guide",
+          "enabled": true
+        }
+      ]
+    },
+    {
+      "dataset": "gic",
+      "storage_path": [
+        "글로벌혁신대학",
+        "gic"
+      ],
+      "name": "글로벌혁신대학",
+      "college": "글로벌혁신대학",
+      "department": null,
+      "majors": [],
+      "base_url": "https://gic.pknu.ac.kr/gic",
+      "site_prefix": "gic",
+      "source_catalog_key": "gic.pknu.ac.kr/gic",
+      "compatibility": "○",
+      "enabled": true,
+      "tls_legacy_server_connect": true,
+      "tls_legacy_server_hosts": ["icms.pknu.ac.kr"],
+      "crawl_all_board_pages": false,
+      "request_delay_seconds": 0.8,
+      "list_delay_seconds": 0.5,
+      "initial_max_pages": 1,
+      "incremental_max_pages": 1,
+      "scope_notes": {
+        "verified_on": "2026-10-13",
+        "requested_categories": [
+          "글로벌혁신대학 소개",
+          "외국인 전담학부(과)",
+          "장학 및 생활지원",
+          "공지사항 등록만"
+        ],
+        "notice_policy": "registered_disabled_until_collection_method_review",
+        "external_homepages": "record_only",
+        "excluded_categories": [
+          "입학안내",
+          "커뮤니티/Q&A"
+        ],
+        "source_main_page_id": 532
+      },
+      "menu_aliases": [
+        {
+          "path": "/gic/8847",
+          "canonical_url": "https://gic.pknu.ac.kr/gic/8853"
+        },
+        {
+          "path": "/gic/8848",
+          "canonical_url": "https://gic.pknu.ac.kr/gic/8859"
+        },
+        {
+          "path": "/gic/8861",
+          "canonical_url": "https://gic.pknu.ac.kr/gic/8863"
+        },
+        {
+          "path": "/gic/8862",
+          "canonical_url": "https://gic.pknu.ac.kr/gic/8866"
+        },
+        {
+          "path": "/gic/8850",
+          "canonical_url": "https://gic.pknu.ac.kr/gic/8870"
+        },
+        {
+          "path": "/gic/8871",
+          "canonical_url": "https://gic.pknu.ac.kr/gic/8917"
+        },
+        {
+          "path": "/gic/8851",
+          "canonical_url": "https://gic.pknu.ac.kr/gic/8879"
+        }
+      ],
+      "external_references": [
+        {
+          "label": "My Busan 부산 외국인 주민 통합 플랫폼",
+          "url": "https://mybusan.kr/",
+          "source_url": "https://gic.pknu.ac.kr/gic/8923",
+          "followed": false
+        }
+      ],
+      "sections": [
+        {
+          "id": "menu_8853",
+          "name": "학장 인사말",
+          "category": "글로벌혁신대학 소개",
+          "kind": "static_page",
+          "path": "/gic/8853",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8855",
+          "name": "교육이념",
+          "category": "글로벌혁신대학 소개",
+          "kind": "static_page",
+          "path": "/gic/8855",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8856",
+          "name": "교육 목적 및 인재상",
+          "category": "글로벌혁신대학 소개",
+          "kind": "static_page",
+          "path": "/gic/8856",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8858",
+          "name": "오시는 길",
+          "category": "글로벌혁신대학 소개",
+          "kind": "static_page",
+          "path": "/gic/8858",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8859",
+          "name": "글로벌혁신대학",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8859",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8860",
+          "name": "국제자유전공학부",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8860",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8863",
+          "name": "컴퓨터사이언스인공지능학과",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8863",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8864",
+          "name": "관광호스피탤러티경영학과",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8864",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8865",
+          "name": "글로벌물류SCM학과",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8865",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8866",
+          "name": "글로벌미디어커뮤니케이션학과",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8866",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8867",
+          "name": "K- 컬처학과",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8867",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8868",
+          "name": "글로벌기술경영학과",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8868",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8869",
+          "name": "글로벌지속가능공학과",
+          "category": "외국인 전담학부(과)",
+          "kind": "static_page",
+          "path": "/gic/8869",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8870",
+          "name": "장학지원",
+          "category": "장학 및 생활지원",
+          "kind": "static_page",
+          "path": "/gic/8870",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8917",
+          "name": "유학생활 가이드북",
+          "category": "장학 및 생활지원",
+          "kind": "static_page",
+          "path": "/gic/8917",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8918",
+          "name": "캠퍼스 지도 및 교내 시설",
+          "category": "장학 및 생활지원",
+          "kind": "static_page",
+          "path": "/gic/8918",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8922",
+          "name": "비자 & 외국인 등록",
+          "category": "장학 및 생활지원",
+          "kind": "static_page",
+          "path": "/gic/8922",
+          "document_type": "guide",
+          "enabled": true
+        },
+        {
+          "id": "menu_8879",
+          "name": "공지사항",
+          "category": "공지사항",
+          "kind": "board",
+          "path": "/gic/8879",
+          "document_type": "notice",
+          "bbs_id": "2405969",
+          "enabled": false,
+          "exclusion_reason": "사용자 요청: 현재 빈 게시판의 URL만 등록. 게시글 수집 방법은 이후 확인한 뒤 활성화한다."
         }
       ]
     }

@@ -12,6 +12,27 @@ from scripts.crawlers.departments.config import load_registry
 
 
 class AttachmentRecoveryTests(unittest.TestCase):
+    def test_static_embedded_pdf_download_and_metadata_only_modes(self):
+        e.configure_department(load_registry()['ce'])
+        url='https://ce.pknu.ac.kr/ce/1817'
+        response=SimpleNamespace(text='<div id="sbCont"><iframe src="/upload/support.pdf"></iframe></div>',url=url)
+        section={'id':'support','url':url,'category':'support','name':'Support','type':'guide'}
+        attachment={'url':'https://ce.pknu.ac.kr/upload/support.pdf','name':'support.pdf',
+                    'downloaded':True,'saved_path':'files/support.pdf','error':None}
+        for metadata_only in (False,True):
+            with (patch.object(e,'fetch',return_value=response),
+                  patch.object(e,'collect_document_images'),
+                  patch.object(e,'existing_document_path',return_value=Path('__missing_document__.json')),
+                  patch.object(e,'save_document') as save,
+                  patch.object(e,'save_attachments',return_value=[attachment]) as download):
+                stats=e.crawl_static(object(),section,no_download_files=metadata_only)
+                doc=save.call_args.args[0]
+                self.assertEqual(stats.attachments_discovered,1)
+                self.assertEqual(stats.attachments_downloaded,0 if metadata_only else 1)
+                self.assertEqual(doc['attachments'][0]['downloaded'],not metadata_only)
+                if metadata_only: download.assert_not_called()
+                else: self.assertEqual(download.call_args.args[1][0]['url'],attachment['url'])
+
     def test_link_evidence(self):
         for url in ('https://zoom.us/download', 'https://example.org/profile', 'https://example.org/file/help'):
             self.assertFalse(attachment_candidate(url))

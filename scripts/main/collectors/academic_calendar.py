@@ -9,20 +9,17 @@ loads the actual rows from /getScheduleList.do, one month at a time.
 """
 
 from __future__ import annotations
-
-import argparse
+from bs4 import BeautifulSoup
 from calendar import monthrange
 from datetime import date, datetime, timezone
-import json
 from pathlib import Path
-import re
-import time
+from scripts.main.common.http import build_session
 from zoneinfo import ZoneInfo
-
-from bs4 import BeautifulSoup
+import argparse
+import json
+import re
 import requests
-
-from scripts.crawlers.pknu_student_life import build_session
+import time
 
 
 ROOT = Path(__file__).resolve().parents[3]

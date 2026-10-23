@@ -167,10 +167,16 @@ class DepartmentConfig:
     legacy_state_files: tuple[str, ...] = ()
     source_catalog_key: str | None = None
     tls_system_trust_fallback: bool = False
+    tls_legacy_server_connect: bool = False
+    tls_legacy_server_hosts: tuple[str, ...] = ()
     adapter: str = "numeric_cms"
+    storage_path: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DepartmentConfig":
+        raw_storage_path = payload.get("storage_path", [])
+        if not isinstance(raw_storage_path, list) or any(not isinstance(part, str) for part in raw_storage_path):
+            raise ValueError("storage_path must be a list of directory names")
         sections = tuple(SectionConfig.from_dict(item) for item in payload.get("sections") or [])
         config = cls(
             dataset=str(payload.get("dataset") or "").strip(),
@@ -193,7 +199,10 @@ class DepartmentConfig:
             legacy_state_files=tuple(str(item) for item in payload.get("legacy_state_files") or []),
             source_catalog_key=str(payload["source_catalog_key"]).strip() if payload.get("source_catalog_key") else None,
             tls_system_trust_fallback=bool(payload.get("tls_system_trust_fallback", False)),
+            tls_legacy_server_connect=bool(payload.get("tls_legacy_server_connect", False)),
+            tls_legacy_server_hosts=tuple(payload.get("tls_legacy_server_hosts") or []),
             adapter=str(payload.get("adapter") or "numeric_cms").strip(),
+            storage_path=tuple(raw_storage_path),
         )
         config.validate()
         return config
@@ -202,6 +211,13 @@ class DepartmentConfig:
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", self.dataset):
             raise ValueError(f"invalid dataset: {self.dataset!r}")
         validate_path_component(self.dataset, "dataset")
+        for part in self.storage_path:
+            validate_path_component(part, "storage_path")
+        if self.storage_path and self.storage_path[-1] != self.dataset:
+            raise ValueError("storage_path must end with the dataset alias")
+        if any(not isinstance(host, str) or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9.-]*", host)
+               for host in self.tls_legacy_server_hosts):
+            raise ValueError("tls_legacy_server_hosts must contain hostnames only")
         if not self.name or not self.site_prefix:
             raise ValueError(f"department {self.dataset!r} requires name and site_prefix")
         parsed = urlsplit(self.base_url)

@@ -30,7 +30,15 @@ def infer_dataset_from_path(path: Path) -> str | None:
         index = folded.index("files")
         if index + 1 < len(parts):
             if folded[index + 1] == "department":
-                return parts[index + 2] if index + 2 < len(parts) else None
+                from scripts.crawlers.common.storage import department_storage_paths
+                tail = parts[index + 2:]
+                for dataset, storage_path in department_storage_paths().items():
+                    if tail[:len(storage_path)] == storage_path:
+                        return dataset
+                for marker in ("output", "preprocessed", "vectorized"):
+                    if marker in tail and tail.index(marker) > 0:
+                        return tail[tail.index(marker) - 1]
+                return tail[0] if tail else None
             if parts[index + 1] == "pknu_main":
                 tail = parts[index + 2:]
                 if "_derived" in tail:

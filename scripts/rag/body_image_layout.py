@@ -264,8 +264,11 @@ def _paths(args: argparse.Namespace) -> list[Path]:
 
 
 def _review_path(ocr_path: Path) -> Path:
+    from scripts.crawlers.common.reader import infer_dataset_from_path
     relative = ocr_path.resolve().relative_to(PROJECT_ROOT / "files")
-    dataset = relative.parts[1] if relative.parts[0] == "department" else relative.parts[0]
+    dataset = infer_dataset_from_path(ocr_path)
+    if not dataset:
+        raise ValueError(f"Cannot infer dataset from {ocr_path}")
     return PROJECT_ROOT / "files" / "_reviewed" / "body_image_ocr" / "reviews" / dataset / relative.name
 
 

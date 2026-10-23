@@ -1,14 +1,11 @@
 """HTML adapter for the university /main/<id> CMS, separate from department CMSs."""
 
 from __future__ import annotations
-
-import re
+from bs4 import BeautifulSoup, Tag
+from scripts.crawlers.departments.adapters.base import DepartmentCMSAdapter
 from typing import Any
 from urllib.parse import parse_qs, urljoin, urlparse
-
-from bs4 import BeautifulSoup, Tag
-
-from scripts.crawlers.departments.adapters.base import DepartmentCMSAdapter
+import re
 
 
 MAIN_HOST = "www.pknu.ac.kr"
@@ -220,7 +217,7 @@ class PknuMainAdapter(DepartmentCMSAdapter):
                 "content_status": "content" if body else "attachment_only"}
 
     def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]:
-        from scripts.crawlers.pknu_student_life import parse_static_page_html
+        from scripts.main.collectors.static_pages import parse_static_page_html
 
         if soup.select_one('#subCont .brdList, #subCont .list .item a[href*="action=view"], '
                            '#subCont ul.bdWz a[href*="action=view"], '

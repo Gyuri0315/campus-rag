@@ -1,7 +1,7 @@
 """Load vectorized RAG chunks into Supabase PostgreSQL with pgvector.
 
 Expected input:
-    files/department/ce/vectorized/index.jsonl
+    files/department/정보융합대학/컴퓨터·인공지능공학부/ce/vectorized/index.jsonl
 
 Required environment:
     DATABASE_URL, SUPABASE_POOLER_URL, SUPABASE_DATABASE_URL, or SUPABASE_DB_URL
