@@ -49,7 +49,8 @@ def _resolve_source(row: dict[str, Any], source_cache: dict[str, tuple[Path | No
     if resolved is None:
         dataset = row.get("dataset")
         basename = Path(raw).name
-        candidate_root = PROJECT_ROOT / "files" / str(dataset) / "output" / "json"
+        from scripts.crawlers.common.storage import get_dataset_paths
+        candidate_root = get_dataset_paths(PROJECT_ROOT, str(dataset)).json
         if candidate_root.is_dir():
             matches = list(candidate_root.rglob(basename))
             if len(matches) == 1:

@@ -1,7 +1,7 @@
 """Load vectorized RAG chunks into Supabase PostgreSQL with pgvector.
 
 Expected input:
-    files/ce/vectorized/index.jsonl
+    files/department/정보융합대학/컴퓨터·인공지능공학부/ce/vectorized/index.jsonl
 
 Required environment:
     DATABASE_URL, SUPABASE_POOLER_URL, SUPABASE_DATABASE_URL, or SUPABASE_DB_URL
@@ -31,19 +31,20 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.db import connect_postgres  # noqa: E402
+from scripts.crawlers.common.storage import get_dataset_root
 DATASET_TABLES = {
     "ce": {
-        "index": PROJECT_ROOT / "files" / "ce" / "vectorized" / "index.jsonl",
+        "index": get_dataset_root(PROJECT_ROOT, "ce") / "vectorized" / "index.jsonl",
         "sources": "rag_sources",
         "chunks": "rag_chunks",
     },
     "pknu_notice": {
-        "index": PROJECT_ROOT / "files" / "pknu_notice" / "vectorized" / "index.jsonl",
+        "index": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized" / "index.jsonl",
         "sources": "pknu_notice_sources",
         "chunks": "pknu_notice_chunks",
     },
     "pknu_student_life": {
-        "index": PROJECT_ROOT / "files" / "pknu_student_life" / "vectorized" / "index.jsonl",
+        "index": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "vectorized" / "index.jsonl",
         "sources": "pknu_student_life_sources",
         "chunks": "pknu_student_life_chunks",
     },

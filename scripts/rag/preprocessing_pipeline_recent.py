@@ -225,8 +225,8 @@ def collect_targets(dataset_names: list[str], since_ts: float) -> dict[str, dict
         else:
             dataset = WEB_DATASETS[name]
             targets[name] = {
-                "json": iter_files_changed_since(dataset.json_root, since_ts, ".json"),
-                "files": iter_files_changed_since(dataset.files_root, since_ts),
+                "json": sorted({p for root in dataset.source_roots("json") for p in iter_files_changed_since(root, since_ts, ".json")}),
+                "files": sorted({p for root in dataset.source_roots("files") for p in iter_files_changed_since(root, since_ts)}),
             }
     return targets
 
@@ -278,10 +278,11 @@ def collect_web_preprocessed_targets(
     outputs: list[Path] = []
     for path in target_kinds.get("json", []):
         try:
+            source_root = web_dataset.source_for(path, "json")
             out_path = ensure_output_path(
                 path,
-                web_dataset.json_root,
-                web_dataset.preprocessed_json_root,
+                source_root,
+                web_dataset.processed_root(source_root, "json"),
                 layout="flat",
             )
         except ValueError:
@@ -291,19 +292,21 @@ def collect_web_preprocessed_targets(
 
     for path in target_kinds.get("files", []):
         try:
+            source_root = web_dataset.source_for(path, "files")
+            processed_root = web_dataset.processed_root(source_root, "files")
             if path.suffix.lower() in ARCHIVE_EXTS:
                 outputs.extend(
                     collect_archive_outputs(
                         path,
-                        web_dataset.files_root,
-                        web_dataset.preprocessed_files_root,
+                        source_root,
+                        processed_root,
                     )
                 )
             else:
                 out_path = ensure_output_path(
                     path,
-                    web_dataset.files_root,
-                    web_dataset.preprocessed_files_root,
+                    source_root,
+                    processed_root,
                     layout="by_ext",
                 )
                 if out_path.exists():

@@ -18,6 +18,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.text_cleaning import clean_extracted_text
 from scripts.crawlers.common.reader import infer_dataset_from_path, read_document
+from scripts.crawlers.common.storage import department_legacy_roots, get_dataset_root
 from scripts.extractors.common import (
     DEFAULT_OCR_DPI,
     DEFAULT_OCR_LANGUAGE,
@@ -83,6 +84,34 @@ def rel_project_path(path: Path, root: Path) -> str:
 
 def make_slug(rel_path: str) -> str:
     return hashlib.md5(rel_path.encode("utf-8")).hexdigest()[:12]
+
+
+def preserved_source_slug(source_path: str, output_path: Path) -> str:
+    """Keep chunk identity when a migrated source is preprocessed again."""
+    candidates = [(output_path, source_path)]
+    parts = output_path.parts
+    dataset = infer_dataset_from_path(output_path)
+    if dataset and "files" in parts:
+        project_root = Path(*parts[:parts.index("files")])
+        current_root = get_dataset_root(project_root, dataset)
+        if output_path.is_relative_to(current_root):
+            relative_output = output_path.relative_to(current_root)
+            relative_prefix = current_root.relative_to(project_root).as_posix() + "/"
+            for root in department_legacy_roots(project_root, dataset):
+                old_prefix = root.relative_to(project_root).as_posix() + "/"
+                previous_source = source_path.replace(relative_prefix, old_prefix, 1)
+                previous_source = previous_source.replace(current_root.as_posix() + "/", root.as_posix() + "/", 1)
+                candidates.append((root / relative_output, previous_source))
+    for candidate, previous_source in candidates:
+        if not candidate.is_file():
+            continue
+        try:
+            previous = json.loads(candidate.read_text(encoding="utf-8"))
+            if previous.get("source_path") == previous_source and previous.get("slug"):
+                return str(previous["slug"])
+        except (OSError, ValueError, AttributeError):
+            pass
+    return make_slug(source_path)
 
 
 def ensure_output_path(
@@ -518,7 +547,7 @@ def save_preprocessed_file(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     result = {
-        "slug": make_slug(rel),
+        "slug": preserved_source_slug(rel, out_path),
         "source_file": input_file.name,
         "source_path": rel,
         "source_relative_to_input": rel_in_input,
@@ -597,7 +626,7 @@ def save_preprocessed_archive_member(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     result = {
-        "slug": make_slug(member_source),
+        "slug": preserved_source_slug(member_source, out_path),
         "source_file": PurePosixPath(member_name.replace("\\", "/")).name,
         "source_path": member_source,
         "source_relative_to_input": member_source_in_input,
@@ -892,24 +921,24 @@ def run_batch(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="files/ce/output의 게시글 JSON과 첨부 원문파일을 RAG용 전처리 JSON으로 변환"
+        description="files/department/정보융합대학/컴퓨터·인공지능공학부/ce/output의 게시글 JSON과 첨부 원문파일을 RAG용 전처리 JSON으로 변환"
     )
     parser.add_argument(
         "--input-root",
         type=Path,
-        default=PROJECT_ROOT / "files" / "ce" / "output" / "files",
+        default=get_dataset_root(PROJECT_ROOT, "ce") / "output" / "files",
         help="원본 크롤링 결과 루트 경로",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=PROJECT_ROOT / "files" / "ce" / "preprocessed",
+        default=get_dataset_root(PROJECT_ROOT, "ce") / "preprocessed",
         help="전처리 JSON 출력 루트 경로",
     )
     parser.add_argument(
         "--output-json-root",
         type=Path,
-        default=PROJECT_ROOT / "files" / "ce" / "output" / "json",
+        default=get_dataset_root(PROJECT_ROOT, "ce") / "output" / "json",
         help="크롤링 본문 JSON 루트 (첨부 provenance 조인용)",
     )
     parser.add_argument(

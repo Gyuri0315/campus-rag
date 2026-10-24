@@ -37,6 +37,18 @@ class _SSLContextAdapter(HTTPAdapter):
         return super().proxy_manager_for(proxy, **kwargs)
 
 
+def mount_verified_legacy_tls(session: requests.Session, url: str) -> None:
+    """Opt in to legacy server negotiation on one HTTPS host, retaining verification."""
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ValueError("legacy TLS policy requires an HTTPS site URL")
+    context = ssl.create_default_context()
+    context.set_ciphers("DEFAULT@SECLEVEL=1")
+    if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
+        context.options |= ssl.OP_LEGACY_SERVER_CONNECT
+    session.mount(f"https://{parsed.netloc}/", _SSLContextAdapter(context))
+
+
 def build_system_trust_session(source: requests.Session, url: str) -> requests.Session:
     """Build a verified session using Windows ROOT certificates plus defaults."""
     if not hasattr(ssl, "enum_certificates"):

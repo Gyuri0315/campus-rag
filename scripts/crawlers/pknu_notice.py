@@ -3,10 +3,10 @@
 https://www.pknu.ac.kr/main/163
 
 저장 형식:
-  - files/pknu_notice/output/json/<category>/<slug>.json
-  - files/pknu_notice/output/html/<category>/<slug>.html
-  - files/pknu_notice/output/files/<category>/<slug>/<attachment>
-  - files/pknu_notice/output/deleted/<category>/<slug>.json
+  - files/pknu_main/커뮤니티/공지사항/<category>/json/posts/<slug>.json
+  - files/pknu_main/커뮤니티/공지사항/<category>/html/<slug>.html
+  - files/pknu_main/커뮤니티/공지사항/<category>/files/<slug>/<format>/<attachment>
+  - files/pknu_main/_archive/pknu_notice/deleted/<category>/<slug>.json
 
 실행:
   - python scripts/crawlers/pknu_notice.py
@@ -16,33 +16,18 @@ https://www.pknu.ac.kr/main/163
 """
 
 from __future__ import annotations
-
-import argparse
-import hashlib
-import json
-import logging
-import re
-import ssl
-import sys
-import time
+from bs4 import BeautifulSoup
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any
-from urllib.parse import unquote, urljoin, urlparse
-
-import requests
-import urllib3
-from bs4 import BeautifulSoup
-from requests.adapters import HTTPAdapter
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from scripts.crawlers.common.schema import (  # noqa: E402
+from scripts.crawlers.common.logging import (
+    configure_crawler_logging,
+    log_attachment_events,
+    log_event,
+    set_run_id,
+)
+from scripts.crawlers.common.reader import remove_redundant_legacy_fields
+from scripts.crawlers.common.schema import (
     CrawlStats,
     RunResult,
     apply_common_schema,
@@ -55,15 +40,49 @@ from scripts.crawlers.common.schema import (  # noqa: E402
     sanitize_attachment_filename,
     unique_attachment_filename,
 )
+from scripts.crawlers.common.storage import (
+    archive_document,
+    empty_state,
+    find_document_json,
+    get_dataset_paths,
+    load_state_with_migration,
+    save_state_atomic,
+    write_document,
+)
+from scripts.main.common.attachments import (
+    extract_filename,
+    local_path_exists,
+    reusable_attachments_by_url,
+    sanitize_filename,
+    save_attachments as _save_attachments,
+)
+from scripts.main.common.board import (
+    ListItem,
+    extract_body_text,
+    parse_detail_page,
+    parse_list_page,
+    parse_page_indicator,
+)
+from scripts.main.common.http import LegacySSLAdapter as _LegacySSLAdapter
+from typing import Any
+from urllib.parse import unquote, urljoin, urlparse
+import argparse
+import hashlib
+import json
+import logging
+import re
+import requests
+import sys
+import time
+import urllib3
 
-from scripts.crawlers.common.logging import (  # noqa: E402
-    configure_crawler_logging, log_attachment_events, log_event, set_run_id,
-)
-from scripts.crawlers.common.storage import (  # noqa: E402
-    archive_document, empty_state, find_document_json, get_dataset_paths,
-    load_state_with_migration, save_state_atomic, write_document,
-)
-from scripts.crawlers.common.reader import remove_redundant_legacy_fields  # noqa: E402
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 
 log, log_context = configure_crawler_logging("pknu_notice", PROJECT_ROOT)
 
@@ -98,42 +117,12 @@ CD_TO_LABEL: dict[str, str] = {
 
 CD_ORDER = ["10001", "10002", "10003", "10004", "10007"]
 
-_NAV_PHRASE_RE = re.compile(
-    r"(다음\s*게시글이\s*없습니다\.?|이전\s*게시글이\s*없습니다\.?)",
-    re.IGNORECASE,
-)
 
-
-@dataclass
-class ListItem:
-    no: str
-    notice_no: int | None
-    is_notice: bool
-    list_date: str
-    pknu_cd: set[str] = field(default_factory=set)
-    categories: set[str] = field(default_factory=set)
-
-
-class _LegacySSLAdapter(HTTPAdapter):
-    def init_poolmanager(self, *args, **kwargs):
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
-        if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
-            ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
-        kwargs["ssl_context"] = ctx
-        super().init_poolmanager(*args, **kwargs)
-
-    def proxy_manager_for(self, proxy, **proxy_kwargs):
-        ctx = ssl.create_default_context()
-        ctx.check_hostname = False
-        ctx.verify_mode = ssl.CERT_NONE
-        ctx.set_ciphers("DEFAULT@SECLEVEL=1")
-        if hasattr(ssl, "OP_LEGACY_SERVER_CONNECT"):
-            ctx.options |= ssl.OP_LEGACY_SERVER_CONNECT
-        proxy_kwargs["ssl_context"] = ctx
-        return super().proxy_manager_for(proxy, **proxy_kwargs)
+def save_attachments(session, attachments, category_folder, slug, source_page_url,
+                     existing_doc=None, reuse_existing=True, file_dir=None):
+    return _save_attachments(session, attachments, category_folder, slug, source_page_url,
+                             existing_doc, reuse_existing,
+                             file_dir=file_dir or ensure_file_dir(category_folder, slug))
 
 
 def build_session() -> requests.Session:
@@ -204,56 +193,6 @@ def fetch(
     except requests.RequestException as exc:
         log_event(log, logging.ERROR, "request_failed", url=url, error=exc, retryable=True)
     return None
-
-
-def parse_page_indicator(html: str) -> tuple[int, int]:
-    m = re.search(r"<span>(\d+)</span>\s*/\s*(\d+)", html)
-    if m:
-        return int(m.group(1)), int(m.group(2))
-    return 1, 1
-
-
-def parse_list_page(html: str, cd: str, label: str) -> list[ListItem]:
-    soup = BeautifulSoup(html, "lxml")
-    items: list[ListItem] = []
-    for tr in soup.select("table.brdList tbody tr"):
-        link = tr.select_one('a[href*="action=view"]')
-        if not link:
-            continue
-        m = re.search(r"[?&]no=(\d+)", link.get("href", ""))
-        if not m:
-            continue
-        post_no = m.group(1)
-
-        num_el = tr.select_one("td.bdlNum")
-        num_text = num_el.get_text(strip=True) if num_el else ""
-        is_notice = (
-            num_text.upper() == "NOTICE"
-            or (num_el and "noti" in (num_el.get("class") or []))
-        )
-        notice_no: int | None = None
-        if not is_notice:
-            try:
-                notice_no = int(num_text)
-            except ValueError:
-                pass
-
-        date_el = tr.select_one("td.bdlDate")
-        list_date = date_el.get_text(strip=True) if date_el else ""
-
-        file_td = tr.select_one("td.bdlFile")
-        has_file = bool(file_td and file_td.find("img"))
-
-        item = ListItem(
-            no=post_no,
-            notice_no=notice_no,
-            is_notice=is_notice,
-            list_date=list_date,
-            pknu_cd={cd},
-            categories={label},
-        )
-        items.append(item)
-    return items
 
 
 def merge_list_item(index: dict[str, ListItem], item: ListItem) -> None:
@@ -332,80 +271,6 @@ def collect_list_items(
     return index
 
 
-def extract_body_text(content_el) -> str:
-    if content_el is None:
-        return ""
-    soup_copy = BeautifulSoup(str(content_el), "lxml")
-    for el in soup_copy.select(".bdvNav, .brdBtn, .c_bdvNav, .c_bdvBtn"):
-        el.decompose()
-    text = soup_copy.get_text(" ", strip=True)
-    text = _NAV_PHRASE_RE.sub("", text)
-    text = re.sub(r"[ \t]{2,}", " ", text)
-    return text.strip()
-
-
-def parse_detail_page(html: str, list_item: ListItem) -> dict[str, Any] | None:
-    soup = BeautifulSoup(html, "lxml")
-    title_el = soup.select_one("tr.first_noti td.title_b") or soup.select_one("td.title_b")
-    if not title_el:
-        return None
-
-    title = title_el.get_text(strip=True)
-    author = ""
-    author_el = soup.select_one("td.text_l.noti_name")
-    if author_el:
-        author = author_el.get_text(strip=True)
-    else:
-        for tr in soup.select("tr.noti"):
-            tds = tr.find_all("td")
-            for i, td in enumerate(tds):
-                if "작성자" in td.get_text():
-                    if i + 1 < len(tds):
-                        author = tds[i + 1].get_text(strip=True)
-                    break
-
-    date = list_item.list_date
-    for tr in soup.select("tr.noti"):
-        tds = tr.find_all("td")
-        for i, td in enumerate(tds):
-            if "작성일" in td.get_text():
-                if i + 1 < len(tds):
-                    date = tds[i + 1].get_text(strip=True)
-                break
-        if date:
-            break
-    if not date:
-        m = re.search(r"\d{4}-\d{2}-\d{2}", soup.get_text(" ", strip=True))
-        if m:
-            date = m.group()
-
-    body_el = soup.select_one("div.bdvTxt")
-    content = extract_body_text(body_el)
-
-    attachments: list[dict[str, str]] = []
-    seen_urls: set[str] = set()
-    root = soup.select_one("div.bdCont") or soup.body
-    if root:
-        for a in root.select('a[href*="boardDownload.do"]'):
-            href = a.get("href", "").strip()
-            if not href or href.startswith("javascript"):
-                continue
-            abs_url = urljoin(BASE_URL, href)
-            if abs_url in seen_urls:
-                continue
-            seen_urls.add(abs_url)
-            name = a.get_text(strip=True) or Path(urlparse(abs_url).path).name
-            attachments.append({"name": name, "url": abs_url})
-
-    return {
-        "title": title,
-        "author": author,
-        "date": date,
-        "content": content,
-        "attachments": attachments,
-    }
-
-
 def json_path_for(category_folder: str, slug: str) -> Path:
     return PATHS.document_json(category_folder, slug)
 
@@ -433,226 +298,6 @@ def find_existing_doc(slug: str) -> tuple[Path | None, dict | None]:
 def save_document(doc: dict[str, Any], raw_html: str) -> None:
     folder = category_dir_name(doc["category"])
     write_document(PATHS, doc, folder, doc["slug"], raw_html)
-
-
-def sanitize_filename(filename: str) -> str:
-    return sanitize_attachment_filename(filename)
-
-
-def extract_filename(resp: requests.Response, url: str, fallback_name: str) -> str:
-    content_disposition = resp.headers.get("Content-Disposition", "")
-    if content_disposition:
-        m = re.search(r"filename\*=UTF-8''([^;]+)", content_disposition, re.I)
-        if m:
-            return sanitize_filename(unquote(m.group(1).strip()))
-        m = re.search(r'filename="?([^";]+)"?', content_disposition, re.I)
-        if m:
-            return sanitize_filename(unquote(m.group(1).strip()))
-
-    parsed = urlparse(resp.url or url)
-    basename = Path(parsed.path).name
-    if basename:
-        return sanitize_filename(unquote(basename))
-
-    if fallback_name:
-        return sanitize_filename(fallback_name)
-
-    return "attachment"
-
-
-def local_path_exists(path_value: str) -> bool:
-    if not path_value:
-        return False
-    path = Path(path_value)
-    if path.exists():
-        return True
-    return (PROJECT_ROOT / path_value).exists()
-
-
-def reusable_attachments_by_url(existing_doc: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
-    reusable: dict[str, dict[str, Any]] = {}
-    if not existing_doc:
-        return reusable
-
-    attachments = existing_doc.get("attachments", [])
-    if not isinstance(attachments, list):
-        return reusable
-
-    for index, attachment in enumerate(attachments, start=1):
-        if not isinstance(attachment, dict):
-            continue
-        url = str(attachment.get("url") or "").strip()
-        saved_path = str(attachment.get("saved_path") or "").strip()
-        if url and saved_path and local_path_exists(saved_path):
-            reusable[url] = normalize_attachment(attachment, index=index, project_root=PROJECT_ROOT)
-    return reusable
-
-
-def save_attachments(
-    session: requests.Session,
-    attachments: list[dict[str, Any]],
-    category_folder: str,
-    slug: str,
-    source_page_url: str,
-    existing_doc: dict[str, Any] | None = None,
-    reuse_existing: bool = True,
-) -> list[dict[str, Any]]:
-    if not attachments:
-        return []
-
-    file_dir = ensure_file_dir(category_folder, slug)
-    reusable_by_url = reusable_attachments_by_url(existing_doc) if reuse_existing else {}
-    results: list[dict[str, Any]] = []
-    used_names: set[str] = set()
-
-    for idx, attachment in enumerate(attachments, start=1):
-        file_url = str(attachment.get("url") or "").strip()
-        if not file_url:
-            results.append(
-                build_attachment(
-                    index=idx,
-                    name=attachment.get("name") or f"attachment-{idx}",
-                    url="",
-                    project_root=PROJECT_ROOT,
-                    error=attachment_error("MISSING_URL", "attachment URL is empty", False),
-                    legacy={**attachment, "source_page_url": source_page_url, "source_site": SOURCE_SITE},
-                )
-            )
-            continue
-
-        reusable = reusable_by_url.get(file_url)
-        if reusable:
-            normalized = normalize_attachment(
-                {**attachment, **reusable}, index=idx, project_root=PROJECT_ROOT
-            )
-            results.append(normalized)
-            saved_name = Path(str(reusable.get("saved_path", ""))).name
-            if saved_name:
-                used_names.add(saved_name)
-            continue
-
-        try:
-            time.sleep(0.2)
-            resp = session.get(
-                file_url,
-                timeout=REQUEST_TIMEOUT,
-                stream=True,
-                verify=False,
-                headers={"Referer": source_page_url or LIST_URL},
-            )
-        except requests.RequestException as exc:
-            log.warning("attachment download failed %s: %s", file_url, exc)
-            results.append(
-                build_attachment(
-                    index=idx,
-                    name=attachment.get("name") or f"attachment-{idx}",
-                    url=file_url,
-                    project_root=PROJECT_ROOT,
-                    error=attachment_error("REQUEST_FAILED", exc, True),
-                    legacy={**attachment, "source_page_url": source_page_url, "source_site": SOURCE_SITE},
-                )
-            )
-            continue
-
-        content_type = (resp.headers.get("Content-Type", "") or "").lower()
-        final_url = resp.url
-        if resp.status_code != 200:
-            log.warning("attachment HTTP %d %s", resp.status_code, file_url)
-            resp.close()
-            results.append(
-                build_attachment(
-                    index=idx,
-                    name=attachment.get("name") or f"attachment-{idx}",
-                    url=file_url,
-                    final_url=final_url,
-                    project_root=PROJECT_ROOT,
-                    content_type=content_type,
-                    error=attachment_error(
-                        f"HTTP_{resp.status_code}",
-                        f"attachment returned HTTP {resp.status_code}",
-                        resp.status_code == 429 or resp.status_code >= 500,
-                    ),
-                    legacy={**attachment, "source_page_url": source_page_url, "source_site": SOURCE_SITE},
-                )
-            )
-            continue
-
-        filename = extract_filename(resp, file_url, str(attachment.get("name") or ""))
-        if "text/html" in content_type or "application/xhtml+xml" in content_type:
-            log.info("skip HTML attachment response: %s", file_url)
-            resp.close()
-            results.append(
-                build_attachment(
-                    index=idx,
-                    name=filename,
-                    url=file_url,
-                    final_url=final_url,
-                    project_root=PROJECT_ROOT,
-                    content_type=content_type,
-                    error=attachment_error("UNSUPPORTED_CONTENT_TYPE", content_type, False),
-                    legacy={**attachment, "source_page_url": source_page_url, "source_site": SOURCE_SITE},
-                )
-            )
-            continue
-
-        if filename.lower().endswith((".html", ".htm", ".shtml")):
-            log.info("skip HTML attachment filename: %s", filename)
-            resp.close()
-            results.append(
-                build_attachment(
-                    index=idx,
-                    name=filename,
-                    url=file_url,
-                    final_url=final_url,
-                    project_root=PROJECT_ROOT,
-                    content_type=content_type,
-                    error=attachment_error("UNSUPPORTED_FILE_TYPE", Path(filename).suffix, False),
-                    legacy={**attachment, "source_page_url": source_page_url, "source_site": SOURCE_SITE},
-                )
-            )
-            continue
-
-        if "." not in filename:
-            fallback_ext = Path(urlparse(resp.url).path).suffix
-            if fallback_ext:
-                filename = f"{filename}{fallback_ext}"
-
-        filename = unique_attachment_filename(filename, used_names)
-
-        output_file = file_dir / filename
-        try:
-            with output_file.open("wb") as f:
-                for chunk in resp.iter_content(chunk_size=1024 * 256):
-                    if chunk:
-                        f.write(chunk)
-            saved_path = output_file
-            downloaded = True
-            save_error = None
-        except (OSError, requests.RequestException) as exc:
-            log.warning("attachment save failed %s: %s", output_file, exc)
-            saved_path = None
-            downloaded = False
-            error_code = "STREAM_FAILED" if isinstance(exc, requests.RequestException) else "SAVE_FAILED"
-            save_error = attachment_error(error_code, exc, True)
-        finally:
-            resp.close()
-
-        results.append(
-            build_attachment(
-                index=idx,
-                name=attachment.get("name") or filename,
-                url=file_url,
-                final_url=final_url,
-                saved_path=saved_path,
-                downloaded=downloaded,
-                project_root=PROJECT_ROOT,
-                content_type=content_type,
-                error=save_error,
-                legacy={**attachment, "source_page_url": source_page_url, "source_site": SOURCE_SITE},
-            )
-        )
-
-    return results
 
 
 def move_to_deleted(json_path: Path, doc: dict[str, Any]) -> None:
@@ -818,11 +463,11 @@ def crawl_details(
             )
             stats.count_attachments(doc.get("attachments"))
         was_existing = bool(existing_path and existing_path.exists())
-        if existing_path and existing_path.parent.name != save_folder:
+        if existing_path and existing_path != PATHS.document_json(save_folder, slug):
             # 첫 카테고리 폴더가 바뀐 경우: 기존 파일 제거 후 새 경로에 저장
             try:
                 existing_path.unlink(missing_ok=True)
-                old_html = existing_path.parent.parent.parent / "html" / existing_path.parent.name / f"{slug}.html"
+                old_html = PATHS.document_html(category_dir_name(existing_doc["category"]), slug)
                 if old_html.exists():
                     old_html.unlink()
             except OSError as exc:
@@ -942,7 +587,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--reset-state",
         action="store_true",
-        help="files/pknu_notice/state.json을 빈 공통 상태로 초기화",
+        help="files/pknu_main/_state/pknu_notice.json을 빈 공통 상태로 초기화",
     )
     parser.add_argument(
         "--once",

@@ -32,12 +32,12 @@ DATASET_TABLES = {
     "pknu_notice": {
         "sources": "pknu_notice_sources",
         "chunks": "pknu_notice_chunks",
-        "index": PROJECT_ROOT / "files" / "pknu_notice" / "vectorized" / "index.jsonl",
+        "index": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized" / "index.jsonl",
     },
     "pknu_student_life": {
         "sources": "pknu_student_life_sources",
         "chunks": "pknu_student_life_chunks",
-        "index": PROJECT_ROOT / "files" / "pknu_student_life" / "vectorized" / "index.jsonl",
+        "index": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "vectorized" / "index.jsonl",
     },
 }
 DEFAULT_RULE_INDEX = PROJECT_ROOT / "files" / "rule" / "vectorized" / "index.jsonl"

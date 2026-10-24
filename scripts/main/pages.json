@@ -1,0 +1,3685 @@
+{
+  "schema_version": 1,
+  "collection_policy": {
+    "body_image_ocr": false
+  },
+  "pages": [
+    {
+      "page_id": 16,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "현황",
+        "대학통계"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "attachment_limit": 3,
+        "exclude_body_selectors": [
+          "#statsYear",
+          ".statDownload"
+        ]
+      }
+    },
+    {
+      "page_id": 17,
+      "handler": null,
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": false,
+      "follow_links": true,
+      "download_attachments": true,
+      "representative_page_id": 224,
+      "exclusion_reason": "2026-10-14 카테고리 등록 최종 점검: 대표 #224의 확인된 중복 페이지로 개별 등록 해제. 기존 저장 경로 및 수집 결과는 보존."
+    },
+    {
+      "page_id": 19,
+      "handler": "static",
+      "category_path": [
+        "입학_취업",
+        "대학원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 31,
+      "handler": "academic_calendar",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "학사일정"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 32,
+      "handler": "board",
+      "category_path": [
+        "연구_산학",
+        "PKNU Research 1000"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "board_id": "9",
+        "board_title": "PKNU Research 1000",
+        "structured_posts": true,
+        "language": "en"
+      }
+    },
+    {
+      "page_id": 38,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "대학이념과 인재상"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 39,
+      "handler": "organization",
+      "category_path": [
+        "대학소개",
+        "조직도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": false,
+      "options": {
+        "organization_mode": "chart"
+      }
+    },
+    {
+      "page_id": 40,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "총장실"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "document_title": "인사말",
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 41,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "총장실"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "document_title": "약력",
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 42,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "총장실"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "document_title": "역대총장 (2001~)",
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 212,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "총장실",
+        "역대총장"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "document_title": "역대총장 (1981~2000)",
+        "collect_body_images": false,
+        "ocr_body_images": false,
+        "card_selector": "ul.chfList > li",
+        "card_title_selector": ".chfTxt h5",
+        "card_field_selectors": {
+          "positions": ".chfTxt p",
+          "terms": ".chfTxt > span"
+        }
+      },
+      "notes": "2026-10-14 사용자 요청: 카드 순서·이름·직함 설명·재임기간 텍스트 보존. 이미지 파일·OCR·첨부파일·연결 페이지 수집 미실행."
+    },
+    {
+      "page_id": 213,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "총장실",
+        "역대총장"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "document_title": "역대총장 (1961~1980)",
+        "collect_body_images": false,
+        "ocr_body_images": false,
+        "card_selector": "ul.chfList > li",
+        "card_title_selector": ".chfTxt h5",
+        "card_field_selectors": {
+          "positions": ".chfTxt p",
+          "terms": ".chfTxt > span"
+        }
+      },
+      "notes": "2026-10-14 사용자 요청: 카드 순서·이름·직함 설명·재임기간 텍스트 보존. 이미지 파일·OCR·첨부파일·연결 페이지 수집 미실행."
+    },
+    {
+      "page_id": 214,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "총장실",
+        "역대총장"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "document_title": "역대총장 (1941~1960)",
+        "collect_body_images": false,
+        "ocr_body_images": false,
+        "card_selector": "ul.chfList > li",
+        "card_title_selector": ".chfTxt h5",
+        "card_field_selectors": {
+          "positions": ".chfTxt p",
+          "terms": ".chfTxt > span"
+        }
+      },
+      "notes": "2026-10-14 사용자 요청: 카드 순서·이름·직함 설명·재임기간 텍스트 보존. 이미지 파일·OCR·첨부파일·연결 페이지 수집 미실행."
+    },
+    {
+      "page_id": 215,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "총장실",
+        "역대총장"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "document_title": "역대총장 (1920~1940)",
+        "collect_body_images": false,
+        "ocr_body_images": false,
+        "card_selector": "ul.chfList > li",
+        "card_title_selector": ".chfTxt h5",
+        "card_field_selectors": {
+          "positions": ".chfTxt p",
+          "terms": ".chfTxt > span"
+        }
+      },
+      "notes": "2026-10-14 사용자 요청: 카드 순서·이름·직함 설명·재임기간 텍스트 보존. 이미지 파일·OCR·첨부파일·연결 페이지 수집 미실행."
+    },
+    {
+      "page_id": 51,
+      "handler": "today",
+      "category_path": [
+        "커뮤니티",
+        "부경투데이"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "unregistration_reason": "2026-10-14 사용자 요청: 공지사항 외 커뮤니티 크롤러 등록 해제, 기존 수집 결과 보존"
+    },
+    {
+      "page_id": 52,
+      "handler": "today",
+      "category_path": [
+        "커뮤니티",
+        "교수동정"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "unregistration_reason": "2026-10-14 사용자 요청: 공지사항 외 커뮤니티 크롤러 등록 해제, 기존 수집 결과 보존"
+    },
+    {
+      "page_id": 53,
+      "handler": "today",
+      "category_path": [
+        "커뮤니티",
+        "부경나우"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "unregistration_reason": "2026-10-14 사용자 요청: 공지사항 외 커뮤니티 크롤러 등록 해제, 기존 수집 결과 보존"
+    },
+    {
+      "page_id": 54,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "News Letter 신청"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 81,
+      "handler": "organization_intro",
+      "category_path": [
+        "연구_산학",
+        "연구기관",
+        "공동실험실습관"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 82,
+      "handler": "static",
+      "category_path": [
+        "연구_산학",
+        "산학협력",
+        "연구비 수혜 현황"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 83,
+      "handler": "static",
+      "category_path": [
+        "연구_산학",
+        "산학협력",
+        "산학협력 추진 실적"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 92,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 93,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 94,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 95,
+      "handler": "board",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "학점교류"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "board_id": "307",
+        "board_title": "타대학 이수학점 인정안내",
+        "collect_intro": true,
+        "post_subcategory": "학점교류_게시판",
+        "document_subcategory": "학사안내_페이지"
+      }
+    },
+    {
+      "page_id": 96,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 97,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 98,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 99,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 100,
+      "handler": null,
+      "category_path": [],
+      "enabled": false
+    },
+    {
+      "page_id": 101,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 102,
+      "handler": "tuition",
+      "category_path": [
+        "대학생활",
+        "학사정보",
+        "등록금_안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 103,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "수강신청"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 104,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 106,
+      "handler": "curriculum_files",
+      "category_path": [
+        "대학생활",
+        "교육과정"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 107,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "교육과정",
+        "학부(과)·전공별 교육과정"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true,
+        "min_attachments": 3
+      }
+    },
+    {
+      "page_id": 110,
+      "handler": "curriculum_files",
+      "category_path": [
+        "대학생활",
+        "수강신청"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "include_embedded_pdfs": true,
+        "attachment_title_contains": "강의편람"
+      }
+    },
+    {
+      "page_id": 112,
+      "handler": "redirect",
+      "category_path": [
+        "대학생활",
+        "수강신청"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "redirect_target": "https://irumi.pknu.ac.kr/link.jsp?menuId=U020913"
+    },
+    {
+      "page_id": 114,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 115,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 117,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 118,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 119,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 133,
+      "handler": "campus_buildings",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "캠퍼스맵"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 163,
+      "handler": "notice",
+      "category_path": [
+        "커뮤니티",
+        "공지사항"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 224,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "오시는 길"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "exclude_body_selectors": [
+          ".campus_info_guide"
+        ]
+      }
+    },
+    {
+      "page_id": 225,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "오시는 길"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "exclude_body_selectors": [
+          ".campus_info_guide"
+        ]
+      }
+    },
+    {
+      "page_id": 227,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "캠퍼스투어 신청"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "exclude_link_hosts": [
+          "forms.gle",
+          "docs.google.com"
+        ],
+        "exclude_body_selectors": [
+          ".org_nwtb"
+        ]
+      }
+    },
+    {
+      "page_id": 228,
+      "handler": "board",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "캠퍼스투어 신청",
+        "FAQ"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "board_id": "85",
+        "board_title": "캠퍼스투어 FAQ",
+        "post_subcategory": "FAQ",
+        "structured_posts": true
+      }
+    },
+    {
+      "page_id": 230,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 231,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 232,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 233,
+      "handler": "major_program",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "전공제도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 234,
+      "handler": "major_program",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "전공제도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 235,
+      "handler": "major_program",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "전공제도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 236,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 237,
+      "handler": null,
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": false,
+      "follow_links": true,
+      "download_attachments": true,
+      "representative_page_id": 94,
+      "exclusion_reason": "2026-10-14 카테고리 등록 최종 점검: 대표 #94의 확인된 중복 페이지로 개별 등록 해제. 기존 저장 경로 및 수집 결과는 보존."
+    },
+    {
+      "page_id": 238,
+      "handler": "file",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "document_title": "[공통] 졸업요건 안내자료",
+        "document_subcategory": "학사안내_파일"
+      }
+    },
+    {
+      "page_id": 241,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 242,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 243,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 244,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 245,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 246,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 247,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 248,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 253,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 257,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 258,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 259,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 260,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "min_attachments": 5
+      }
+    },
+    {
+      "page_id": 262,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "exclude_link_hosts": [
+          "dormitory.pknu.ac.kr"
+        ],
+        "exclude_embedded_pdfs": true,
+        "exclude_image_hosts": [
+          "devwww.pknu.ac.kr"
+        ]
+      }
+    },
+    {
+      "page_id": 263,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 264,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 265,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 266,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 267,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 273,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 280,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 282,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 283,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 287,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 288,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 289,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 297,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 317,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 351,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 369,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 423,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 458,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 465,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 46,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "심볼마크_로고"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "ocr_body_images": false,
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 122,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "교기"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "ocr_body_images": false,
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 123,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "교가"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "collect_audio_files": true,
+        "min_attachments": 3,
+        "attachment_extensions": [
+          ".mp3"
+        ],
+        "allow_asset_only_body": true,
+        "ocr_body_images": false,
+        "record_body_links": true,
+        "exclude_body_selectors": [
+          ".sblTxt",
+          "h4:-soup-contains(\"영상\")",
+          ".isic_btn",
+          "video"
+        ]
+      }
+    },
+    {
+      "page_id": 124,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "상징물"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "ocr_body_images": false,
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 217,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "연혁"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true,
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 218,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "연혁"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true,
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 219,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "연혁"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true,
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 220,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "연혁"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true,
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 221,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "연혁"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true,
+        "ocr_body_images": false,
+        "exclude_body_selectors": ["a.accordion_q[href=\"#\"]"]
+      }
+    },
+    {
+      "page_id": 412,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "상징캐릭터_2006"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true,
+        "ocr_body_images": false
+      }
+    },
+    {
+      "page_id": 431,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "부경대_역사관"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 433,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "부경대_역사관"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 436,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "부경대_역사관"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 445,
+      "enabled": false,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "창학_100주년"
+      ],
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "embedded_pdf_count": 1,
+        "record_body_links": true,
+        "record_attachment_links": true,
+        "download_pdf_attachments": false
+      },
+      "exclusion_reason": "attachment_download_failures_pending_user_recheck",
+      "notes": "2026-10-14 사용자 선택: 첨부 링크 11개가 파일 대신 페이지 없음 HTML을 반환하여 등록 보류. 부분 수집 결과 보존; 추후 재확인. PDF 3개는 다운로드 링크만 보관. 이미지 OCR·연결 페이지 수집 미실행."
+    },
+    {
+      "page_id": 125,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "20주년 기념 엠블럼"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".sblTxt"
+        ]
+      },
+      "notes": "2026-10-14 사용자 요청: #125 본문과 이미지 원본만 수집. 이미지 OCR 미실행; ZIP 첨부파일 및 연결 페이지 수집 제외."
+    },
+    {
+      "page_id": 302,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "3길"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "content_from_images": true,
+        "image_section_selector": "section.image-section",
+        "image_section_title_selector": ".section-nav a.active",
+        "exclude_body_selectors": [
+          ".section-nav"
+        ]
+      }
+    },
+    {
+      "page_id": 306,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 307,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 308,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사정보"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 362,
+      "handler": "curriculum_files",
+      "category_path": [
+        "대학생활",
+        "교육과정"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 331,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "News Letter"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 374,
+      "handler": "board",
+      "category_path": [
+        "대학소개",
+        "총장실",
+        "연설모음"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "board_id": "167",
+        "board_title": "연설모음",
+        "post_subcategory": "연설모음"
+      }
+    },
+    {
+      "page_id": 385,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "시설대관"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 386,
+      "handler": "facility_rental",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "시설대관",
+        "시설대관검색"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 399,
+      "handler": "board",
+      "category_path": [
+        "대학생활",
+        "학생생활",
+        "교내_식당_주간식단표"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "board_id": "227",
+        "board_title": "교내 식당 주간식단표",
+        "structured_posts": true,
+        "post_subcategory": "교내_식당_주간식단표"
+      }
+    },
+    {
+      "page_id": 416,
+      "handler": null,
+      "category_path": [],
+      "enabled": false
+    },
+    {
+      "page_id": 425,
+      "handler": "organization_intro",
+      "category_path": [
+        "연구_산학",
+        "연구기관",
+        "정보융합연구원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 434,
+      "handler": "guide",
+      "category_path": [
+        "대학생활",
+        "학생생활",
+        "대학생활_가이드"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 438,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true
+    },
+    {
+      "page_id": 449,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "embedded_pdf_count": 2
+      }
+    },
+    {
+      "page_id": 446,
+      "handler": null,
+      "category_path": [
+        "대학생활",
+        "교육과정",
+        "융합전공 교육과정"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-13 사용자 요청으로 수집 제외"
+    },
+    {
+      "page_id": 472,
+      "handler": null,
+      "category_path": [],
+      "enabled": false
+    },
+    {
+      "page_id": 477,
+      "handler": "static",
+      "category_path": [
+        "입학_취업",
+        "외국인유학생"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "language": "en",
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 478,
+      "handler": "static",
+      "category_path": [
+        "입학_취업",
+        "외국인유학생"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "language": "en",
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 479,
+      "handler": "static",
+      "category_path": [
+        "입학_취업",
+        "외국인유학생"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "language": "en",
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 480,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학사안내",
+        "Academic Calendar"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "language": "en",
+        "record_body_links": true
+      }
+    },
+    {
+      "page_id": 481,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "주차요금"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 494,
+      "handler": "static",
+      "category_path": [
+        "대학생활",
+        "학생생활"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true
+    },
+    {
+      "page_id": 495,
+      "handler": "linked_pages",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": false,
+      "options": {
+        "document_title": "17경(명소)",
+        "selection_selector": ".spot-nav",
+        "choice_name_selector": ".spot-name",
+        "choice_number_selector": ".spot-num"
+      }
+    },
+    {
+      "page_id": 498,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 499,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 500,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 501,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 503,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 504,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 505,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 506,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 507,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 508,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 509,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 510,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 511,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 512,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 513,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "3길 17경",
+        "17경"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "ocr_body_images": false,
+        "exclude_body_selectors": [
+          ".spot-list-section"
+        ]
+      }
+    },
+    {
+      "page_id": 528,
+      "handler": "redirect",
+      "category_path": [
+        "대학생활",
+        "학생생활",
+        "예비군"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "redirect_target": "https://yebigun.pknu.ac.kr/"
+    },
+    {
+      "page_id": 531,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "AX혁신대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 532,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "글로벌혁신대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false
+    },
+    {
+      "page_id": 533,
+      "handler": "organization",
+      "category_path": [
+        "대학소개",
+        "조직도"
+      ],
+      "enabled": true,
+      "follow_links": true,
+      "download_attachments": true,
+      "options": {
+        "organization_mode": "staff"
+      }
+    },
+    {
+      "page_id": 10,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "구성원 참여·소통채널"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외",
+      "canonical_page_id": 137
+    },
+    {
+      "page_id": 11,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "자취하숙"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외",
+      "canonical_page_id": 144
+    },
+    {
+      "page_id": 36,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경투데이"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "unregistration_reason": "2026-10-14 사용자 요청: 공지사항 외 커뮤니티 크롤러 등록 해제, 기존 수집 결과 보존",
+      "canonical_page_id": 51
+    },
+    {
+      "page_id": 37,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "News Letter"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외",
+      "canonical_page_id": 331
+    },
+    {
+      "page_id": 55,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "부경저널"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 56,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "과거 기사자료"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외",
+      "canonical_page_id": 484
+    },
+    {
+      "page_id": 57,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "부경헤럴드"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 58,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "부경방송국"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 137,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "구성원 참여·소통채널"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 139,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "포토갤러리"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 140,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "자료실"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 141,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "자유게시판"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 142,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "열린장터"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 143,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "동아리_스터디"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 144,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "자취하숙"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 145,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "아르바이트"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 146,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "분실물센터"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 147,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "자원봉사"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 148,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "카풀"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 193,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "4119고객센터"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 194,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "수업개선 신문고"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 323,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "정보나눔터",
+        "카풀"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 제외된 커뮤니티 대표 #148의 별칭으로 수집 제외",
+      "canonical_page_id": 148
+    },
+    {
+      "page_id": 355,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "단디센터"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 356,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "단디센터"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 제외된 커뮤니티 대표 #355의 별칭으로 수집 제외",
+      "canonical_page_id": 355
+    },
+    {
+      "page_id": 437,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "학내 소식지"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 484,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "과거 기사자료"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 485,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "부경언론",
+        "부경언론사"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 525,
+      "handler": null,
+      "category_path": [
+        "커뮤니티",
+        "참여·소통채널",
+        "민원등록"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 현재 단계에서 공지사항 외 커뮤니티 미수집 항목은 수집 제외"
+    },
+    {
+      "page_id": 15,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "홍보관"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 대학소개/홍보관 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 126,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "홍보관",
+        "브리핑"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 대학소개/홍보관 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 127,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "홍보관",
+        "중장기 발전계획"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 대학소개/홍보관 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 128,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "홍보관",
+        "홍보미디어"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 대학소개/홍보관 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 129,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "홍보관",
+        "홍보 브로슈어"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 대학소개/홍보관 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 309,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "홍보관",
+        "홍보미디어(국문)"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 대학소개/홍보관 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 483,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "홍보관",
+        "홍보미디어(English)"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 대학소개/홍보관 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 491,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념 특별모금"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 490,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념사업 안내"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 515,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념사업 안내",
+        "학술연구"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 516,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념사업 안내",
+        "지역연계"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 517,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념사업 안내",
+        "홍보"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 518,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념사업 안내",
+        "행사_공연_전시"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 519,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념사업 안내",
+        "부대사업"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 527,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 기념페이지"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 493,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "개교 80주년 엠블럼"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 489,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "인사말"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록"
+    },
+    {
+      "page_id": 488,
+      "handler": null,
+      "category_path": [
+        "개교_80주년",
+        "인사말"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 개교 80주년 전체 수집 제외 및 미등록; 제외 대상 #489의 확인된 별칭",
+      "canonical_page_id": 489
+    },
+    {
+      "page_id": 8,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: #8·#35 수집 제외"
+    },
+    {
+      "page_id": 35,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: #8·#35 수집 제외",
+      "canonical_page_id": 8
+    },
+    {
+      "page_id": 86,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 페이지 유형이 빈 다운로드 템플릿인 항목은 수집 제외"
+    },
+    {
+      "page_id": 87,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 페이지 유형이 빈 다운로드 템플릿인 항목은 수집 제외"
+    },
+    {
+      "page_id": 88,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 페이지 유형이 빈 다운로드 템플릿인 항목은 수집 제외"
+    },
+    {
+      "page_id": 89,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 페이지 유형이 빈 다운로드 템플릿인 항목은 수집 제외"
+    },
+    {
+      "page_id": 90,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 페이지 유형이 빈 다운로드 템플릿인 항목은 수집 제외"
+    },
+    {
+      "page_id": 91,
+      "handler": null,
+      "category_path": [],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 페이지 유형이 빈 다운로드 템플릿인 항목은 수집 제외"
+    },
+    {
+      "page_id": 134,
+      "handler": "campus_buildings",
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "캠퍼스맵"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 지도 제외, 용당캠퍼스 건물번호 수집. #133의 공통 수집기로 건물번호·명칭과 공개 층/호실 안내 저장. 지도 타일·좌표·사진 원본 수집 및 OCR 미실행."
+    },
+    {
+      "page_id": 226,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "캠퍼스안내",
+        "캠퍼스투어 신청",
+        "코스소개"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: #226 코스소개 수집 제외"
+    },
+    {
+      "page_id": 447,
+      "handler": null,
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "사진으로 보는 100년사"
+      ],
+      "enabled": false,
+      "follow_links": false,
+      "download_attachments": false,
+      "exclusion_reason": "2026-10-14 사용자 요청: 사진으로 보는 100년사(#447) 수집 제외"
+    },
+    {
+      "page_id": 474,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "PPT 템플릿"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "collect_body_images": false,
+        "ocr_body_images": false,
+        "record_body_links": true
+      },
+      "notes": "2026-10-14 #474 공개 본문 및 PPT 다운로드 주소만 수집. PPT 원본은 학교 로그인 필요 및 다운로드 버튼의 HTML 응답으로 사용자 조건에 따라 보류. 미리보기 이미지 수집·OCR 및 추가 연결 페이지 수집 미실행."
+    },
+    {
+      "page_id": 486,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "대학_ESG 로고응용",
+        "ESG 로고"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "collect_body_images": false,
+        "ocr_body_images": false,
+        "attachment_extensions": [
+          ".zip"
+        ],
+        "record_attachment_links": true,
+        "record_body_links": true,
+        "min_attachments": 1
+      },
+      "notes": "2026-10-14 사용자 요청: 페이지의 HTML 본문·표와 로고 원본 ZIP만 수집. 미리보기 이미지 다운로드·OCR 및 추가 연결 페이지 수집 제외. 로그인 필요 또는 접근 권한 거부 시 원본 다운로드 보류."
+    },
+    {
+      "page_id": 487,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "대학_ESG 로고응용",
+        "대학로고"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": true,
+      "options": {
+        "collect_body_images": false,
+        "ocr_body_images": false,
+        "attachment_extensions": [
+          ".zip"
+        ],
+        "record_attachment_links": true,
+        "record_body_links": true,
+        "min_attachments": 1
+      },
+      "notes": "2026-10-14 사용자 요청: 페이지의 HTML 본문·표와 로고 원본 ZIP만 수집. 미리보기 이미지 다운로드·OCR 및 추가 연결 페이지 수집 제외. 로그인 필요 또는 접근 권한 거부 시 원본 다운로드 보류."
+    },
+    {
+      "page_id": 492,
+      "handler": "static",
+      "category_path": [
+        "대학소개",
+        "역사와상징",
+        "연혁"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "options": {
+        "record_body_links": true,
+        "collect_body_images": false,
+        "ocr_body_images": false
+      },
+      "notes": "2026-10-14 사용자 요청: #217과 같은 공통 HTML/목록 파서로 2025~2029년 연혁의 연도·날짜·사건 내용 및 원문 순서 수집. 이미지·첨부·연결 페이지 수집 제외."
+    },
+    {
+      "page_id": 47,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "인문사회과학대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 60,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "글로벌자율전공학부"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 61,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "자연과학대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 62,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "경영대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 63,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "공과대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 64,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "수산과학대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 65,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "환경·해양대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 66,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "미래융합학부"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 311,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "학부대학"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 463,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학(학부)",
+        "자유전공학부"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 24,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학원",
+        "일반대학원 소개"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 68,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학원",
+        "기술경영전문대학원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 69,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학원",
+        "산업대학원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 70,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학원",
+        "교육대학원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 71,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학원",
+        "경영대학원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 72,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학_대학원",
+        "대학원",
+        "글로벌정책대학원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 76,
+      "handler": "organization_intro",
+      "category_path": [
+        "연구_산학",
+        "연구기관",
+        "기초과학연구원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 77,
+      "handler": "organization_intro",
+      "category_path": [
+        "연구_산학",
+        "연구기관",
+        "경영연구원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 78,
+      "handler": "organization_intro",
+      "category_path": [
+        "연구_산학",
+        "연구기관",
+        "공학연구원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 79,
+      "handler": "organization_intro",
+      "category_path": [
+        "연구_산학",
+        "연구기관",
+        "수산과학연구원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 80,
+      "handler": "organization_intro",
+      "category_path": [
+        "연구_산학",
+        "연구기관",
+        "환경·해양과학기술연구원"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 271,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 272,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 274,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 275,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 276,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 277,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 278,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 279,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 281,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 284,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 285,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 286,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 290,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 291,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 292,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 293,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 294,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 295,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 296,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 298,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 299,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 303,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 316,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 389,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 390,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 391,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 392,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 393,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 395,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 396,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 417,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 435,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 464,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 467,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 468,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 469,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 470,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 471,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    },
+    {
+      "page_id": 476,
+      "handler": "organization_intro",
+      "category_path": [
+        "대학소개",
+        "조직도",
+        "소개안내"
+      ],
+      "enabled": true,
+      "follow_links": false,
+      "download_attachments": false,
+      "notes": "2026-10-14 사용자 요청: 이미 수집된 소개·안내 페이지 개별 등록. 본문·표 및 공개 담당자 정보 수집; 홈페이지 바로가기·본문 링크는 URL만 보관. 첨부 및 외부 홈페이지 수집 제외. 조직도 노드 관계 유지."
+    }
+  ]
+}

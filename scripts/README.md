@@ -2,6 +2,38 @@
 
 `scripts` is organized by responsibility. New code should import and execute the canonical paths below.
 
+Evaluation commands and datasets live under `eval/`; see `eval/README.md`.
+Main-site page routes and discovery tools live under `scripts/main/`; see [메인 홈페이지 크롤링 명령어](main/README.md) for full, category, page and limited-board runs.
+Main-site collection settings are in `scripts/main/pages.json`. Its results share
+`files/pknu_main/`, organized by site category and then file format. Incremental
+state is in `_state/`; RAG intermediates are in `_derived/<logical-dataset>/`.
+
+College, faculty, department, and major websites use the common department
+crawler. Their explicit `storage_path` in `crawlers/departments/registry.json`
+places each dataset under `files/department/<college>/<faculty-or-department>/<major>/<dataset>/`.
+Levels without a separate organization/site are omitted; a website shared by
+multiple majors stays at the faculty level and is stored once. Independent
+faculties use their own name as the first level. The existing dataset alias
+(for example, `ce`) remains the leaf folder and document identity is preserved.
+Each dataset keeps `output/{json,html,files,images,runs}`, `state.json`,
+`preprocessed/`, and `vectorized/` inside that folder.
+
+```text
+files/department/
+├─ 공과대학/
+│  ├─ coe/                                 # college website
+│  ├─ 화학공학과/chemeng/
+│  └─ 기계공학부/기계학전공/me/
+└─ 정보융합대학/컴퓨터·인공지능공학부/ce/    # shared faculty website
+```
+
+Existing department directories can be reorganized without crawling:
+`python -m scripts.migrations.crawler_storage --department-layout` previews
+the moves; add `--apply` to move them and update local JSON/JSONL references.
+The command refuses destination collisions and records its verification in
+`files/department/_migration/`. Legacy flat folders remain readable for older
+checkouts that have not yet been migrated.
+
 ```text
 scripts/
 ├─ crawlers/
@@ -25,9 +57,27 @@ scripts/
 ├─ extractors/           # attachment/file format extractors
 ├─ rag/                  # preprocessing, vectorization, loading, and search
 ├─ ce/                   # CE preprocessing and priority commands
-├─ main/                 # main-site analysis and priority commands
+├─ main/                 # main-site category entry points, collectors and shared logic
 ├─ rule/                 # rule preprocessing and priority commands
 └─ tests/
+```
+
+Tests are grouped by the feature they verify:
+
+```text
+scripts/tests/
+  core/          # shared crawler contracts, storage, logging, repository layout
+  departments/   # department discovery, CMS adapters, registry and transport
+  main/          # main-site routes and student-life page collectors
+  media/         # body images, OCR, layout classification and review
+  fixtures/      # shared offline test inputs
+  _paths.py      # stable project and fixture paths
+```
+
+Run all tests from the repository root with:
+
+```powershell
+python -m unittest discover -s scripts/tests -t . -p "test_*.py"
 ```
 
 Canonical crawler commands:
@@ -58,8 +108,8 @@ Layout-aware OCR RAG evaluation (isolated test store, never touches Supabase):
 
 ```powershell
 python -m scripts.rag.ingest_layout_data            # files/_reviewed/body_image_ocr/*.reviewed.jsonl -> files/_test_db/test_layout_rag_YYYYMMDD/
-python -m scripts.eval.generate_testset             # <= 50 QA pairs -> tests/eval_dataset.csv (--mode rule: no API cost)
-python -m scripts.eval.run_evaluation               # -> eval_report.md (+ .json)   (--retrieval-only: no API cost)
+python -m eval.tools.generate_testset               # <= 50 QA pairs -> tests/eval_dataset.csv (--mode rule: no API cost)
+python -m eval.tools.run_evaluation                 # -> eval_report.md (+ .json)   (--retrieval-only: no API cost)
 ```
 
-Tables are chunked as markdown (header repeated per chunk), diagrams are rewritten as sentences, and every chunk keeps `provenance` (source path, image hash, review/extraction origin). Test store names must match `test_layout_rag_YYYYMMDD[_suffix]`. LLM calls go through `scripts/eval/llm_budget.py`: at most 3 attempts per call, a hard per-run request cap, and no retry on 400/401/403/404. `scripts/tests/fixtures/layout_rag/` holds a synthetic fixture with the same schema for smoke runs.
+Tables are chunked as markdown (header repeated per chunk), diagrams are rewritten as sentences, and every chunk keeps `provenance` (source path, image hash, review/extraction origin). Test store names must match `test_layout_rag_YYYYMMDD[_suffix]`. LLM calls go through `eval/tools/llm_budget.py`: at most 3 attempts per call, a hard per-run request cap, and no retry on 400/401/403/404. `scripts/tests/fixtures/layout_rag/` holds a synthetic fixture with the same schema for smoke runs.

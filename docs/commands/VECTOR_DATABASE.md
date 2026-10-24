@@ -117,13 +117,13 @@ Supabase에 적재된 RAG chunk를 대상으로 semantic search를 실행합니�
 - `--include-priority`: similarity 검색에서도 priority 정보를 함께 출력합니다.
 - `--priority-weight FLOAT`: hybrid 정렬에서 priority 반영 비율입니다.
 
-### `scripts/rag/search_smoke.py`
+### `eval/tools/search_smoke.py`
 
 `query_supabase.py`를 여러 고정 질문으로 호출하는 smoke test wrapper입니다.
 검색 로직은 없고, 검색 파이프라인이 대략 정상 동작하는지 빠르게 확인하는 용도입니다.
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\rag\search_smoke.py
+.\.venv\Scripts\python.exe -m eval.tools.search_smoke
 ```
 
 ### `scripts/rag/pipelining.py`

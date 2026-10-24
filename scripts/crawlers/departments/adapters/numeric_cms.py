@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 from typing import Any
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import parse_qs, parse_qsl, urlencode, urljoin, urlparse
 
 from bs4 import BeautifulSoup
 
@@ -91,6 +91,33 @@ def _fallback_list_items(soup: BeautifulSoup, board_url: str) -> list[dict[str, 
     return items
 
 
+def _sns_list_items(soup: BeautifulSoup, board_url: str) -> list[dict[str, Any]]:
+    """Read CMS SNS cards whose public content lives in the list itself."""
+    items = []
+    seen = set()
+    parsed_url = urlparse(board_url)
+    canonical_url = parsed_url._replace(
+        query=urlencode([(key, value) for key, value in parse_qsl(parsed_url.query, keep_blank_values=True)
+                         if key != 'pageIndex']), fragment='',
+    ).geturl()
+    for card in soup.select('.snsList .snsBox'):
+        title = _text(card.select_one('.txtbox p'))
+        if not title:
+            continue
+        modal = re.fullmatch(r"\s*snsModal\(\s*(['\"])(.*?)\1\s*\)\s*;?\s*", str(card.get('onclick') or ''))
+        target = resolve_link(modal.group(2), board_url) if modal and modal.group(2) else None
+        token = 'sns_' + hashlib.sha256(f'{title}|{target or ""}'.encode()).hexdigest()[:20]
+        if token in seen:
+            continue
+        seen.add(token)
+        items.append({'source_id': token, 'inline_card_id': token,
+                      'post_url': canonical_url + '#' + token,
+                      'num': '', 'post_no': None, 'is_notice': False,
+                      'date': _text(card.select_one('.txtbox span')), 'title': title,
+                      'reference_links': [{'label': title, 'url': target, 'followed': False}] if target else []})
+    return items
+
+
 def extract_bbs_id(html: str, page_url: str) -> str | None:
     soup = BeautifulSoup(html, "lxml")
     field = soup.select_one('input[name="bbsId"], input[name="bbs_id"]')
@@ -162,6 +189,32 @@ def _table_text(table) -> str:
     return "\n".join(lines)
 
 
+def _embedded_media_links(content_el, page_url: str = "") -> list[dict[str, Any]]:
+    """Keep public iframe/video source references without requesting them."""
+    links: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for media in content_el.select("iframe[src], video, audio") if content_el else []:
+        sources = [media] if media.get("src") else media.select("source[src]")
+        for source in sources:
+            raw = str(source.get("src") or "").strip()
+            parsed = urlparse(raw)
+            if not raw or (parsed.scheme and parsed.scheme not in {"http", "https"}):
+                continue
+            if parsed.scheme and not parsed.netloc:
+                continue
+            if not parsed.scheme and not (parsed.path or parsed.netloc):
+                continue
+            url = urljoin(page_url, raw) if page_url else raw
+            if url in seen:
+                continue
+            seen.add(url)
+            links.append({"url": url, "label": str(media.get("title") or
+                          ("문서" if _attachment_candidate(raw) else
+                           "영상" if media.name in {"iframe", "video"} else "오디오")),
+                          "source": media.name, "followed": False})
+    return links
+
+
 def extract_body_content(content_el) -> str:
     if content_el is None:
         return ""
@@ -175,6 +228,16 @@ def extract_body_content(content_el) -> str:
             if anchor.get_text(strip=True).lower() in _NAV_TEXTS:
                 anchor.decompose()
     root = body if body is not None else copy
+    for media in list(root.select("iframe[src], video, audio")):
+        references = _embedded_media_links(BeautifulSoup(str(media), "lxml"))
+        if references:
+            media.replace_with("\n" + "\n".join(
+                f"{link['label']}: {link['url']}" for link in references
+            ) + "\n")
+    for anchor in root.select('a[href^="mailto:"]'):
+        address = str(anchor['href'])[7:].split('?', 1)[0].strip()
+        if address and address not in _text(anchor):
+            anchor.append(' ' + address)
     # Static guides often consist entirely of a table. Never discard a table
     # merely because it is the first one; the detail body already excludes metadata.
     tables = root.select("table")
@@ -202,7 +265,7 @@ def _empty_content_info(root, text, attachments):
             "content_images": [src for src in images if not src.lower().startswith('data:')]}
 
 
-def _attachment_candidate(href: str, name: str) -> bool:
+def _attachment_candidate(href: str, name: str = "") -> bool:
     from scripts.crawlers.departments.attachments import attachment_candidate
     return attachment_candidate(href, name)
 
@@ -210,6 +273,7 @@ def _attachment_candidate(href: str, name: str) -> bool:
 class NumericCMSAdapter(DepartmentCMSAdapter):
     uses_numeric_post_order = True
     name = "numeric_cms"
+    version = "1.2"
 
     def discover_menus(self, html: str, base_url: str) -> list[dict[str, str]]:
         return numeric_menu_links(html, base_url)
@@ -275,7 +339,7 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
             items.append({"post_url": post_url, "num": number,
                           "post_no": post_no, "is_notice": notice,
                           "date": cells[-2].get_text(strip=True) if len(cells) >= 2 else ""})
-        return items or _fallback_list_items(soup, board_url)
+        return items or _fallback_list_items(soup, board_url) or _sns_list_items(soup, board_url)
 
     def parse_attachments(self, content, *, page_url: str, base_url: str, site_prefix: str) -> list[dict[str, str]]:
         attachments = []
@@ -286,7 +350,7 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
             href, name = str(anchor.get("href") or ""), anchor.get_text(strip=True)
             if not href or href.startswith("javascript") or name.lower() in _NAV_TEXTS:
                 continue
-            absolute = resolve_link(href, page_url or base_url)
+            absolute = resolve_link(href, page_url or base_url) if page_url or base_url else href
             if not absolute:
                 continue
             parsed = urlparse(absolute)
@@ -296,9 +360,25 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
                 continue
             if _attachment_candidate(href, name):
                 attachments.append({"name": name, "url": absolute})
-        return attachments
+        for element in content.select("iframe[src], embed[src], object[data]"):
+            href = str(element.get("src") or element.get("data") or "").strip()
+            if not _attachment_candidate(href):
+                continue
+            absolute = resolve_link(href, page_url or base_url) if page_url or base_url else href
+            if absolute:
+                name = str(element.get("title") or urlparse(href).path.rsplit("/", 1)[-1])
+                attachments.append({"name": name, "url": absolute})
+        return list({item["url"]: item for item in attachments}.values())
 
     def parse_detail(self, soup: BeautifulSoup, post_url: str, item: dict[str, Any], *, base_url: str, site_prefix: str) -> dict[str, Any] | None:
+        if item.get('inline_card_id'):
+            card = next((card for card in _sns_list_items(soup, post_url)
+                         if card['inline_card_id'] == item['inline_card_id']), None)
+            if card is None:
+                return None
+            return {'title': card['title'], 'date': card['date'], 'url': card['post_url'],
+                    'body': card['title'], 'is_notice': False, 'attachments': [],
+                    'reference_links': card['reference_links']}
         # Department boards can redirect individual posts to the university CMS.
         # Only accept its explicit detail structure on the known university host.
         if urlparse(post_url).hostname in {"www.pknu.ac.kr", "pknujob.pknu.ac.kr"}:
@@ -329,11 +409,13 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
             match = re.search(r"\d{4}-\d{2}-\d{2}", _text(content_el))
             date = match.group() if match else date
         body = extract_body_content(content_el)
+        media_links = _embedded_media_links(content_el, post_url)
         attachments = self.parse_attachments(content_el, page_url=post_url, base_url=base_url,
                                              site_prefix=site_prefix)
         root = content_el.select_one(".bdvEdit") if content_el else None
         return {"slug": _slug(post_url, title), "title": title, "date": date, "url": post_url,
                 "is_notice": item.get("is_notice", False), "body": body, "attachments": attachments,
+                **({"reference_links": media_links} if media_links else {}),
                 **_empty_content_info(root or content_el, body, attachments)}
 
     def parse_static(

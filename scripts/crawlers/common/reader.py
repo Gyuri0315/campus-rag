@@ -29,6 +29,26 @@ def infer_dataset_from_path(path: Path) -> str | None:
     if "files" in folded:
         index = folded.index("files")
         if index + 1 < len(parts):
+            if folded[index + 1] == "department":
+                from scripts.crawlers.common.storage import department_storage_paths
+                tail = parts[index + 2:]
+                for dataset, storage_path in department_storage_paths().items():
+                    if tail[:len(storage_path)] == storage_path:
+                        return dataset
+                for marker in ("output", "preprocessed", "vectorized"):
+                    if marker in tail and tail.index(marker) > 0:
+                        return tail[tail.index(marker) - 1]
+                return tail[0] if tail else None
+            if parts[index + 1] == "pknu_main":
+                tail = parts[index + 2:]
+                if "_derived" in tail:
+                    stage = tail.index("_derived")
+                    if stage + 1 < len(tail):
+                        return tail[stage + 1]
+                if len(tail) >= 2 and tail[:2] == ("커뮤니티", "공지사항"):
+                    return "pknu_notice"
+                if tail and tail[0] == "대학생활":
+                    return "pknu_student_life"
             return parts[index + 1]
     return None
 

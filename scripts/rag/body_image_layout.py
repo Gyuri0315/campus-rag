@@ -250,10 +250,12 @@ def _paths(args: argparse.Namespace) -> list[Path]:
     else:
         datasets = args.dataset or []
         if args.all_datasets:
-            datasets = [path.name for path in (PROJECT_ROOT / "files").iterdir()
+            from scripts.crawlers.common.storage import iter_dataset_roots
+            datasets = [path.name for path in iter_dataset_roots(PROJECT_ROOT)
                         if (path / "preprocessed" / "body_images").is_dir()]
         for dataset in datasets:
-            root = PROJECT_ROOT / "files" / dataset / "preprocessed" / "body_images"
+            from scripts.crawlers.common.storage import get_dataset_root
+            root = get_dataset_root(PROJECT_ROOT, dataset) / "preprocessed" / "body_images"
             if root.is_dir():
                 selected.extend(sorted(root.rglob("*.json")))
     if not selected:
@@ -262,8 +264,11 @@ def _paths(args: argparse.Namespace) -> list[Path]:
 
 
 def _review_path(ocr_path: Path) -> Path:
+    from scripts.crawlers.common.reader import infer_dataset_from_path
     relative = ocr_path.resolve().relative_to(PROJECT_ROOT / "files")
-    dataset = relative.parts[0]
+    dataset = infer_dataset_from_path(ocr_path)
+    if not dataset:
+        raise ValueError(f"Cannot infer dataset from {ocr_path}")
     return PROJECT_ROOT / "files" / "_reviewed" / "body_image_ocr" / "reviews" / dataset / relative.name
 
 
