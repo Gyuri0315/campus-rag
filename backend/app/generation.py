@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
@@ -108,6 +108,26 @@ def build_user_message(
         "- 일부 세부 정보가 없다는 이유로 답변 전체를 포기하지 말고, 확인되지 않는 부분만 명확히 구분하세요.\n"
         "- 질문의 핵심에 답할 근거가 참고 자료에 전혀 없을 때만 \"관련 정보를 찾을 수 없습니다.\"라고만 답하세요."
     )
+
+
+def build_messages(
+    system_prompt: str,
+    question: str,
+    rows: List[Dict[str, Any]],
+    max_chars_per_chunk: int,
+    chat_history: Optional[List[Dict[str, str]]] = None,
+) -> List[Dict[str, str]]:
+    """Assemble the system prompt, prior turns, and current question with sources."""
+    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    for turn in chat_history or []:
+        role = turn.get("role")
+        content = turn.get("content")
+        if role in ("user", "assistant") and content:
+            messages.append({"role": role, "content": content})
+    messages.append(
+        {"role": "user", "content": build_user_message(question, rows, max_chars_per_chunk)}
+    )
+    return messages
 
 
 def generate_answer(

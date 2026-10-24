@@ -6,7 +6,7 @@ Evaluation commands are in `eval/tools/` and run from the repository root with
 평가 케이스는 목적에 따라 분리합니다.
 
 - `cases/smoke.jsonl`: 빠른 확인용 핵심 질문 8~15개. 작은 변경 후 실행합니다.
-- `cases/regression.jsonl`: 100개 질문의 라벨 입력 서식입니다. 모든 행이 `needs_review`로 시작하며 `ready`가 되기 전에는 정확도 평가에 사용하지 않습니다.
+- `cases/regression.jsonl`: 출처와 정답 라벨 검수를 마친 100개 질문의 회귀 평가 세트입니다. 모든 행이 `ready` 상태입니다.
 - `cases/challenge.jsonl`: 범위 밖, 애매한 표현, 오타, 복합 조건처럼 실패 가능성이 높은 질문만 집중 평가합니다. 회귀 세트와 일부 중복될 수 있습니다.
 - `schemas/eval_case.schema.json`: 구조화 평가 케이스의 JSON Schema입니다.
 - `baselines/`: 코드와 모델 및 RAG 설정별 기준 점수를 보관합니다.
@@ -26,8 +26,8 @@ Evaluation commands are in `eval/tools/` and run from the repository root with
 .\.venv\Scripts\python.exe -m eval.tools.eval_ask --questions eval\cases\challenge.jsonl --output eval\results\challenge.jsonl
 ```
 
-`regression.jsonl`의 빈칸을 채우는 동안 기본 평가 입력은 `smoke.jsonl`입니다.
-회귀 세트는 100개 행이 모두 `ready` 상태가 된 뒤 전체 평가에 사용합니다.
+기본 평가 입력은 빠른 확인용 `smoke.jsonl`입니다. 전체 평가에는 검수를 마친
+`regression.jsonl`을 지정합니다.
 
 ## 100개 질문 초안
 
@@ -74,3 +74,20 @@ Evaluation commands are in `eval/tools/` and run from the repository root with
 
 두 번째 명령은 `regression.jsonl`을 초기화하므로 최초 생성 또는 명시적인
 재초기화가 필요할 때만 사용합니다.
+
+## Layout-aware OCR RAG evaluation
+
+이 평가는 격리된 로컬 테스트 저장소를 사용하며 Supabase를 변경하지 않습니다.
+
+```powershell
+python -m scripts.rag.ingest_layout_data      # files/_reviewed/body_image_ocr/*.reviewed.jsonl -> files/_test_db/test_layout_rag_YYYYMMDD/
+python -m eval.tools.generate_testset         # 최대 50개 QA 쌍 -> tests/eval_dataset.csv (--mode rule: API 비용 없음)
+python -m eval.tools.run_evaluation           # eval_report.md (+ .json) (--retrieval-only: API 비용 없음)
+```
+
+표는 각 청크에 헤더를 반복하는 Markdown으로 나누고, 다이어그램은 문장으로 바꿉니다.
+모든 청크는 원본 경로, 이미지 해시, 검수 및 추출 출처를 `provenance`에 보관합니다.
+테스트 저장소 이름은 `test_layout_rag_YYYYMMDD[_suffix]` 형식을 사용합니다.
+`eval/tools/llm_budget.py`는 호출당 최대 3회 시도, 실행별 요청 수 상한,
+400/401/403/404 응답 재시도 금지를 적용합니다.
+`scripts/tests/fixtures/layout_rag/`에 같은 스키마의 smoke 테스트 입력이 있습니다.
