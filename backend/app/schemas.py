@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Literal
 
 from pydantic import BaseModel, Field
 
 
+class ChatMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(..., min_length=1, max_length=4000)
+
+
 class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=2000)
+    # Prior turns of the same conversation, oldest first. Capped at 20 turns
+    # (10 exchanges) so a long-running chat can't unboundedly grow the prompt
+    # sent to OpenAI on every request.
+    chat_history: List[ChatMessage] = Field(default_factory=list, max_length=20)
+    # Legacy `stream` request fields are ignored; /ask always returns JSON.
+
 
 
 class Attachment(BaseModel):
@@ -32,3 +43,7 @@ class Source(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     sources: List[Source]
+    # False when retrieval found nothing or the model gave the "no info"
+    # refusal (system prompt rule 5). Defaults to True so older clients and
+    # tests that ignore the field keep working.
+    answerable: bool = True

@@ -56,6 +56,7 @@ pip install -r backend\requirements.txt
 | `SUPABASE_URL` | `https://<project>.supabase.co` |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role key (anon key 로는 RLS 정책에 따라 RPC 호출이 거부될 수 있음) |
 | `OPENAI_API_KEY` | OpenAI API 키 |
+| `ADMIN_EMAILS` | 관리자 대시보드(`/admin`)를 볼 수 있는 계정 이메일, 콤마 구분. 비워 두면 아무도 접근 불가(기본 거부). 대시보드는 service_role 로 전체 사용자의 질문·피드백을 읽으므로 이 목록이 유일한 접근 제어다 |
 
 기타 키 기본값은 `.env.example` 참고. `EXPECTED_DIMENSIONS` 와 `EMBEDDING_MODEL` 의 차원이 DB 컬럼과 일치해야 한다.
 

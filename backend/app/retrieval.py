@@ -2,14 +2,27 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import logging
 import re
+import threading
 import time
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from supabase import Client, create_client
 
+from .freshness import (
+    CHUNK_TABLES,
+    FRESHNESS_LEXICAL_FETCH,
+    FRESHNESS_RPCS,
+    OPENING_CHUNKS,
+    OPENING_SOURCES,
+    freshness_adjustment,
+    is_current_term_notice,
+    is_schedule_query,
+    seed_slots,
+)
 from .reranking import normalize_scores
 
 logger = logging.getLogger(__name__)
@@ -63,23 +76,67 @@ _STANDALONE_JAMO_RE = re.compile(r"[ㄱ-ㅎㅏ-ㅣ]{6,}")
 QUERY_TERM_GROUPS = {
     "복수전공": ("복수전공", "복수 전공", "다전공", "전공제도"),
     "부전공": ("부전공", "부 전공", "다전공", "전공제도"),
+    "마이크로전공": ("마이크로전공", "마이크로 전공", "소단위전공", "소단위 전공"),
     "전과": ("전과", "전부", "전공변경"),
     "전공": ("전공", "전공제도"),
-    "졸업": ("졸업", "졸업요건", "학위수여"),
+    "졸업": ("졸업", "졸업요건", "학위수여", "졸업작품", "졸업논문", "졸업사정"),
     "학점": ("학점", "소요학점", "이수학점"),
     "수강신청": ("수강신청", "수강 신청"),
     "휴학": ("휴학",),
     "복학": ("복학",),
     "장학": ("장학", "장학금"),
-    "등록금": ("등록금", "등록"),
+    # "등록" (bare) used to be a variant here too, but it matches ~2.8k-9.7k
+    # rows in the large chunk tables on its own (measured directly against
+    # content_tsv) -- ranking + sorting that many rows blew the lexical RPC's
+    # statement timeout whenever a query also triggered another group (e.g.
+    # "계절수업" -> schedule_005). Keep only the compound term.
+    "등록금": ("등록금",),
     "성적": ("성적", "평점", "평균평점"),
+    # Students still say "학점포기", but the school's system is called
+    # "성적자율삭제" (main/244) and no document uses the old word, so the
+    # 2026-09-29 eval (rules_016) never retrieved it. Both are rare compound
+    # terms, so the OR-query stays small.
+    "학점포기": ("학점포기", "학점 포기", "성적자율삭제"),
     "교직": ("교직", "교직과정"),
     "현장실습": ("현장실습", "현장실습학기제"),
+    # Bare "생활관"/"기숙사" measured at 300-800+ rows each in the large chunk
+    # tables; combined with the compound term in one OR-query that pushed
+    # lexical search over its statement timeout. The compound term alone
+    # already matches the eval's expected documents, so keep only that.
+    "생활관": ("학생생활관",),
+    "계절수업": ("계절수업",),
+    "외국인유학생": ("외국인유학생", "외국인 유학생", "외국인 신입생", "외국인 학위과정"),
+    # Bare "증명서" alone matches 2,300-2,700 rows in rag/notice_chunks --
+    # comparable to the "등록"/"졸업"/"전공" danger zone above -- so only
+    # narrower phrase/compound variants go in the OR-query. "증명서 발급" as a
+    # quoted adjacent-phrase is far rarer (16-142 rows per table) and safe.
+    # Covers both how a question might phrase the kiosk ("자동발급기") and
+    # how the source page actually phrases it ("무인발급기(기)"), which don't
+    # share a literal substring so plain full-text search can't bridge them.
+    "증명서발급": ("무인발급기", "무인발급기기", "자동발급기", "제증명", "증명서 발급"),
+    # 실제 사용자 질문 사례("컴공학과사무실", 띄어쓰기 없는 구어체 줄임말)가
+    # 이 그룹 없이는 검색 후보에 전혀 안 걸리는 것을 확인함 -- 임베딩도
+    # "컴공"과 "컴퓨터·인공지능공학부"를 가깝게 못 보고, lexical fallback도
+    # 공백 기준 토큰화라 붙여쓴 줄임말은 원문과 겹치는 부분이 없음.
+    # "컴퓨터공학과"/"컴퓨터공학부"/"인공지능공학부"는 단독으로 1,400~1,900행씩
+    # 매치돼 위 "증명서"급 위험 구간에 가까워 실제 검색어(OR 대상)에서는 빼고
+    # LEXICAL_EXCLUDED_VARIANTS로 트리거 전용 처리. "컴퓨터·인공지능공학부"는
+    # 개설학과 원문 명칭이라 그대로 둬도 인공지능공학부와 매치 집합이 거의
+    # 겹쳐 추가 위험이 크지 않음(측정: 최대 1,405행, 안전 구간).
+    "컴공학과": (
+        "컴공",
+        "컴퓨터공학과",
+        "컴퓨터공학부",
+        "인공지능공학부",
+        "컴퓨터·인공지능공학부",
+        "컴퓨터인공지능공학부",
+    ),
 }
 
 STRICT_QUERY_TERMS = {
     "복수전공",
     "부전공",
+    "마이크로전공",
     "전과",
     "학점",
     "수강신청",
@@ -117,13 +174,64 @@ DATASET_BOOST_RULES: tuple[tuple[tuple[str, ...], Dict[str, float]], ...] = (
             "셔틀", "생활관", "기숙사", "도서관", "식당",
             "보건진료소", "연락처", "사무실", "전화",
         ),
-        {"match_pknu_student_life_documents": 0.15},
+        # "국립부경대학교 학칙" 같은 거대 허브 문서는 rule 데이터셋 전체에
+        # 균일하게 걸리는 DATASET_PRIORITIES=1.00 덕에, 연락처류 질문과는
+        # 무관한 조항이라도 다른 데이터셋의 훨씬 더 구체적인 문서를 상위
+        # 랭킹에서 밀어내는 사례가 실측으로 확인됨(예: "컴퓨터·인공지능공학부
+        # 사무실 연락처" 질문에서 학칙 조항이 1~2위, 실제 연락처 문서가 6위).
+        # 위쪽 boost와 대칭으로 규정 데이터셋에는 페널티를 줘서 상쇄한다.
+        {"match_pknu_student_life_documents": 0.15, "match_rule_documents": -0.35},
     ),
     (
         ("캡스톤", "학부 사무실", "학과 사무실"),
-        {"match_rag_documents": 0.10},
+        {"match_rag_documents": 0.10, "match_rule_documents": -0.35},
     ),
 )
+
+# Query-time first-stage candidate pool widening. Reuses the same "department
+# self-intro/contact" intent signal as DATASET_BOOST_RULES rule 3 above, but
+# fixes a different layer of the bug: that rule only nudges *ranking* among
+# candidates that already made the pool. It does nothing when the CE
+# contact-directory chunk never enters the pool at all -- measured:
+# first_stage_k=30 -> absent from top 30, first_stage_k=60 -> rank ~44,
+# first_stage_k=80 -> rank #1 (combined with CONTACT_DIRECTORY_BONUS above).
+# Compact (no-space) colloquial forms are included because real user queries
+# look like "컴공학과사무실 전화번호" with no internal space, unlike the spaced
+# "학과 사무실" the existing rule 3 was tuned against.
+RAG_SELF_INTRO_TRIGGER_KEYWORDS = (
+    "캡스톤",
+    "학부 사무실", "학과 사무실",
+    "학부사무실", "학과사무실", "과사무실",
+)
+
+# Empirically-verified-sufficient candidate pool size for match_rag_documents
+# when the self-intro/contact trigger fires. A hardcoded module constant
+# (same convention as CONTACT_DIRECTORY_BONUS below), not a Settings field --
+# this number is coupled tightly to one specific rpc name + one specific
+# trigger, not a general operational knob.
+RAG_SELF_INTRO_FIRST_STAGE_K = 80
+
+
+def _rag_self_intro_first_stage_overrides(
+    query_text: Optional[str],
+) -> Optional[Dict[str, int]]:
+    """Per-RPC first_stage_k override when `query_text` looks like a
+    department self-referential contact/office query, else None.
+
+    Scoped narrowly on purpose: every trigger phrase requires "사무실"
+    combined with a department-shaped prefix (학과/학부/과) or "캡스톤", so it
+    does not fire on generic office/contact queries that have nothing to do
+    with the rag dataset (e.g. "도서관 전화번호", "생활관 연락처" contain no
+    학과/학부/과 + 사무실 combination and are correctly left alone -- those are
+    handled by DATASET_BOOST_RULES rule 2 instead).
+    """
+    text = _normalize_text(query_text or "")
+    if not text:
+        return None
+    if any(kw in text for kw in RAG_SELF_INTRO_TRIGGER_KEYWORDS):
+        return {"match_rag_documents": RAG_SELF_INTRO_FIRST_STAGE_K}
+    return None
+
 
 SOURCE_KIND_PRIORITIES = {
     "post": 1.00,
@@ -162,6 +270,74 @@ def _lexical_synthetic_similarity(rank_index: int, min_similarity: float) -> flo
     return min_similarity + norm * (ceiling - min_similarity)
 
 
+# Bare words that are members of a QUERY_TERM_GROUPS entry but, measured
+# directly against content_tsv, match thousands of rows in the largest chunk
+# tables (rag_chunks/pknu_notice_chunks) on their own -- e.g. bare "졸업"
+# alone needed 4.7-5.4s just to rank, right at (and sometimes past) the
+# lexical RPC's statement timeout. They still need to stay in
+# QUERY_TERM_GROUPS itself: other logic (_query_mismatch_flags /
+# _dataset_mismatch_flags, e.g. the 졸업+학점 combo check) relies on the bare
+# form to detect that a question is "about" that concept at all. Only the
+# lexical OR-query builder below excludes them, since it's the one place a
+# single overly-common token turns into a near-full-table scan.
+LEXICAL_EXCLUDED_VARIANTS = {"졸업", "전공", "컴퓨터공학과", "컴퓨터공학부", "인공지능공학부"}
+
+# Filler words that carry no retrieval signal but frequently show up in
+# natural Korean questions. websearch_to_tsquery ANDs every remaining word
+# together, so leaving these in silently zeroes out the match (the source
+# chunk contains "학사관리과"/"증명서" but never literally "관련" next to it).
+_LEXICAL_STOPWORDS = {
+    "관련", "관련해서", "관련된", "관하여", "대해", "대해서", "대한",
+    "알려줘", "알려주세요", "알려줄래요", "알려주실래요",
+    "궁금해요", "궁금합니다", "궁금한데요", "궁금해",
+    "어디에", "어디서", "어디", "어떻게", "무엇인가요", "뭐예요", "뭔가요",
+    "있나요", "있어요", "있습니까", "됩니까", "되나요", "인가요", "인가",
+    "하나요", "합니까", "하는지", "하는가요",
+    "부탁드립니다", "부탁해요", "부탁드려요", "싶어요", "싶습니다",
+}
+
+# Korean particles attach directly to the noun with no space (문의처+를,
+# 도서관+에), so a literal AND match needs them stripped first. Longest
+# suffix first so e.g. "으로부터" doesn't get half-stripped to "로부터".
+_LEXICAL_PARTICLE_SUFFIXES = tuple(
+    sorted(
+        {
+            "으로부터", "에서부터", "에게서",
+            "이라서", "라서", "이라도", "라도", "이라는", "라는", "이라고", "라고",
+            "에서", "으로", "부터", "까지", "이나", "한테", "에게",
+            "와는", "과는",
+            "은", "는", "이", "가", "을", "를", "의", "에", "로", "와", "과", "도", "만", "나",
+        },
+        key=len,
+        reverse=True,
+    )
+)
+
+
+def _lexical_fallback_query(query_text: str) -> str:
+    """Best-effort AND-query for questions that hit no QUERY_TERM_GROUPS entry.
+
+    This only ever *removes* filler tokens and particle suffixes from the
+    existing AND-of-raw-sentence fallback -- it never switches to OR -- so it
+    can't reintroduce the near-full-table-scan timeout risk that
+    LEXICAL_EXCLUDED_VARIANTS guards against. It can only make an
+    already-safe AND query match in more cases, by narrowing the token list
+    down to the words actually likely to appear next to the answer.
+    """
+    tokens: list[str] = []
+    for raw_token in _normalize_text(query_text).split(" "):
+        token = raw_token.strip("?!.,~()[]\"'")
+        if not token or token in _LEXICAL_STOPWORDS:
+            continue
+        for suffix in _LEXICAL_PARTICLE_SUFFIXES:
+            if len(token) > len(suffix) + 1 and token.endswith(suffix):
+                token = token[: -len(suffix)]
+                break
+        if len(token) >= 2:
+            tokens.append(token)
+    return " ".join(dict.fromkeys(tokens))
+
+
 def _lexical_query_text(
     query_text: Optional[str],
     query_terms: list[tuple[str, tuple[str, ...]]],
@@ -188,16 +364,16 @@ def _lexical_query_text(
         if not any(term != other and term in other for other, _ in query_terms)
     ]
     if not specific_terms:
-        return _normalize_text(query_text or "")
+        return _lexical_fallback_query(query_text or "") or _normalize_text(query_text or "")
     parts: list[str] = []
     for _, variants in specific_terms:
         for variant in variants:
             variant = variant.strip()
-            if not variant:
+            if not variant or variant in LEXICAL_EXCLUDED_VARIANTS:
                 continue
             parts.append(f'"{variant}"' if " " in variant else variant)
     if not parts:
-        return _normalize_text(query_text or "")
+        return _lexical_fallback_query(query_text or "") or _normalize_text(query_text or "")
     return " OR ".join(dict.fromkeys(parts))
 
 
@@ -265,6 +441,31 @@ def _source_kind_priority(row: Dict[str, Any]) -> float:
     return SOURCE_KIND_PRIORITIES.get(source_kind, 0.70)
 
 
+# A cross-encoder reranker trained on single-topic passage relevance tends to
+# score a chunk that mentions one phone number in a clean, focused sentence
+# higher than a chunk that is actually the authoritative directory/contact
+# page for that number, but lists it among several other facts (other
+# extensions, a fax number, an unrelated program's number) -- the dense
+# chunk reads as "less about" the query even though it is the better source.
+# Observed live: "컴공학과사무실 전화번호 알려줘" cited a notice that happened to
+# mention one CE department number in passing, over the department's own
+# contact-directory chunk (6 numbers: 3 office lines, a program line, 2 fax
+# numbers) -- reranker preferred the single coincidental mention. Detect the
+# directory shape directly (several distinct phone numbers in one chunk) and
+# nudge it back up *after* reranking, so the fix doesn't get diluted by
+# reranker_weight the way a priority_score change would (that only feeds the
+# ~20% "initial_score" side of the blend, not the ~80% reranker side).
+_PHONE_NUMBER_RE = re.compile(r"\d{2,4}[-–]\d{3,4}[-–]\d{4}")
+CONTACT_DIRECTORY_MIN_PHONE_NUMBERS = 2
+CONTACT_DIRECTORY_BONUS = 0.06
+
+
+def _is_contact_directory_row(row: Dict[str, Any]) -> bool:
+    content = str(row.get("content") or "")
+    numbers = set(_PHONE_NUMBER_RE.findall(content))
+    return len(numbers) >= CONTACT_DIRECTORY_MIN_PHONE_NUMBERS
+
+
 def _query_mismatch_penalty(row: Dict[str, Any]) -> float:
     """Soft penalty for query-term mismatch flags (see _query_mismatch_flags).
 
@@ -304,7 +505,8 @@ def _final_score(
         + _dataset_priority(row) * bounded_dataset_weight
         + _source_kind_priority(row) * bounded_source_kind_weight
     )
-    return max(0.0, score - _query_mismatch_penalty(row))
+    freshness = float(row.get("_freshness_adjustment") or 0.0)
+    return max(0.0, score - _query_mismatch_penalty(row) + freshness)
 
 
 def _normalize_text(text: str) -> str:
@@ -455,11 +657,21 @@ def _row_uri(row: Dict[str, Any]) -> str:
 
 
 def _url_key(row: Dict[str, Any]) -> str:
-    """Per-URL cap 용 key. 쿼리스트링/앵커 제거해서 같은 문서 다른 뷰 통합."""
+    """Per-URL cap 용 key. 쿼리스트링/앵커 제거해서 같은 문서 다른 뷰 통합.
+
+    URL만으로 묶으면 안 된다 -- `www.pknu.ac.kr/main/434`처럼 서로 다른
+    문서 여러 개가 같은 CMS 랜딩페이지 URL을 공유하는 경우가 실제로 있다
+    (dedup 로직에서 이미 겪은 것과 동일한 문제). URL 하나로 묶으면, 그
+    URL을 공유하는 무관한 문서가 이미 max_chunks_per_url 자리를 다
+    채워버려서 정작 그 URL의 진짜 문서가 밀려나는 일이 생긴다 -- 오늘
+    부서 연락처 디렉터리를 잘게 쪼갠 뒤 실제로 겪은 사례. 제목까지 묶어야
+    "같은 문서의 여러 청크"만 캡 대상이 된다.
+    """
     uri = re.sub(r"[?#].*$", "", _normalize_text(_row_uri(row)).lower())
+    title = _normalize_text(_title_for_row(row)).lower()
     if uri:
-        return f"url:{uri}"
-    return f"title:{_normalize_text(_title_for_row(row)).lower()}"
+        return f"url:{uri}|title:{title}"
+    return f"title:{title}"
 
 
 def _dedupe_key(row: Dict[str, Any]) -> str:
@@ -621,6 +833,17 @@ def _rerank_candidates(
             rerank_score * bounded_reranker_weight
             + initial_score * initial_weight
         )
+        # Applied *after* the reranker blend, not folded into initial_score,
+        # so it isn't diluted by (1 - reranker_weight) -- see
+        # _is_contact_directory_row's docstring for why this lives here.
+        if _is_contact_directory_row(copied):
+            rerank_final_score += CONTACT_DIRECTORY_BONUS
+        # Same idea for the freshness/graduate penalties: the reranker can't
+        # tell a 2021 notice from this term's, so re-apply them on the
+        # reranker side of the blend (see freshness.py).
+        rerank_final_score += (
+            float(copied.get("_freshness_adjustment") or 0.0) * bounded_reranker_weight
+        )
         copied["rerank_score"] = rerank_score
         copied["rerank_final_score"] = rerank_final_score
         rescored.append(copied)
@@ -663,15 +886,189 @@ def _process_candidate_row(
     if _dataset_mismatch_flags(copied, query_terms):
         return None, "dataset_mismatch"
 
+    copied["_freshness_adjustment"] = freshness_adjustment(copied, rpc_name, query_text)
     base_dataset_priority = DATASET_PRIORITIES.get(rpc_name, 0.50)
     boost = _dataset_priority_boost(rpc_name, query_text)
-    copied["_boosted_dataset_priority"] = min(1.0, base_dataset_priority + boost)
+    copied["_boosted_dataset_priority"] = max(0.0, min(1.0, base_dataset_priority + boost))
     copied["priority_score"] = _priority_score(copied)
     copied["dataset_priority"] = _dataset_priority(copied)
     copied["final_score"] = _final_score(
         copied, priority_weight, dataset_priority_weight, source_kind_weight
     )
     return copied, ("query_mismatch" if query_flags else "ok")
+
+
+RpcResult = Tuple[Any, float, Optional[BaseException]]
+
+# Concurrent RPCs run on one long-lived pool, and each worker thread talks to
+# Supabase through its own client. Sharing the app's single client across
+# threads broke whole requests at once (measured 2026-10-13: 9-16 of 192 calls
+# failed with socket errors at 4-8 workers, all 8 RPCs of a query together);
+# one client per worker failed 0 of 288. The pool is kept so those per-thread
+# clients (and their open connections) are reused instead of rebuilt per query.
+_rpc_pool: Optional[ThreadPoolExecutor] = None
+_rpc_pool_size = 0
+_rpc_pool_lock = threading.Lock()
+_worker_clients = threading.local()
+
+
+def _get_rpc_pool(size: int) -> ThreadPoolExecutor:
+    global _rpc_pool, _rpc_pool_size
+    with _rpc_pool_lock:
+        if _rpc_pool is None or _rpc_pool_size != size:
+            if _rpc_pool is not None:
+                _rpc_pool.shutdown(wait=False)
+            _rpc_pool = ThreadPoolExecutor(max_workers=size, thread_name_prefix="rag-rpc")
+            _rpc_pool_size = size
+        return _rpc_pool
+
+
+def _worker_client(shared: Client) -> Client:
+    """This worker thread's own client with the same URL/key as `shared`.
+    Clients without those attributes (test fakes) are used as-is."""
+    url = getattr(shared, "supabase_url", None)
+    key = getattr(shared, "supabase_key", None)
+    if not isinstance(url, str) or not isinstance(key, str):
+        return shared
+    clients = getattr(_worker_clients, "by_target", None)
+    if clients is None:
+        clients = _worker_clients.by_target = {}
+    client = clients.get((url, key))
+    if client is None:
+        client = clients[(url, key)] = build_supabase_client(url, key)
+    return client
+
+
+def _fetch_rpc_responses(
+    client: Client,
+    rpc_names: List[str],
+    base_payload: Dict[str, Any],
+    candidate_counts: Dict[str, int],
+    lexical_query: Optional[str],
+    max_workers: int = 1,
+) -> Dict[str, RpcResult]:
+    """Call every vector RPC (and its `<name>_lexical` companion when there is
+    a lexical query), at most `max_workers` at a time; with 1 they run in the
+    original order (vector, lexical, next vector, ...). Returns name ->
+    (response, elapsed_ms, error); a failed call carries its exception instead
+    of raising, so the caller keeps its per-RPC "skip on failure" behavior."""
+    calls: Dict[str, Dict[str, Any]] = {}
+    for rpc_name in rpc_names:
+        calls[rpc_name] = {**base_payload, "match_count": candidate_counts[rpc_name]}
+        if lexical_query:
+            lexical_count = candidate_counts[rpc_name]
+            if rpc_name in FRESHNESS_RPCS:
+                lexical_count = max(lexical_count, FRESHNESS_LEXICAL_FETCH)
+            calls[f"{rpc_name}_lexical"] = {
+                "query_text": lexical_query,
+                "match_count": lexical_count,
+            }
+
+    def run(name: str, rpc_client: Client) -> RpcResult:
+        started = time.perf_counter()
+        try:
+            response = rpc_client.rpc(name, calls[name]).execute()
+            return response, (time.perf_counter() - started) * 1000, None
+        except Exception as exc:  # reported by the caller, same as before
+            return None, (time.perf_counter() - started) * 1000, exc
+
+    if max_workers <= 1:
+        return {name: run(name, client) for name in calls}
+    pool = _get_rpc_pool(max_workers)
+    futures = {
+        name: pool.submit(lambda n=name: run(n, _worker_client(client))) for name in calls
+    }
+    return {name: future.result() for name, future in futures.items()}
+
+
+def _opening_chunks_of_current_notices(
+    client: Client,
+    candidates: List[Dict[str, Any]],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> List[Dict[str, Any]]:
+    """Opening chunks of the top current-term notices among `candidates`
+    that aren't candidates already (see freshness.OPENING_SOURCES for why).
+
+    Each extra row reuses its notice's candidate row (title, url, priority,
+    similarity) with the chunk's own id/content swapped in, then goes
+    through the normal per-row pipeline; the reranker decides whether it
+    beats the chunk that brought the notice in. A failed fetch only logs.
+    """
+    parents: Dict[str, Dict[str, Any]] = {}
+    ranked = sorted(
+        candidates,
+        key=lambda row: _final_score(row, priority_weight, dataset_priority_weight, source_kind_weight),
+        reverse=True,
+    )
+    for row in ranked:
+        rpc_name = str((row.get("metadata") or {}).get("rpc_name") or "")
+        source_id = row.get("source_id")
+        if rpc_name not in CHUNK_TABLES or not source_id or source_id in parents:
+            continue
+        if is_current_term_notice(row):
+            parents[source_id] = row
+            if len(parents) >= OPENING_SOURCES:
+                break
+    if not parents:
+        return []
+
+    present = {_dedupe_key(row) for row in candidates}
+    extra: List[Dict[str, Any]] = []
+    by_table: Dict[str, List[str]] = {}
+    for source_id, parent in parents.items():
+        table = CHUNK_TABLES[str(parent["metadata"]["rpc_name"])]
+        by_table.setdefault(table, []).append(source_id)
+    for table, source_ids in by_table.items():
+        try:
+            response = (
+                client.table(table)
+                .select("id, source_id, chunk_id, chunk_index, content, metadata")
+                .in_("source_id", source_ids)
+                .lt("chunk_index", OPENING_CHUNKS)
+                .execute()
+            )
+        except Exception:
+            logger.warning("retrieval: opening chunks fetch failed table=%s", table, exc_info=True)
+            continue
+        for chunk in response.data or []:
+            parent = parents[chunk["source_id"]]
+            rpc_name = str(parent["metadata"]["rpc_name"])
+            row = {
+                **parent,
+                "id": chunk["id"],
+                "chunk_id": chunk.get("chunk_id"),
+                "chunk_index": chunk.get("chunk_index"),
+                "content": chunk.get("content"),
+                "metadata": {**(parent.get("metadata") or {}), **(chunk.get("metadata") or {})},
+            }
+            for key in ("_lexical_only", "_query_mismatch_flags", "rerank_score", "rerank_final_score"):
+                row.pop(key, None)
+            processed, outcome = _process_candidate_row(
+                row, rpc_name, query_text, query_terms,
+                priority_weight, dataset_priority_weight, source_kind_weight,
+            )
+            if processed is None or outcome in ("noise", "dataset_mismatch"):
+                continue
+            key = _dedupe_key(processed)
+            if key in present:
+                continue
+            processed["similarity"] = _similarity(parent)
+            processed["final_score"] = _final_score(
+                processed, priority_weight, dataset_priority_weight, source_kind_weight
+            )
+            present.add(key)
+            extra.append(processed)
+    if extra:
+        logger.info(
+            "retrieval: added %d opening chunk(s) of %d current-term notice(s)",
+            len(extra),
+            len(parents),
+        )
+    return extra
 
 
 def search(
@@ -681,6 +1078,8 @@ def search(
     embedding: List[float],
     top_k: int,
     first_stage_k: int,
+    per_rpc_first_stage_k: Optional[Dict[str, int]] = None,
+    rpc_concurrency: int = 1,
     min_similarity: float,
     priority_weight: float = 0.30,
     dataset_priority_weight: float = 0.15,
@@ -702,22 +1101,40 @@ def search(
     query_terms = _query_term_groups(query_text)
     lexical_query = _lexical_query_text(query_text, query_terms)
     candidate_count = max(first_stage_k, top_k)
+    # When per_rpc_first_stage_k widens one specific RPC's fetch (see
+    # RAG_SELF_INTRO_FIRST_STAGE_K), the final candidate-list caps below must
+    # widen too, or the extra rows fetched from that RPC get truncated back
+    # down to candidate_count before the reranker ever sees them.
+    overall_candidate_count = candidate_count
+    if per_rpc_first_stage_k:
+        overall_candidate_count = max(
+            candidate_count,
+            *(max(value, top_k) for value in per_rpc_first_stage_k.values()),
+        )
     payload = {
         "query_embedding": _vector_literal(embedding),
-        "match_count": candidate_count,
         "min_similarity": min_similarity,
         "metadata_filter": metadata_filter or {},
     }
 
-    per_rpc_rows: List[List[Dict[str, Any]]] = []
+    candidate_counts = {
+        rpc_name: max((per_rpc_first_stage_k or {}).get(rpc_name, first_stage_k), top_k)
+        for rpc_name in rpc_names
+    }
+    # The vector and lexical RPCs are independent round trips; rpc_concurrency
+    # controls how many run at once (1 = one after another, the default -- see
+    # Settings.rag_rpc_concurrency for why). Ranking below is unchanged.
+    fetched = _fetch_rpc_responses(
+        client, rpc_names, payload, candidate_counts, lexical_query, max_workers=rpc_concurrency,
+    )
+
+    per_rpc_rows: List[Tuple[str, List[Dict[str, Any]]]] = []
     merged: List[Dict[str, Any]] = []
     for rpc_name in rpc_names:
-        try:
-            started = time.perf_counter()
-            response = client.rpc(rpc_name, payload).execute()
-            elapsed_ms = (time.perf_counter() - started) * 1000
-        except Exception:
-            logger.warning("retrieval: rpc=%s failed, skipping", rpc_name, exc_info=True)
+        rpc_candidate_count = candidate_counts[rpc_name]
+        response, elapsed_ms, error = fetched[rpc_name]
+        if error is not None:
+            logger.warning("retrieval: rpc=%s failed, skipping", rpc_name, exc_info=error)
             continue
 
         rows: List[Dict[str, Any]] = []
@@ -765,17 +1182,15 @@ def search(
         # entirely are added here; rows both channels found already made the
         # vector top-K on their own merit and keep their real similarity.
         lexical_added = 0
+        lexical_boosted = 0
         if lexical_query:
-            vector_keys = {_dedupe_key(row) for row in rows}
+            rows_by_key = {_dedupe_key(row): row for row in rows}
+            vector_keys = set(rows_by_key)
             lexical_rpc_name = f"{rpc_name}_lexical"
-            try:
-                lexical_response = client.rpc(
-                    lexical_rpc_name,
-                    {"query_text": lexical_query, "match_count": candidate_count},
-                ).execute()
-            except Exception:
+            lexical_response, _lexical_ms, lexical_error = fetched[lexical_rpc_name]
+            if lexical_error is not None:
                 logger.warning(
-                    "retrieval: lexical rpc=%s failed, skipping", lexical_rpc_name, exc_info=True
+                    "retrieval: lexical rpc=%s failed, skipping", lexical_rpc_name, exc_info=lexical_error
                 )
                 lexical_response = None
 
@@ -794,7 +1209,26 @@ def search(
                     continue
                 dedupe_key = _dedupe_key(processed)
                 if dedupe_key in vector_keys:
-                    # Already surfaced by vector search on its own merit.
+                    # Vector search already found this chunk, but possibly at
+                    # a mediocre similarity that buries a strong exact-term
+                    # match (e.g. a short, keyword-dense chunk the embedding
+                    # model doesn't score highly on its own). A high BM25
+                    # rank here means the chunk deserves at least the score a
+                    # lexical-only hit at that rank would get -- take
+                    # whichever of the two signals is stronger instead of
+                    # always deferring to the vector channel.
+                    existing = rows_by_key[dedupe_key]
+                    lexical_equivalent = _lexical_synthetic_similarity(
+                        rank_index, min_similarity
+                    )
+                    if lexical_equivalent > _similarity(existing):
+                        existing["similarity"] = lexical_equivalent
+                        existing["priority_score"] = _priority_score(existing)
+                        existing["dataset_priority"] = _dataset_priority(existing)
+                        existing["final_score"] = _final_score(
+                            existing, priority_weight, dataset_priority_weight, source_kind_weight
+                        )
+                        lexical_boosted += 1
                     rank_index += 1
                     continue
                 processed["similarity"] = _lexical_synthetic_similarity(
@@ -807,6 +1241,7 @@ def search(
                     processed, priority_weight, dataset_priority_weight, source_kind_weight
                 )
                 rows.append(processed)
+                rows_by_key[dedupe_key] = processed
                 vector_keys.add(dedupe_key)
                 lexical_added += 1
                 rank_index += 1
@@ -821,13 +1256,15 @@ def search(
             reverse=True,
         )
         logger.info(
-            "retrieval: rpc=%s rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d lexical_added=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
+            "retrieval: rpc=%s match_count=%d rows=%d filtered_noise=%d penalized_query_mismatch=%d filtered_dataset_mismatch=%d lexical_added=%d lexical_boosted=%d latency_ms=%.1f top_similarity=%.4f top_priority=%.4f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.4f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f",
             rpc_name,
+            rpc_candidate_count,
             len(rows),
             filtered_noise,
             penalized_query_mismatch,
             filtered_dataset_mismatch,
             lexical_added,
+            lexical_boosted,
             elapsed_ms,
             _similarity(rows[0]) if rows else 0.0,
             _priority_score(rows[0]) if rows else 0.0,
@@ -845,7 +1282,7 @@ def search(
             dataset_priority_weight,
             source_kind_weight,
         )
-        per_rpc_rows.append(rows)
+        per_rpc_rows.append((rpc_name, rows))
         merged.extend(rows)
 
     candidates: List[Dict[str, Any]] = []
@@ -853,12 +1290,17 @@ def search(
     url_counts: Dict[str, int] = {}
     lexical_url_counts: Dict[str, int] = {}
 
-    # Keep one high-scoring row from each successful RPC before global ranking.
+    # Keep one high-scoring row from each successful RPC before global ranking
+    # (more for the notice tables on schedule questions -- see freshness.py).
     # This prevents one noisy collection from crowding out regulations/notices.
-    for rows in per_rpc_rows:
-        if len(candidates) >= candidate_count:
+    for rpc_name, rows in per_rpc_rows:
+        if len(candidates) >= overall_candidate_count:
             break
+        wanted = seed_slots(rpc_name, query_text)
+        taken = 0
         for row in rows:
+            if taken >= wanted or len(candidates) >= overall_candidate_count:
+                break
             if _add_row(
                 candidates,
                 seen,
@@ -868,7 +1310,7 @@ def search(
                 lexical_url_counts=lexical_url_counts,
                 max_lexical_chunks_per_url=max_lexical_chunks_per_url,
             ):
-                break
+                taken += 1
 
     merged.sort(
         key=lambda row: _final_score(
@@ -880,7 +1322,7 @@ def search(
         reverse=True,
     )
     for row in merged:
-        if len(candidates) >= candidate_count:
+        if len(candidates) >= overall_candidate_count:
             break
         _add_row(
             candidates,
@@ -890,6 +1332,19 @@ def search(
             max_chunks_per_url=max_chunks_per_url,
             lexical_url_counts=lexical_url_counts,
             max_lexical_chunks_per_url=max_lexical_chunks_per_url,
+        )
+
+    if is_schedule_query(query_text):
+        candidates.extend(
+            _opening_chunks_of_current_notices(
+                client,
+                candidates,
+                query_text,
+                query_terms,
+                priority_weight,
+                dataset_priority_weight,
+                source_kind_weight,
+            )
         )
 
     selected = _rerank_candidates(
@@ -906,7 +1361,8 @@ def search(
     )
 
     logger.info(
-        "retrieval: merged=%d candidates=%d trimmed=%d top_sim=%.3f top_priority=%.3f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.3f top_rerank=%.3f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f reranker=%s",
+        "retrieval: overall_candidate_count=%d merged=%d candidates=%d trimmed=%d top_sim=%.3f top_priority=%.3f top_dataset_priority=%.2f top_source_kind_priority=%.2f top_final=%.3f top_rerank=%.3f priority_weight=%.2f dataset_priority_weight=%.2f source_kind_weight=%.2f reranker=%s",
+        overall_candidate_count,
         len(merged),
         len(candidates),
         len(selected),

@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const chatHistory = (body as { chat_history?: unknown } | null)?.chat_history;
+
   const authHeader = request.headers.get("authorization");
   if (!authHeader) {
     return Response.json({ detail: "로그인이 필요합니다." }, { status: 401 });
@@ -39,21 +41,27 @@ export async function POST(request: NextRequest) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        Accept: "application/json",
         Authorization: authHeader,
       },
-      body: JSON.stringify({ question: question.trim() }),
+      body: JSON.stringify({
+        question: question.trim(),
+        stream: false,
+        ...(Array.isArray(chatHistory) ? { chat_history: chatHistory } : {}),
+      }),
       cache: "no-store",
       signal: controller.signal,
     });
 
-    const text = await upstream.text();
-    return new Response(text, {
-      status: upstream.status,
-      headers: {
-        "Content-Type":
-          upstream.headers.get("Content-Type") ?? "application/json",
-      },
-    });
+    if (!upstream.headers.get("Content-Type")?.includes("application/json")) {
+      await upstream.body?.cancel();
+      return Response.json(
+        { detail: "백엔드 응답 형식이 올바르지 않습니다. JSON 응답이 필요합니다." },
+        { status: 502 },
+      );
+    }
+    const data = await upstream.json();
+    return Response.json(data, { status: upstream.status });
   } catch (err) {
     if (controller.signal.aborted && !request.signal.aborted) {
       return Response.json(

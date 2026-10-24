@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { Fragment, useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import homeData from "@/data/routes/home.json";
 import { useQueryContext } from "./context/QueryContext";
 import { useAuth } from "./context/AuthContext";
 import AuthButtons from "./components/AuthButtons";
+import { fetchIsAdmin } from "./lib/api";
 
 const { header, hero, search, exampleTags, footer } = homeData.page;
 
@@ -19,12 +20,29 @@ export default function HomePage() {
   const { setPendingQuery } = useQueryContext();
   const { user, loading: authLoading } = useAuth();
   const [query, setQuery] = useState("");
+  // 관리자로 확인된 사용자 id. 로그아웃·계정 전환 시 user.id 와 달라져 자동으로 숨겨진다.
+  const [adminUserId, setAdminUserId] = useState<string | null>(null);
+  const isAdmin = !!user && adminUserId === user.id;
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // 로그인 상태면 홈 대신 바로 /chat 으로. loading 중에는 깜빡임 방지를 위해 대기.
+  // Admin 버튼은 관리자 이메일로 로그인했을 때만 보인다(판정은 백엔드 /admin/me).
   useEffect(() => {
-    if (authLoading) return;
-    if (user) router.replace("/chat");
+    if (authLoading || !user) return;
+    const controller = new AbortController();
+    fetchIsAdmin(controller.signal).then((admin) => {
+      if (!controller.signal.aborted) setAdminUserId(admin ? user.id : null);
+    });
+    return () => controller.abort();
+  }, [user, authLoading]);
+
+  // 로그인 상태면 홈 대신 바로 /chat 으로. loading 중에는 깜빡임 방지를 위해 대기.
+  // 단, 채팅 화면의 로고를 눌러 일부러 홈으로 온 경우(?from=chat)는 머문다
+  // (홈에서만 관리자 페이지로 갈 수 있어서). useSearchParams 는 페이지 전체를
+  // Suspense 로 감싸야 해서 클라이언트에서만 도는 effect 안에서 직접 읽는다.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    const cameFromChat = new URLSearchParams(window.location.search).get("from") === "chat";
+    if (!cameFromChat) router.replace("/chat");
   }, [user, authLoading, router]);
 
   const handleSearch = () => {
@@ -41,19 +59,19 @@ export default function HomePage() {
 
   return (
     /* ── 그라데이션 배경 ── */
-    <div className="bg-app min-h-screen flex items-center justify-center p-3 sm:p-4 lg:p-5">
+    <div className="bg-app min-h-[100dvh] flex items-center justify-center p-3 sm:p-4 lg:p-5">
 
       {/* ── 흰색 반투명 카드 ──
-          padding 별 minHeight:
-            mobile  (p-3): 12px×2 = 24px → calc(100vh - 24px)
-            tablet  (p-4): 16px×2 = 32px → calc(100vh - 32px)
-            desktop (p-5): 20px×2 = 40px → calc(100vh - 40px)
+          padding 별 minHeight (dvh = 모바일 브라우저 UI를 뺀 실제 보이는 높이):
+            mobile  (p-3): 12px×2 = 24px → calc(100dvh - 24px)
+            tablet  (p-4): 16px×2 = 32px → calc(100dvh - 32px)
+            desktop (p-5): 20px×2 = 40px → calc(100dvh - 40px)
       ── */}
       <div
         className="
           home-card w-full flex flex-col
           rounded-2xl sm:rounded-[24px]
-          min-h-[calc(100vh-24px)] sm:min-h-[calc(100vh-32px)] lg:min-h-[calc(100vh-40px)]
+          min-h-[calc(100dvh-24px)] sm:min-h-[calc(100dvh-32px)] lg:min-h-[calc(100dvh-40px)]
         "
         style={{ maxWidth: "860px" }}
       >
@@ -81,34 +99,34 @@ export default function HomePage() {
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/*
-              Admin 진입 버튼.
-              TODO: 인증 도입 후 isAdmin 체크로 가드 — 일반 사용자에게는 미노출.
-              현재는 mock 단계라 항상 노출한다.
+              Admin 진입 버튼 — 관리자에게만 노출(isAdmin).
 
               router.push 대신 next/link Link 사용 이유:
               - hydration 완료 전에도 native <a> 클릭으로 동작 (intermittent 클릭 누락 해결)
               - Cmd/Ctrl+Click·우클릭 새 탭, viewport 진입 시 자동 prefetch 등 표준 동작 확보
             */}
-            <Link
-              href="/admin"
-              prefetch
-              className="
-                inline-flex items-center justify-center
-                px-3 sm:px-4 py-1 sm:py-1.5
-                rounded-full text-xs font-medium
-                transition-opacity hover:opacity-75
-              "
-              style={{
-                color: NAVY,
-                border: `1.5px solid ${NAVY}`,
-                background: "transparent",
-                textDecoration: "none",
-              }}
-            >
-              Admin
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/admin"
+                prefetch
+                className="
+                  inline-flex items-center justify-center
+                  px-2.5 sm:px-4 py-1 sm:py-1.5
+                  rounded-full text-xs font-medium
+                  transition-opacity hover:opacity-75
+                "
+                style={{
+                  color: NAVY,
+                  border: `1.5px solid ${NAVY}`,
+                  background: "transparent",
+                  textDecoration: "none",
+                }}
+              >
+                Admin
+              </Link>
+            )}
 
             {/* 로그인 상태에 따라 Sign Up/Login 또는 사용자 메뉴 렌더 */}
             <AuthButtons />
@@ -120,11 +138,23 @@ export default function HomePage() {
 
           {/* Hero */}
           <div className="text-center flex flex-col gap-2 sm:gap-2.5">
+            {/* break-keep: 한글 단어 중간("찾아|보세요")에서 줄이 끊기지 않게.
+                title의 "\n" 은 모바일(sm 미만)에서만 줄바꿈되고, 그 이상에선 띄어쓰기로 이어진다. */}
             <h1
-              className="text-2xl sm:text-3xl lg:text-[2.35rem] font-bold leading-tight tracking-tight"
+              className="break-keep text-2xl sm:text-3xl lg:text-[2.35rem] font-bold leading-tight tracking-tight"
               style={{ color: NAVY }}
             >
-              {hero.title}
+              {hero.title.split("\n").map((line, index) => (
+                <Fragment key={index}>
+                  {index > 0 && (
+                    <>
+                      {" "}
+                      <br className="sm:hidden" />
+                    </>
+                  )}
+                  {line}
+                </Fragment>
+              ))}
             </h1>
             <p
               className="text-xs sm:text-sm lg:text-base"

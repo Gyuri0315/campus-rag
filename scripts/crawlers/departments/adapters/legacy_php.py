@@ -161,7 +161,10 @@ class LegacyPHPAdapter(DepartmentCMSAdapter):
                 "attachments": self.parse_attachments(table, page_url=post_url, base_url=base_url,
                                                       site_prefix=site_prefix)}
 
-    def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]:
+    def parse_static(
+        self, soup: BeautifulSoup, *, fallback_title: str,
+        page_url: str = "", base_url: str = "", site_prefix: str = "",
+    ) -> dict[str, Any]:
         title = soup.select_one("h1, h2, .nav_title_txt, .page-title")
         content = soup.select_one("#contents, #content, .contents, .content, #container, table.tb3, .page_con")
         if not content:

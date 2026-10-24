@@ -14,8 +14,9 @@ from .deps import AppState
 from .embeddings import Embedder
 from .generation import load_system_prompt
 from .reranking import CrossEncoderReranker
-from .retrieval import build_supabase_client
+from .routers import admin as admin_router
 from .routers import ask as ask_router
+from .supabase_client import ThreadLocalSupabase
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +45,13 @@ async def lifespan(app: FastAPI):
             reranker = CrossEncoderReranker(
                 model_name=settings.reranker_model,
                 device=settings.reranker_device,
+                quantize=settings.reranker_quantize,
             )
         except Exception:
             logger.exception("Reranker load failed; continuing without reranker")
-    supabase = build_supabase_client(
+    # One client per request thread -- a single shared client breaks under
+    # concurrent requests (see supabase_client.py).
+    supabase = ThreadLocalSupabase(
         settings.supabase_url, settings.supabase_service_role_key
     )
     openai_client = OpenAI(
@@ -102,6 +106,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     app.include_router(ask_router.router)
+    app.include_router(admin_router.router)
     return app
 
 

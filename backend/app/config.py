@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     rag_first_stage_k: int = 30
     rag_min_similarity: float = 0.30
     rag_max_chunks_per_url: int = 2
+    # How many retrieval RPCs (4 vector + 4 lexical) may run at once; 1 runs
+    # them one after another. Was 1 until 2026-10-13: on 09-29, concurrency
+    # doubled lexical statement timeouts, but that was before the inactive
+    # sources were deleted (014). Re-measured 10-13 on 12 questions x 3 rounds:
+    # 0 timeouts at 1/4/8, median 1.82s -> 0.24s at 4 (8 was no faster, worse
+    # tail). Production does these 8 calls in ~12.7s sequentially (HF is far
+    # from the Seoul DB), so this is most of the search time there.
+    rag_rpc_concurrency: int = Field(default=4, ge=1, le=8)
     # NOTE: tried a tighter per-URL cap (1) specifically for lexical-only
     # hits, on the theory that one broad keyword-rich document (e.g. a
     # 2000+ chunk "student life guide" ebook) was crowding out other
@@ -65,6 +73,11 @@ class Settings(BaseSettings):
     reranker_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     reranker_device: str = "cpu"
     reranker_weight: float = 0.80
+    # int8 dynamic quantization of the reranker's Linear layers (CPU only).
+    # Measured 2026-10-02 on 20 real candidate sets: 3.84s -> 2.54s per set
+    # (1.5x), but the top-1 changed in 40% of sets, so it's off until a
+    # regression eval says answers don't get worse.
+    reranker_quantize: bool = False
     rpc_names: Annotated[List[str], NoDecode] = [
         "match_rule_documents",
         "match_pknu_notice_documents",
@@ -80,6 +93,9 @@ class Settings(BaseSettings):
     # blowing up in json.loads. JSON list form (["a","b"]) is still accepted
     # by the validator below.
     cors_origins: Annotated[List[str], NoDecode] = ["http://localhost:3000"]
+    # 관리자 대시보드(/admin/*)에 접근할 수 있는 계정 이메일 (콤마 구분).
+    # 비어 있으면 아무도 접근할 수 없다(기본 거부). 대소문자 무시.
+    admin_emails: Annotated[List[str], NoDecode] = []
     log_level: str = "INFO"
     port: int = 8000
 
@@ -94,7 +110,7 @@ class Settings(BaseSettings):
             )
         return value
 
-    @field_validator("cors_origins", "rpc_names", mode="before")
+    @field_validator("cors_origins", "rpc_names", "admin_emails", mode="before")
     @classmethod
     def _split_csv(cls, value, info):
         if isinstance(value, str):

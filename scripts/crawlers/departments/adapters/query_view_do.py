@@ -153,7 +153,10 @@ class QueryViewDoAdapter(DepartmentCMSAdapter):
                     if not str(img["src"]).startswith("data:")]}
                    if not body_text and images else {})}
 
-    def parse_static(self, soup: BeautifulSoup, *, fallback_title: str) -> dict[str, Any]:
+    def parse_static(
+        self, soup: BeautifulSoup, *, fallback_title: str,
+        page_url: str = "", base_url: str = "", site_prefix: str = "",
+    ) -> dict[str, Any]:
         title = soup.select_one("h1, .page-title")
         content = soup.select_one(".sub-content, main, #container-wrap, .contents")
         return {"title": title.get_text(" ", strip=True) if title else fallback_title,

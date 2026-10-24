@@ -42,6 +42,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const ALREADY_REGISTERED_MESSAGE = "이미 가입된 계정입니다. 로그인해 주세요.";
+
 // ── 에러 메시지 정규화 ────────────────────────────────────────────────────────
 // Supabase 에러 메시지는 영어라 한국어로 짧게 매핑. 매칭 안 되면 원문 그대로.
 function normalizeAuthError(message: string | undefined | null): string {
@@ -54,7 +56,7 @@ function normalizeAuthError(message: string | undefined | null): string {
     return "이메일 인증이 완료되지 않았습니다. 받은 메일을 확인해 주세요.";
   }
   if (m.includes("user already registered")) {
-    return "이미 가입된 이메일입니다.";
+    return ALREADY_REGISTERED_MESSAGE;
   }
   if (m.includes("password should be at least")) {
     return "비밀번호는 6자 이상이어야 합니다.";
@@ -117,6 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         },
       });
       if (error) return { ok: false, message: normalizeAuthError(error.message) };
+
+      // 이미 가입(인증 완료)된 이메일: Supabase 는 이메일 열거 공격 방지 때문에 에러 대신
+      // identities 가 빈 배열인 가짜 user 를 돌려주고 메일도 보내지 않는다. 이걸 성공으로
+      // 처리하면 "확인 메일을 보냈습니다"가 떠서 사용자가 오지 않는 메일을 기다리게 된다.
+      if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { ok: false, message: ALREADY_REGISTERED_MESSAGE };
+      }
 
       // Supabase 는 이메일 확인이 켜져 있으면 session 을 null 로 반환하고 confirmation 메일을 보낸다.
       const emailConfirmationRequired = !data.session;

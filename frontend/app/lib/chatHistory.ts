@@ -41,18 +41,79 @@ export async function createChat(title: string, userId: string): Promise<ChatRow
   return data as ChatRow;
 }
 
+/** 저장된 메시지의 DB id 를 돌려준다 (답변 피드백을 이 id 에 연결). */
 export async function insertChatMessage(
   chatId: string,
   role: "user" | "assistant",
   content: string,
   sources: ChatSource[] | null,
-): Promise<void> {
-  const { error } = await supabase.from("chat_messages").insert({
-    chat_id: chatId,
-    role,
-    content,
-    sources,
-  });
+): Promise<string> {
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({
+      chat_id: chatId,
+      role,
+      content,
+      sources,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return (data as { id: string }).id;
+}
+
+// ── 답변 피드백 (message_feedback, 015 마이그레이션) ─────────────────────────
+// RLS: 본인 행만, 본인 채팅의 assistant 메시지에만 작성 가능. (message_id, user_id) 유니크.
+
+export type FeedbackRating = "up" | "down";
+
+export interface MessageFeedback {
+  rating: FeedbackRating;
+  /** 싫어요 사유 (좋아요면 빈 배열) */
+  reasons: string[];
+  /** 싫어요 추가 의견 (좋아요면 null) */
+  comment: string | null;
+}
+
+/** 여러 메시지에 대해 내가 남긴 피드백을 message_id → 피드백 으로 조회 */
+export async function fetchFeedbackForMessages(
+  messageIds: string[],
+): Promise<Record<string, MessageFeedback>> {
+  if (messageIds.length === 0) return {};
+  const { data, error } = await supabase
+    .from("message_feedback")
+    .select("message_id, rating, reasons, comment")
+    .in("message_id", messageIds);
+
+  if (error) throw error;
+  const byMessage: Record<string, MessageFeedback> = {};
+  for (const row of (data ?? []) as Array<MessageFeedback & { message_id: string }>) {
+    byMessage[row.message_id] = { rating: row.rating, reasons: row.reasons ?? [], comment: row.comment };
+  }
+  return byMessage;
+}
+
+/** 피드백 저장. 같은 답변에 이미 있으면 덮어쓴다(좋아요 ↔ 싫어요 전환). */
+export async function saveFeedback(messageId: string, feedback: MessageFeedback): Promise<void> {
+  const isDown = feedback.rating === "down";
+  const { error } = await supabase.from("message_feedback").upsert(
+    {
+      message_id: messageId,
+      rating: feedback.rating,
+      // DB 제약: 사유·의견은 싫어요에만 허용
+      reasons: isDown ? feedback.reasons : [],
+      comment: isDown ? feedback.comment : null,
+    },
+    { onConflict: "message_id,user_id" },
+  );
+
+  if (error) throw error;
+}
+
+/** 피드백 취소 (내 행만 지워진다 — RLS) */
+export async function deleteFeedback(messageId: string): Promise<void> {
+  const { error } = await supabase.from("message_feedback").delete().eq("message_id", messageId);
 
   if (error) throw error;
 }

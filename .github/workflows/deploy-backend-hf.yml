@@ -1,0 +1,66 @@
+name: Deploy backend to Hugging Face Space
+
+# The Space (fdsafd4555/campus-rag-backend) is a separate git repo that used
+# to be synced by hand; it sat on the 2026-06-10 backend while main moved on.
+# This pushes backend/app, backend/prompts and backend/requirements-runtime.txt
+# to the Space on every main change. Space-only files (Dockerfile, README.md
+# with the Space config header, .gitignore, .gitattributes) are left untouched.
+#
+# Requires the GitHub repo secret HF_TOKEN: a Hugging Face access token with
+# write access to the Space.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/app/**"
+      - "backend/prompts/**"
+      - "backend/requirements-runtime.txt"
+      - ".github/workflows/deploy-backend-hf.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-backend-hf
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HF_SPACE: fdsafd4555/campus-rag-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check HF_TOKEN secret
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret is not set (Settings > Secrets and variables > Actions)."
+            exit 1
+          fi
+
+      - name: Clone the Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: git clone "https://user:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" space
+
+      - name: Copy backend code into the Space
+        run: |
+          rsync -a --delete --exclude '__pycache__/' --exclude '*.pyc' backend/app/ space/app/
+          rsync -a --delete backend/prompts/ space/prompts/
+          cp backend/requirements-runtime.txt space/requirements.txt
+
+      - name: Commit and push if anything changed
+        working-directory: space
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Space already up to date."
+            exit 0
+          fi
+          git diff --cached --stat
+          git commit -m "sync from github main ${GITHUB_SHA::7}"
+          git push

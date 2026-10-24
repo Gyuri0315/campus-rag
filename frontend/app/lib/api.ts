@@ -24,6 +24,7 @@ export type ChatSource = {
 export type AskResult = {
   answer: string;
   sources: ChatSource[];
+  answerable: boolean;
 };
 
 type BackendSource = {
@@ -36,6 +37,7 @@ type BackendSource = {
 type BackendAskResponse = {
   answer?: string;
   sources?: BackendSource[];
+  answerable?: boolean;
 };
 
 const DEFAULT_CATEGORY = "자료";
@@ -83,6 +85,7 @@ export async function askBackend(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      Accept: "application/json",
       Authorization: `Bearer ${session.access_token}`,
     },
     body: JSON.stringify({ question }),
@@ -94,8 +97,94 @@ export async function askBackend(
   }
 
   const data = (await res.json()) as BackendAskResponse;
+  if (typeof data?.answer !== "string" || !Array.isArray(data.sources)) {
+    throw new Error("답변 응답 형식이 올바르지 않습니다.");
+  }
+  // Older backends omit the flag; treat that as answerable.
+  const answerable = data.answerable !== false;
   return {
     answer: (data.answer ?? "").trim(),
-    sources: (data.sources ?? []).map(adaptSource),
+    // A "no info" refusal cites nothing, so don't show source chips under it.
+    sources: answerable ? (data.sources ?? []).map(adaptSource) : [],
+    answerable,
   };
+}
+
+// ── 관리자 대시보드 (/api/admin/dashboard → 백엔드 /admin/dashboard) ─────────────
+
+export type AdminThumbsEntry = {
+  id: string;
+  kind: "up" | "down";
+  question: string;
+  answer: string;
+  createdAt: string;
+  reasons: string[];
+};
+
+export type AdminCommentEntry = {
+  id: string;
+  comment: string;
+  relatedQuestion: string | null;
+  createdAt: string;
+};
+
+export type AdminTopQuestion = { id: string; question: string; count: number };
+
+export type AdminDashboard = {
+  summary: {
+    totalFeedback: number;
+    upCount: number;
+    downCount: number;
+    /** 피드백이 0건이면 null */
+    satisfactionRate: number | null;
+    totalQuestions: number;
+    /** 자주 묻는 질문 집계에 쓴 최근 질문 수 */
+    questionSampleSize: number;
+    lastUpdatedAt: string;
+  };
+  feedback: { thumbs: AdminThumbsEntry[]; comments: AdminCommentEntry[] };
+  topQuestions: AdminTopQuestion[];
+};
+
+/** 실패 시 status(401 로그인 필요 / 403 관리자 아님 등)를 담아 던진다. */
+export class AdminApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
+/** 로그인한 사용자가 관리자인지. 로그아웃 상태나 오류면 false. */
+export async function fetchIsAdmin(signal?: AbortSignal): Promise<boolean> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) return false;
+
+  try {
+    const res = await fetch("/api/admin/me", {
+      headers: { Accept: "application/json", Authorization: `Bearer ${session.access_token}` },
+      cache: "no-store",
+      signal,
+    });
+    if (!res.ok) return false;
+    const body = (await res.json()) as { isAdmin?: unknown };
+    return body.isAdmin === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchAdminDashboard(signal?: AbortSignal): Promise<AdminDashboard> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new AdminApiError("로그인이 필요합니다.", 401);
+
+  const res = await fetch("/api/admin/dashboard", {
+    headers: { Accept: "application/json", Authorization: `Bearer ${session.access_token}` },
+    cache: "no-store",
+    signal,
+  });
+  if (!res.ok) throw new AdminApiError(await readErrorMessage(res), res.status);
+  return (await res.json()) as AdminDashboard;
 }

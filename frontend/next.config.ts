@@ -36,6 +36,11 @@ const nextConfig: NextConfig = {
       ? { NEXT_PUBLIC_SUPABASE_ANON_KEY: supabaseAnonKey }
       : {}),
   },
+  // 기본 위치(bottom-left)가 /chat 모바일 화면의 입력창·면책 문구와 겹쳐 보이는
+  // 문제 리포트가 있어 화면 위쪽으로 옮김. 개발 모드 전용 배지라 배포본에는 영향 없음.
+  devIndicators: {
+    position: "top-right",
+  },
 };
 
 export default nextConfig;

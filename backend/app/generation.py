@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 
 from openai import OpenAI
 
+from .freshness import current_term_label, today_kst
+
 logger = logging.getLogger(__name__)
 
 PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
@@ -69,8 +71,11 @@ def _format_source_block(rows: List[Dict[str, Any]], max_chars_per_chunk: int) -
         final_score_text = _format_score(row.get("final_score"))
         rerank_score_text = _format_score(row.get("rerank_score"))
         content = _truncate(str(row.get("content") or ""), max_chars_per_chunk)
+        posted = _posted_date(metadata)
         lines.append(f"[{index}]")
         lines.append(f"제목: {str(title).strip() or '제목 없음'}")
+        if posted:
+            lines.append(f"게시일: {posted}")
         lines.append(f"URL: {str(uri).strip() or 'URL 없음'}")
         lines.append(f"유사도: {similarity_text}")
         lines.append(f"우선순위: {priority_text}")
@@ -83,6 +88,14 @@ def _format_source_block(rows: List[Dict[str, Any]], max_chars_per_chunk: int) -
     return "\n".join(lines).rstrip()
 
 
+def _posted_date(metadata: Dict[str, Any]) -> str:
+    for key in ("published_at", "date", "posted_at"):
+        value = str(metadata.get(key) or "").strip()
+        if len(value) >= 10 and value[:4].isdigit():
+            return value[:10]
+    return ""
+
+
 def build_user_message(
     question: str,
     rows: List[Dict[str, Any]],
@@ -91,7 +104,12 @@ def build_user_message(
     sources_block = (
         _format_source_block(rows, max_chars_per_chunk) if rows else "(자료 없음)"
     )
+    # The model doesn't know today's date; without it a 2025 notice reads as
+    # "the" schedule (observed 2026-10-13: "수강신청 기간" was answered with
+    # 2025-1학기 dates as if they were current).
+    today = today_kst()
     return (
+        f"## 오늘 날짜\n{today.isoformat()} ({current_term_label(today)})\n\n"
         "## 사용자 질문\n"
         f"{question}\n\n"
         "## 참고 자료\n"
@@ -106,7 +124,9 @@ def build_user_message(
         "- 답변에 사용한 근거는 문장 끝에 [1], [2] 형식으로 표시하세요.\n"
         "- 참고 자료에 질문과 관련된 내용이 하나라도 있으면 확인 가능한 범위까지 답하세요.\n"
         "- 일부 세부 정보가 없다는 이유로 답변 전체를 포기하지 말고, 확인되지 않는 부분만 명확히 구분하세요.\n"
-        "- 질문의 핵심에 답할 근거가 참고 자료에 전혀 없을 때만 \"관련 정보를 찾을 수 없습니다.\"라고만 답하세요."
+        "- 질문의 핵심에 답할 근거가 참고 자료에 전혀 없을 때만 \"관련 정보를 찾을 수 없습니다.\"라고만 답하세요.\n"
+        "- 일정·기간·금액은 오늘 날짜 기준 가장 최신 학기 자료를 우선하세요. 인용한 자료가 지난 학기·연도의 것이면 "
+        "그 학기·연도를 밝히고, 이번 학기 일정은 최신 공지를 확인해야 한다고 덧붙이세요."
     )
 
 
@@ -117,7 +137,12 @@ def build_messages(
     max_chars_per_chunk: int,
     chat_history: Optional[List[Dict[str, str]]] = None,
 ) -> List[Dict[str, str]]:
-    """Assemble the system prompt, prior turns, and current question with sources."""
+    """Assemble the full chat message list: system prompt, prior turns (if
+    any), then this turn's question+retrieved-sources as the final user
+    message. Prior turns are trusted conversation state (not retrieved
+    documents), so they're passed through as-is rather than routed through
+    build_user_message's "참고 자료" framing.
+    """
     messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
     for turn in chat_history or []:
         role = turn.get("role")
@@ -141,21 +166,20 @@ def generate_answer(
     timeout: float,
     temperature: float = 0.1,
     max_tokens: int = 700,
+    chat_history: Optional[List[Dict[str, str]]] = None,
 ) -> str:
-    user_message = build_user_message(question, rows, max_chars_per_chunk)
+    messages = build_messages(system_prompt, question, rows, max_chars_per_chunk, chat_history)
     logger.info(
-        "generation: start model=%s source_count=%d max_chars_per_chunk=%d",
+        "generation: start model=%s source_count=%d max_chars_per_chunk=%d history_turns=%d",
         model,
         len(rows),
         max_chars_per_chunk,
+        len(chat_history or []),
     )
     started = time.perf_counter()
     response = openai_client.chat.completions.create(
         model=model,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
+        messages=messages,
         temperature=temperature,
         max_tokens=max_tokens,
         timeout=timeout,

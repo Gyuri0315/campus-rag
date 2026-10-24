@@ -61,4 +61,28 @@ def require_user(
         raise HTTPException(status_code=401, detail="로그인 세션이 유효하지 않습니다.")
 
     request.state.user_id = response.user.id
+    request.state.user_email = (response.user.email or "").lower()
     return response.user.id
+
+
+def require_admin(
+    request: Request,
+    user_id: str = Depends(require_user),
+    state: AppState = Depends(get_state),
+) -> str:
+    """Logged-in user whose email is in Settings.admin_emails, else 403.
+
+    Admin endpoints read every user's chats/feedback with the service-role
+    client (RLS bypassed), so the allowlist is the only gate. An empty list
+    denies everyone.
+    """
+    if not is_admin_request(request, state):
+        raise HTTPException(status_code=403, detail="관리자만 접근할 수 있습니다.")
+    return user_id
+
+
+def is_admin_request(request: Request, state: AppState) -> bool:
+    """Whether the caller (already authenticated by require_user) is on the
+    admin allowlist. An empty list means nobody is an admin."""
+    allowed = {email.lower() for email in state.settings.admin_emails}
+    return getattr(request.state, "user_email", "") in allowed

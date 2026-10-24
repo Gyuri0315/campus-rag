@@ -3,6 +3,9 @@
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkBreaks from "remark-breaks";
+import remarkGfm from "remark-gfm";
 import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
 import { displayNameOf, useAuth } from "@/app/context/AuthContext";
@@ -10,8 +13,12 @@ import { askBackend } from "@/app/lib/api";
 import {
   createChat,
   deleteChat,
+  deleteFeedback,
   fetchChatMessages,
+  fetchFeedbackForMessages,
   insertChatMessage,
+  saveFeedback,
+  type MessageFeedback,
   listChats,
   parseStoredSources,
   updateChatTitle,
@@ -36,11 +43,16 @@ interface Source {
 }
 
 interface Message {
+  /** 화면용 로컬 id (React key) */
   id: string;
+  /** DB(chat_messages) id — 저장이 끝난 메시지에만 있다. 피드백은 이 id 에 연결된다. */
+  dbId?: string;
   role: "user" | "assistant";
   content: string;
   attachments?: Attachment[];
   sources?: Source[];
+  /** 내가 이 답변에 남긴 피드백 (없으면 null/undefined) */
+  feedback?: MessageFeedback | null;
 }
 
 interface HistoryItem {
@@ -64,6 +76,8 @@ function isPersistedChatId(id: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
+// "loading": JSON 답변 대기 ·
+// "success"/"error": 완료 상태
 type ChatState = "idle" | "loading" | "success" | "error";
 
 // ── 고유 ID ───────────────────────────────────────────────────────────────────
@@ -169,9 +183,19 @@ const FEEDBACK_TYPES = [
   "원하는 답변이 아니에요",
 ];
 
-function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSubmit: () => void }) {
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [comment, setComment] = useState("");
+const FEEDBACK_COMMENT_MAX = 1000; // DB 제약(message_feedback_comment_length)과 같은 값
+
+function DislikeFeedbackModal({
+  onClose,
+  onSubmit,
+  initial,
+}: {
+  onClose: () => void;
+  onSubmit: (reasons: string[], comment: string | null) => void;
+  initial?: MessageFeedback | null;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(initial?.reasons ?? []));
+  const [comment, setComment] = useState(initial?.comment ?? "");
 
   const toggle = (type: string) => {
     setSelected((prev) => {
@@ -183,7 +207,10 @@ function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSu
   };
 
   const handleSubmit = () => {
-    onSubmit();
+    // 선택 순서와 무관하게 화면 순서대로 저장
+    const reasons = FEEDBACK_TYPES.filter((type) => selected.has(type));
+    const trimmed = comment.trim();
+    onSubmit(reasons, trimmed ? trimmed : null);
     onClose();
   };
 
@@ -251,6 +278,7 @@ function DislikeFeedbackModal({ onClose, onSubmit }: { onClose: () => void; onSu
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           placeholder="추가 의견을 입력해 주세요 (선택)"
+          maxLength={FEEDBACK_COMMENT_MAX}
           rows={3}
           className="w-full resize-none rounded-xl px-3 py-2.5 text-xs sm:text-[13px] outline-none placeholder:text-gray-400 leading-relaxed"
           style={{
@@ -355,13 +383,15 @@ function SourceCard({ source }: { source: Source }) {
         </a>
       </div>
 
-      {/* Body */}
-      <div className="px-3.5 pb-3 sm:px-4 sm:pb-3.5">
-        <h3 className="mb-2.5 text-sm font-bold leading-snug sm:text-[15px]" style={{ color: "var(--clr-text)" }}>
+      {/* Body — 제목 + 첨부파일만 (원문 발췌 박스는 길어서 제거, 원문은 "원문 보기"로 확인).
+          요소별 margin 대신 gap을 써서 마지막 요소 뒤에 여백이 남지 않게 하고,
+          하단 padding은 헤더 상단 padding(pt-3.5 / sm:pt-4)과 맞춘다. */}
+      <div className="flex flex-col gap-2.5 px-3.5 pb-3.5 sm:px-4 sm:pb-4">
+        <h3 className="text-sm font-bold leading-snug sm:text-[15px]" style={{ color: "var(--clr-text)" }}>
           {source.title}
         </h3>
         {hasAttachments && (
-          <div className="mb-3 flex flex-col items-start gap-1.5">
+          <div className="flex flex-col items-start gap-1.5">
             {source.attachments.map((attachment) => (
               <a
                 key={attachment.url}
@@ -379,92 +409,116 @@ function SourceCard({ source }: { source: Source }) {
             ))}
           </div>
         )}
-        {source.quote && (
-          <blockquote
-            className="rounded-r-md border-l-[3px] py-2.5 pl-3 pr-2.5"
-            style={{
-              borderColor: SOURCE_CARD_NAVY,
-              background: "rgba(37,52,139,0.04)",
-            }}
-          >
-            <p className="text-[11px] sm:text-sm leading-relaxed" style={{ color: "#334155" }}>
-              {source.quote}
-            </p>
-            {source.quoteSource && (
-              <p className="mt-2.5 text-[10px] sm:text-[11px] leading-snug not-italic" style={{ color: "var(--clr-text-muted)" }}>
-                — {source.quoteSource}
-              </p>
-            )}
-          </blockquote>
-        )}
       </div>
     </div>
   );
 }
 
-// ── AI 답변 메시지 컴포넌트 ───────────────────────────────────────────────────
-function AnswerContent({ content }: { content: string }) {
-  const lines = content.replace(/\r\n?/g, "\n").split("\n");
+// 답변 마크다운 → 기존 답변 카드 스타일에 맞춘 요소
+// (react-markdown은 원시 HTML을 렌더링하지 않고 javascript: 같은 위험한 링크를 걸러낸다)
+const answerMarkdownComponents: Components = {
+  h1: ({ children }) => <h4 className="mt-1 font-bold leading-relaxed first:mt-0">{children}</h4>,
+  h2: ({ children }) => <h4 className="mt-1 font-bold leading-relaxed first:mt-0">{children}</h4>,
+  h3: ({ children }) => <h4 className="mt-1 font-bold leading-relaxed first:mt-0">{children}</h4>,
+  p: ({ children }) => <p className="break-words">{children}</p>,
+  strong: ({ children }) => <strong className="font-bold">{children}</strong>,
+  // 위험한 링크(javascript: 등)는 react-markdown이 href를 비워 주므로 일반 텍스트로 표시
+  a: ({ href, children }) => !href ? <span>{children}</span> : (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="break-all font-semibold underline decoration-1 underline-offset-2 hover:opacity-70"
+      style={{ color: "var(--clr-navy)" }}
+    >
+      {children}
+    </a>
+  ),
+  ul: ({ children }) => <ul className="flex list-disc flex-col gap-1 pl-5 marker:font-bold">{children}</ul>,
+  ol: ({ children }) => (
+    <ol className="flex list-decimal flex-col gap-1 pl-5 marker:font-semibold marker:tabular-nums">{children}</ol>
+  ),
+  li: ({ children }) => <li className="break-words pl-0.5">{children}</li>,
+  code: ({ children }) => (
+    <code className="rounded px-1 py-0.5 text-[0.9em]" style={{ background: "rgba(37,52,139,0.08)" }}>
+      {children}
+    </code>
+  ),
+  table: ({ children }) => (
+    <div className="overflow-x-auto">
+      <table className="w-full border-collapse text-left">{children}</table>
+    </div>
+  ),
+  th: ({ children }) => (
+    <th className="border px-2 py-1 font-semibold" style={{ borderColor: "rgba(37,52,139,0.15)" }}>
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="border px-2 py-1" style={{ borderColor: "rgba(37,52,139,0.15)" }}>
+      {children}
+    </td>
+  ),
+};
 
+const LIST_ITEM_RE = /^\s*(?:[-*+•]|\d+[.)])\s+/;
+
+// GPT 답변을 마크다운 규칙에 맞게 다듬는다.
+// - "• 항목" 은 마크다운 목록이 아니므로 "- 항목" 으로 바꾼다.
+// - 목록 바로 다음에 빈 줄 없이 이어지는 일반 문장은 마크다운에서 마지막 항목에
+//   붙어버리므로(lazy continuation) 사이에 빈 줄을 넣어 별도 문단으로 만든다.
+function normalizeAnswerMarkdown(content: string): string {
+  const lines = content.replace(/\r\n?/g, "\n").split("\n").map((line) => line.replace(/^(\s*)•\s+/, "$1- "));
+  const output: string[] = [];
+  lines.forEach((line, index) => {
+    const previous = index > 0 ? lines[index - 1] : "";
+    const continuesList = LIST_ITEM_RE.test(previous) && line.trim() !== "" && !LIST_ITEM_RE.test(line) && !/^\s/.test(line);
+    if (continuesList) output.push("");
+    output.push(line);
+  });
+  return output.join("\n");
+}
+
+// 완성된 JSON 답변 표시 (마크다운: 굵게·링크·목록·표, 줄바꿈 유지)
+function AnswerContent({ content }: { content: string }) {
   return (
     <div
       className="flex flex-col gap-2.5 text-xs leading-7 sm:text-sm sm:leading-7"
       style={{ color: "var(--clr-text)" }}
     >
-      {lines.map((rawLine, index) => {
-        const line = rawLine.trim();
-        if (!line) return null;
-
-        const heading = line.match(/^#{1,3}\s+(.+)$/);
-        if (heading) {
-          return (
-            <h4 key={index} className="mt-1 font-bold leading-relaxed first:mt-0">
-              {heading[1]}
-            </h4>
-          );
-        }
-
-        const unordered = line.match(/^[-*•]\s+(.+)$/);
-        if (unordered) {
-          return (
-            <div key={index} className="flex items-start gap-2 pl-1">
-              <span className="mt-[0.05em] shrink-0 font-bold" aria-hidden="true">•</span>
-              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-                {unordered[1]}
-              </p>
-            </div>
-          );
-        }
-
-        const ordered = line.match(/^(\d+)[.)]\s+(.+)$/);
-        if (ordered) {
-          return (
-            <div key={index} className="flex items-start gap-2 pl-1">
-              <span className="min-w-[1.25rem] shrink-0 font-semibold tabular-nums">
-                {ordered[1]}.
-              </span>
-              <p className="min-w-0 flex-1 whitespace-pre-wrap break-words">
-                {ordered[2]}
-              </p>
-            </div>
-          );
-        }
-
-        return (
-          <p key={index} className="whitespace-pre-wrap break-words">
-            {line}
-          </p>
-        );
-      })}
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]} components={answerMarkdownComponents}>
+        {normalizeAnswerMarkdown(content)}
+      </ReactMarkdown>
     </div>
   );
 }
 
-function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () => void }) {
+function AssistantMessage({
+  msg,
+  onFeedbackChange,
+}: {
+  msg: Message;
+  /** 피드백 저장/취소(null). 상태는 부모의 messages 에 있어 대화를 다시 열어도 유지된다. */
+  onFeedbackChange: (next: MessageFeedback | null) => void;
+}) {
   const [activeSourceId, setActiveSourceId] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
-  const [liked, setLiked] = useState(false);
   const [dislikeOpen, setDislikeOpen] = useState(false);
+  const rating = msg.feedback?.rating ?? null;
+  // 저장이 끝난 답변(DB id 있음)에만 피드백을 남길 수 있다.
+  const canFeedback = Boolean(msg.dbId);
+  const feedbackDisabledTitle = "답변 저장이 끝난 뒤 피드백을 남길 수 있어요";
+
+  // 좋아요 ↔ 싫어요는 배타적: 좋아요를 누르면 싫어요(사유 포함)가 좋아요로 바뀌고, 같은 버튼을 다시 누르면 취소.
+  const handleLike = () => {
+    if (!canFeedback) return;
+    onFeedbackChange(rating === "up" ? null : { rating: "up", reasons: [], comment: null });
+  };
+  const handleDislike = () => {
+    if (!canFeedback) return;
+    if (rating === "down") onFeedbackChange(null);
+    else setDislikeOpen(true);
+  };
   const hasSources = msg.sources && msg.sources.length > 0;
 
   const handleCopy = () => {
@@ -526,28 +580,39 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
                 {copied ? <IconCheckSm /> : <IconCopy />}
               </button>
               <button
-                onClick={() => setLiked((v) => !v)}
-                title="도움이 됐어요"
-                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
+                type="button"
+                onClick={handleLike}
+                disabled={!canFeedback}
+                aria-pressed={rating === "up"}
+                title={canFeedback ? (rating === "up" ? "좋아요 취소" : "도움이 됐어요") : feedbackDisabledTitle}
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60 disabled:cursor-not-allowed disabled:opacity-40"
                 style={{
-                  color: liked ? "var(--clr-navy)" : "var(--clr-text-muted)",
-                  background: liked ? "rgba(37,52,139,0.08)" : "transparent",
+                  color: rating === "up" ? "var(--clr-navy)" : "var(--clr-text-muted)",
+                  background: rating === "up" ? "rgba(37,52,139,0.08)" : "transparent",
                 }}
               >
                 <IconThumbUp />
               </button>
               <button
-                onClick={() => setDislikeOpen(true)}
-                title="도움이 안 됐어요"
-                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60"
-                style={{ color: "var(--clr-text-muted)" }}
+                type="button"
+                onClick={handleDislike}
+                disabled={!canFeedback}
+                aria-pressed={rating === "down"}
+                title={canFeedback ? (rating === "down" ? "싫어요 취소" : "도움이 안 됐어요") : feedbackDisabledTitle}
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all hover:bg-white/60 disabled:cursor-not-allowed disabled:opacity-40"
+                style={{
+                  color: rating === "down" ? "#c53030" : "var(--clr-text-muted)",
+                  background: rating === "down" ? "rgba(197,48,48,0.08)" : "transparent",
+                }}
               >
                 <IconThumbDown />
               </button>
             </div>
 
             {hasSources && (
-              <div className="flex items-center gap-1.5 flex-shrink-0 ml-auto">
+              /* 출처가 많으면(①~⑩) 모바일에서 한 줄로 안 들어가 오른쪽이 잘리던 문제:
+                 flex-shrink-0 + 줄바꿈 없음 → 묶음 안에서 줄바꿈되도록 flex-wrap, 오른쪽 정렬 유지 */
+              <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5">
                 {msg.sources!.map((src) => {
                   const active = activeSourceId === src.id;
                   return (
@@ -588,7 +653,8 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
         {dislikeOpen && (
           <DislikeFeedbackModal
             onClose={() => setDislikeOpen(false)}
-            onSubmit={onFeedback}
+            onSubmit={(reasons, comment) => onFeedbackChange({ rating: "down", reasons, comment })}
+            initial={msg.feedback}
           />
         )}
 
@@ -600,7 +666,7 @@ function AssistantMessage({ msg, onFeedback }: { msg: Message; onFeedback: () =>
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────────
 export default function ChatContent() {
   const router = useRouter();
-  const { pendingQuery, setPendingQuery } = useQueryContext();
+  const { takePendingQuery } = useQueryContext();
   const { user, loading: authLoading, signOut } = useAuth();
 
   // 로그인 필수: 세션 없으면 로그인 화면으로 (비회원 채팅 더 이상 허용 안 함)
@@ -640,6 +706,33 @@ export default function ChatContent() {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setToast(msg);
     toastTimerRef.current = setTimeout(() => setToast(null), 3000);
+  };
+
+  // ── 답변 피드백 저장 ──────────────────────────────────────────
+  // 화면을 먼저 바꾸고(낙관적 업데이트) 저장이 실패하면 이전 상태로 되돌린다.
+  // 같은 답변에 요청이 겹치면 응답 순서가 뒤바뀌어 화면과 DB가 어긋날 수 있어,
+  // 저장 중인 답변의 추가 클릭은 무시한다.
+  const feedbackInFlightRef = useRef<Set<string>>(new Set());
+  const handleFeedbackChange = async (localId: string, next: MessageFeedback | null) => {
+    const target = messages.find((m) => m.id === localId);
+    if (!target?.dbId || feedbackInFlightRef.current.has(localId)) return;
+    const previous = target.feedback ?? null;
+    const setFeedback = (feedback: MessageFeedback | null) =>
+      setMessages((prev) => prev.map((m) => (m.id === localId ? { ...m, feedback } : m)));
+
+    feedbackInFlightRef.current.add(localId);
+    setFeedback(next);
+    try {
+      if (next) await saveFeedback(target.dbId, next);
+      else await deleteFeedback(target.dbId);
+      if (next?.rating === "down") showToast("피드백 감사합니다");
+    } catch (err) {
+      console.error("[chat] save feedback failed:", err);
+      setFeedback(previous);
+      showToast("피드백 저장에 실패했습니다.");
+    } finally {
+      feedbackInFlightRef.current.delete(localId);
+    }
   };
 
   const closeContextMenu = () => {
@@ -703,15 +796,17 @@ export default function ChatContent() {
     };
   }, [user, authLoading]);
 
-  // ── Context 질문 소비: 인증 준비 후 (cleanup 없음 — 빈 pending 시 재실행으로 abort 방지)
+  // ── Context 질문 소비: 인증 준비 후.
+  // takePendingQuery()는 읽음과 동시에 지우는 원자적 연산이라(QueryContext 참고),
+  // 이 effect가 React StrictMode로 두 번 호출되거나 /chat이 두 번 마운트되는
+  // 레이스가 있어도 실제로 값을 가져가는 쪽은 항상 한 번뿐이라 cleanup이 필요 없다.
   useEffect(() => {
     if (authLoading) return;
-    const q = pendingQuery.trim();
+    const q = takePendingQuery().trim();
     if (!q) return;
-    setPendingQuery("");
     startConversation(q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [authLoading, pendingQuery]);
+  }, [authLoading, takePendingQuery]);
 
   useEffect(() => {
     return () => {
@@ -807,22 +902,23 @@ export default function ChatContent() {
     try {
       const { answer, sources } = await askBackend(question, controller.signal);
       if (controller.signal.aborted) return;
-      const text = answer || "관련 정보를 찾을 수 없습니다.";
+      const finalContent = answer || "관련 정보를 찾을 수 없습니다.";
+      const finalSources = sources;
+      const assistantLocalId = uid();
       setMessages((prev) => [
         ...prev,
-        {
-          id: uid(),
-          role: "assistant",
-          content: text,
-          attachments: [],
-          sources,
-        },
+        { id: assistantLocalId, role: "assistant", content: finalContent, attachments: [], sources },
       ]);
+
       setChatState("success");
 
-      if (user?.id && persistedChatId && !controller.signal.aborted) {
+      if (user?.id && persistedChatId) {
         try {
-          await insertChatMessage(persistedChatId, "assistant", text, sources ?? null);
+          const assistantDbId = await insertChatMessage(persistedChatId, "assistant", finalContent, finalSources ?? null);
+          // 저장이 끝나야 피드백 버튼이 활성화된다(피드백은 DB 메시지 id 에 연결).
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantLocalId ? { ...m, dbId: assistantDbId } : m)),
+          );
           const refreshed = await listChats();
           setHistory(refreshed.map((r) => ({ id: r.id, title: r.title })));
         } catch (err) {
@@ -856,6 +952,10 @@ export default function ChatContent() {
 
   // ── NEW_CHAT ──────────────────────────────────────────────────
   const handleNewChat = () => {
+    // 응답 대기 중 다른 채팅으로 전환하는 경우, 늦게 도착한 이전 질문의 답변이
+    // (controller.signal.aborted 체크를 통과해) 지금 화면의 messages에 잘못
+    // append 되는 것을 막기 위해 진행 중인 요청을 여기서 명시적으로 취소한다.
+    if (aiAbortRef.current) aiAbortRef.current.abort();
     setMessages([]);
     setChatState("idle");
     setInputValue("");
@@ -870,6 +970,9 @@ export default function ChatContent() {
 
   // ── LOAD_HISTORY ──────────────────────────────────────────────
   const handleLoadHistory = async (item: HistoryItem) => {
+    // handleNewChat과 동일한 이유: 다른 채팅 기록을 불러오는 도중 이전 요청이
+    // 뒤늦게 응답하면 그 답변이 방금 로드한 대화의 messages에 섞여 들어간다.
+    if (aiAbortRef.current) aiAbortRef.current.abort();
     pendingChatCreateRef.current = null;
     setActiveId(item.id);
     setChatTitle(item.title);
@@ -881,15 +984,26 @@ export default function ChatContent() {
       persistChatIdRef.current = item.id;
       try {
         const rows = await fetchChatMessages(item.id);
+        // 내가 남긴 피드백을 함께 불러와 버튼 상태를 복원한다. 실패해도 대화는 보여준다.
+        let feedbackByMessage: Record<string, MessageFeedback> = {};
+        try {
+          feedbackByMessage = await fetchFeedbackForMessages(
+            rows.filter((r) => r.role === "assistant").map((r) => r.id),
+          );
+        } catch (err) {
+          console.error("[chat] fetchFeedbackForMessages failed:", err);
+        }
         const mapped: Message[] = rows.map((r) => {
           const src =
             r.role === "assistant" ? parseStoredSources(r.sources) : undefined;
           return {
             id: uid(),
+            dbId: r.id,
             role: r.role,
             content: r.content,
             attachments: [],
             sources: src as Source[] | undefined,
+            feedback: feedbackByMessage[r.id] ?? null,
           };
         });
         setMessages(mapped);
@@ -1000,7 +1114,7 @@ export default function ChatContent() {
   };
 
   return (
-    <div className="bg-app flex h-screen overflow-hidden relative">
+    <div className="bg-app flex h-[100dvh] overflow-hidden relative">
 
       {/* ── 모바일 백드롭 (사이드바 오버레이 시 배경 어둡게) ── */}
       {isMobile && sidebarOpen && (
@@ -1041,12 +1155,16 @@ export default function ChatContent() {
               className="pb-3 mb-2 flex-shrink-0"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.5)" }}
             >
-              <span
-                className="text-xs sm:text-sm font-bold leading-snug block"
+              {/* 홈으로 (홈에서만 관리자 페이지로 갈 수 있다). ?from=chat 이 있으면
+                  홈이 로그인 사용자를 /chat 으로 되돌려 보내지 않는다 (app/page.tsx) */}
+              <Link
+                href="/?from=chat"
+                title="홈으로"
+                className="text-xs sm:text-sm font-bold leading-snug block w-fit transition-opacity hover:opacity-70"
                 style={{ color: "var(--clr-navy)" }}
               >
-                부경대학교<br />컴퓨터·인공지능공학부
-              </span>
+                unira | 부경대학교
+              </Link>
             </div>
 
             {/* 새 채팅 */}
@@ -1456,11 +1574,15 @@ export default function ChatContent() {
                 </span>
               </div>
             ) : (
-              <AssistantMessage key={msg.id} msg={msg} onFeedback={() => showToast("피드백 감사합니다")} />
+              <AssistantMessage
+                key={msg.id}
+                msg={msg}
+                onFeedbackChange={(next) => void handleFeedbackChange(msg.id, next)}
+              />
             )
           )}
 
-          {/* 로딩 */}
+          {/* JSON 답변이 완성될 때까지 로딩 표시 */}
           {chatState === "loading" && (
             <div className="flex justify-start">
               <div className="glass-card rounded-2xl px-4 sm:px-5 py-3 sm:py-4 shadow-sm">
@@ -1470,8 +1592,11 @@ export default function ChatContent() {
                     <span className="typing-dot" />
                     <span className="typing-dot" />
                   </div>
-                  <span className="text-[11px] sm:text-xs" style={{ color: "var(--clr-text-muted)" }}>
-                    답변을 생성하고 있어요...
+                  <span
+                    className="status-fade-in text-[11px] sm:text-xs"
+                    style={{ color: "var(--clr-text-muted)" }}
+                  >
+                    답변과 관련 자료를 준비하고 있어요...
                   </span>
                 </div>
               </div>

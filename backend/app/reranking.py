@@ -12,16 +12,27 @@ logger = logging.getLogger(__name__)
 class CrossEncoderReranker:
     """Thin wrapper around sentence-transformers CrossEncoder."""
 
-    def __init__(self, *, model_name: str, device: str) -> None:
+    def __init__(self, *, model_name: str, device: str, quantize: bool = False) -> None:
         from sentence_transformers import CrossEncoder
 
         started = time.perf_counter()
         self.model_name = model_name
         self._model = CrossEncoder(model_name, device=device)
+        quantized = False
+        if quantize and device == "cpu":
+            import torch
+
+            self._model.model = torch.quantization.quantize_dynamic(
+                self._model.model, {torch.nn.Linear}, dtype=torch.qint8
+            )
+            quantized = True
+        elif quantize:
+            logger.warning("reranker int8 quantization is CPU-only; ignored for device=%s", device)
         logger.info(
-            "reranker loaded model=%s device=%s latency_ms=%.1f",
+            "reranker loaded model=%s device=%s quantized=%s latency_ms=%.1f",
             model_name,
             device,
+            quantized,
             (time.perf_counter() - started) * 1000,
         )
 
