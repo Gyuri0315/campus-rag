@@ -188,3 +188,17 @@ export async function fetchAdminDashboard(signal?: AbortSignal): Promise<AdminDa
   if (!res.ok) throw new AdminApiError(await readErrorMessage(res), res.status);
   return (await res.json()) as AdminDashboard;
 }
+
+/** 여러 사용자가 물어본 인기 질문(없으면 빈 배열). 실패해도 던지지 않는다. */
+export async function fetchPopularQuestions(signal?: AbortSignal): Promise<string[]> {
+  try {
+    const res = await fetch("/api/popular-questions", { headers: { Accept: "application/json" }, signal });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { questions?: unknown };
+    return Array.isArray(body.questions)
+      ? body.questions.filter((q): q is string => typeof q === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}

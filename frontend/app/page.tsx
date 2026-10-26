@@ -8,9 +8,10 @@ import homeData from "@/data/routes/home.json";
 import { useQueryContext } from "./context/QueryContext";
 import { useAuth } from "./context/AuthContext";
 import AuthButtons from "./components/AuthButtons";
+import PopularQuestions from "./components/PopularQuestions";
 import { fetchIsAdmin } from "./lib/api";
 
-const { header, hero, search, exampleTags, footer } = homeData.page;
+const { header, hero, search, footer } = homeData.page;
 
 const NAVY = "#25348B";
 const NAVY_MUTED = "rgba(37,52,139,0.45)";
@@ -45,17 +46,13 @@ export default function HomePage() {
     if (!cameFromChat) router.replace("/chat");
   }, [user, authLoading, router]);
 
-  const handleSearch = () => {
-    const q = query.trim();
+  const ask = (question: string) => {
+    const q = question.trim();
     if (!q) return;
     setPendingQuery(q);
     router.push("/chat");
   };
-
-  const handleTag = (tag: string) => {
-    setQuery(tag);
-    inputRef.current?.focus();
-  };
+  const handleSearch = () => ask(query);
 
   return (
     /* ── 그라데이션 배경 ── */
@@ -195,19 +192,8 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* 예시 태그 */}
-            <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
-              {exampleTags.map((tag) => (
-                <button
-                  key={tag}
-                  onClick={() => handleTag(tag)}
-                  className="glass-tag px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-full text-[11px] sm:text-xs font-semibold"
-                  style={{ color: NAVY }}
-                >
-                  {tag}
-                </button>
-              ))}
-            </div>
+            {/* 자주 묻는 질문 — 누르면 바로 질문 */}
+            <PopularQuestions onSelect={ask} />
           </div>
         </main>
 
