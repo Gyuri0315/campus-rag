@@ -108,6 +108,10 @@ LIST_DELAY = 0.8
 REQUEST_TIMEOUT = 25
 INCREMENTAL_MAX_PAGES = 3
 ORPHAN_MISS_THRESHOLD = 3
+# Most list pages one incremental run may read per category (see
+# collect_list_items); the limit keeps a long outage from turning into a full
+# re-crawl inside the daily workflow's 60-minute budget.
+GAP_FILL_MAX_PAGES = 20
 
 SUBCATEGORY = "부경대 공지사항"
 DOC_TYPE = "notice"
@@ -220,8 +224,20 @@ def collect_list_items(
     cds: list[str],
     max_pages: int | None,
     full_resync: bool,
-) -> dict[str, ListItem]:
+    newest_known_no: dict[str, int] | None = None,
+) -> tuple[dict[str, ListItem], dict[str, int]]:
+    """List items of the first `max_pages` pages per category, plus each
+    category's oldest regular (non-pinned) post number seen.
+
+    A page-limited run keeps paging past `max_pages` (up to GAP_FILL_MAX_PAGES)
+    while a page's oldest post is still newer than the newest post the state
+    knows for that category: with a fixed 3 pages, a busy day or a few failed
+    daily runs (2026-10-24~26) push new posts past page 3 and they were never
+    collected. Post numbers, not state membership, decide what is new: the
+    state only keeps recent posts, so "not in state" would page to the cap.
+    """
     index: dict[str, ListItem] = {}
+    windows: dict[str, int] = {}
     list_params_base = {
         "bbsId": "2",
         "searchCondition": "",
@@ -250,12 +266,32 @@ def collect_list_items(
         else:
             last_page = min(INCREMENTAL_MAX_PAGES, total_pages)
 
+        def take(page_items: list[ListItem]) -> None:
+            for item in page_items:
+                merge_list_item(index, item)
+            # The bottom row is the page's oldest regular post (pinned posts sit
+            # on top). ListItem.is_notice can't tell them apart here: on this
+            # board every row parses as is_notice=True (checked 2026-10-26).
+            if page_items and page_items[-1].no.isdigit():
+                oldest = int(page_items[-1].no)
+                windows[label] = min(windows.get(label, oldest), oldest)
+
         log.info("[%s %s] 페이지 1/%d (전체 %d페이지)", cd, label, 1, total_pages)
-        for item in parse_list_page(first.text, cd, label):
-            merge_list_item(index, item)
+        page_items = parse_list_page(first.text, cd, label)
+        take(page_items)
         log_event(log, logging.INFO, "list_fetched", section=label, page=1, total_pages=total_pages)
 
-        for page in range(2, last_page + 1):
+        # Gap fill only when the state knows this category; a first run (empty
+        # state) reads just `max_pages`.
+        newest = (newest_known_no or {}).get(label)
+        gap_fill = max_pages is not None and not full_resync and newest is not None
+        page_cap = min(total_pages, max(last_page, GAP_FILL_MAX_PAGES) if gap_fill else last_page)
+        page = 1
+        while page < page_cap:
+            bottom = page_items[-1].no if page_items else ""
+            if page >= last_page and not (bottom.isdigit() and newest is not None and int(bottom) > newest):
+                break
+            page += 1
             log.info("[%s %s] 페이지 %d/%d 처리 중...", cd, label, page, total_pages)
             resp = fetch(
                 session,
@@ -268,12 +304,12 @@ def collect_list_items(
             page_items = parse_list_page(resp.text, cd, label)
             if not page_items:
                 break
-            for item in page_items:
-                merge_list_item(index, item)
+            take(page_items)
             log_event(log, logging.INFO, "list_fetched", section=label, page=page, total_pages=total_pages)
+        if page > last_page:
+            log.info("[%s %s] 처음 보는 글이 이어져 %d페이지까지 추가 수집", cd, label, page)
         log_event(log, logging.INFO, "section_finished", section=label, discovered=len(index))
-
-    return index
+    return index, windows
 
 
 def json_path_for(category_folder: str, slug: str) -> Path:
@@ -497,7 +533,21 @@ def crawl_details(
     return stats, seen_slugs
 
 
-def process_orphans(state: dict[str, Any], seen_slugs: set[str], full_resync: bool) -> int:
+def process_orphans(
+    state: dict[str, Any],
+    seen_slugs: set[str],
+    full_resync: bool,
+    windows: dict[str, int] | None = None,
+) -> int:
+    """Archive posts that vanished from the board.
+
+    A post only counts as missing when it should have been on the pages this
+    run read: its number is at least its category's oldest regular post seen
+    (`windows`, from collect_list_items). Without that check every post that
+    simply scrolled past page 3 was counted, and after ORPHAN_MISS_THRESHOLD
+    runs the archive of older notices was moved to deleted/ (on 2026-10-26,
+    172 of 400 state entries were one run away from it).
+    """
     if full_resync:
         return 0
 
@@ -510,6 +560,10 @@ def process_orphans(state: dict[str, Any], seen_slugs: set[str], full_resync: bo
         if slug in seen_slugs:
             meta["miss_count"] = 0
             continue
+        if windows is not None:
+            window = windows.get(str(meta.get("category") or ""))
+            if window is None or not str(post_no).isdigit() or int(post_no) < window:
+                continue  # outside the pages read this run, not evidence of deletion
 
         meta["miss_count"] = int(meta.get("miss_count", 0)) + 1
         if meta["miss_count"] < ORPHAN_MISS_THRESHOLD:
@@ -554,11 +608,18 @@ def run_crawl(
         max_pages if max_pages else "ALL",
     )
 
-    index = collect_list_items(session, cds, max_pages, full_resync)
+    newest_known_no: dict[str, int] = {}
+    for post_no, meta in state.get("items", {}).items():
+        label = str(meta.get("category") or "")
+        if str(post_no).isdigit() and label:
+            newest_known_no[label] = max(newest_known_no.get(label, 0), int(post_no))
+    index, windows = collect_list_items(
+        session, cds, max_pages, full_resync, newest_known_no=newest_known_no
+    )
     log.info("목록 수집 완료: 고유 글 %d건", len(index))
 
     stats, seen_slugs = crawl_details(session, index, state, full_resync)
-    stats.deleted = process_orphans(state, seen_slugs, full_resync)
+    stats.deleted = process_orphans(state, seen_slugs, full_resync, windows)
 
     save_state(state)
 
