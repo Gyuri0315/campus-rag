@@ -20,7 +20,17 @@ from bs4 import BeautifulSoup
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from scripts.crawlers.common.logging import (
+import sys
+
+# Run as a file (`python scripts/crawlers/pknu_notice.py`, as the daily crawl
+# workflow does), sys.path[0] is scripts/crawlers, so the project root must be
+# added before the `scripts.*` imports below. Keep this above them: when import
+# sorting moved it below (PR #48), the daily crawl failed 10-24~10-26.
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.crawlers.common.logging import (  # noqa: E402
     configure_crawler_logging,
     log_attachment_events,
     log_event,
@@ -72,16 +82,11 @@ import json
 import logging
 import re
 import requests
-import sys
 import time
 import urllib3
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 log, log_context = configure_crawler_logging("pknu_notice", PROJECT_ROOT)
