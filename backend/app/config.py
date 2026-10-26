@@ -69,6 +69,9 @@ class Settings(BaseSettings):
     rag_priority_weight: float = 0.30
     rag_dataset_priority_weight: float = 0.15
     rag_source_kind_weight: float = 0.10
+    # Pull in the best chunks of a notice a rare query word names in its
+    # title (see title_anchor.py). Switchable for before/after evals.
+    rag_title_anchor_enabled: bool = True
     reranker_enabled: bool = True
     reranker_model: str = "cross-encoder/mmarco-mMiniLMv2-L12-H384-v1"
     reranker_device: str = "cpu"
@@ -84,7 +87,10 @@ class Settings(BaseSettings):
         "match_pknu_student_life_documents",
         "match_rag_documents",
     ]
-    max_chars_per_chunk: int = 500
+    # Chunks average ~870 chars; at 500 the answer model missed facts past
+    # the cut (2026-10-19: 멘토 장학금 at char 590). 1000 + title anchor:
+    # google_compare 8 -> 14/31, regression 0.401 -> 0.419 (within run noise).
+    max_chars_per_chunk: int = 1000
     source_excerpt_max_chars: int = Field(default=320, ge=80, le=2000)
 
     # Server

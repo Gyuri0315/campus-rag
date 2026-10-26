@@ -17,6 +17,12 @@ notice instead. Two soft penalties fix that:
   notice table gets SCHEDULE_SEED_SLOTS reserved candidate-pool slots (the
   pool is otherwise dominated by rules/student-life rows, whose fixed
   dataset priorities are higher than any notice's).
+- named term: a question naming a semester ("2025년 1학기", "작년 2학기",
+  "지난 학기") is about that term, not the current one: its notices get
+  CURRENT_TERM_BONUS and every other term's lose the schedule rate per term
+  of distance. Before 2026-10-24 a named year only switched the penalty off,
+  leaving "2025년 1학기 수강신청 기간" to whichever of ~10 years' 수강신청
+  notices ranked first.
 - graduate: sources whose title/subcategory is about 대학원 lose
   GRADUATE_PENALTY unless the question is about graduate school.
 
@@ -48,12 +54,21 @@ _TITLE_TERM_RE = re.compile(r"(20\d{2})\s*(?:학년도)?\s*[-.]?\s*(?:제\s*)?([
 _YEAR_RE = re.compile(r"(?<!\d)(20\d{2})(?!\d)")
 _ISO_DATE_RE = re.compile(r"(?<!\d)(20\d{2})-(\d{2})-(\d{2})")
 _QUERY_TIME_RE = re.compile(r"(?<!\d)20\d{2}(?!\d)|작년|지난\s*(?:해|학기)|재작년")
+_QUERY_TERM_RE = re.compile(r"(?<!\d)(20\d{2})\s*(?:년|학년도)?\s*[-.]?\s*(?:제\s*)?([12])\s*학기")
+_QUERY_RELATIVE_YEAR_TERM_RE = re.compile(r"(재작년|작년|지난\s*해)\s*(?:제\s*)?([12])\s*학기")
+_QUERY_RELATIVE_TERM_RE = re.compile(r"(지난|다음)\s*학기")
+_THIS_TERM_RE = re.compile(r"이번\s*학기|금학기")
 _GRADUATE_QUERY_TERMS = ("대학원", "석사", "박사")
 _SCHEDULE_QUERY_RE = re.compile(r"언제|기간|일정|마감|날짜|며칠|몇\s*일|까지|개강|종강|시작")
 
 
 def is_schedule_query(query_text: Optional[str]) -> bool:
     return bool(query_text and _SCHEDULE_QUERY_RE.search(query_text))
+
+
+def says_this_term(query_text: Optional[str]) -> bool:
+    """"이번 학기 ..." scopes the question to the current term."""
+    return bool(query_text and _THIS_TERM_RE.search(query_text))
 
 
 def today_kst() -> date:
@@ -68,6 +83,25 @@ def term_index(year: int, semester: int) -> int:
 def current_term(today: Optional[date] = None) -> int:
     today = today or today_kst()
     return term_index(today.year, 1 if today.month <= 6 else 2)
+
+
+def query_term(query_text: Optional[str], today: Optional[date] = None) -> Optional[int]:
+    """The semester a question names, or None ("이번 학기" and unnamed terms
+    mean the current one; a bare year names no semester)."""
+    if not query_text:
+        return None
+    match = _QUERY_TERM_RE.search(query_text)
+    if match:
+        return term_index(int(match.group(1)), int(match.group(2)))
+    today = today or today_kst()
+    match = _QUERY_RELATIVE_YEAR_TERM_RE.search(query_text)
+    if match:
+        years_back = 2 if match.group(1) == "재작년" else 1
+        return term_index(today.year - years_back, int(match.group(2)))
+    match = _QUERY_RELATIVE_TERM_RE.search(query_text)
+    if match:
+        return current_term(today) + (-1 if match.group(1) == "지난" else 1)
+    return None
 
 
 def current_term_label(today: Optional[date] = None) -> str:
@@ -113,9 +147,30 @@ def document_term(row: Dict[str, Any]) -> Optional[int]:
     return _date_term(str(row.get("content") or "")[:300])
 
 
+def _covers_year_of(row: Dict[str, Any], term: int) -> bool:
+    """A whole-year notice ("2025학년도 학사일정 안내") of `term`'s year.
+
+    document_term() files such titles under the year's 2nd term, which is
+    right for staleness but wrong for a question naming the 1st term.
+    """
+    title = _row_title(row)
+    if _TITLE_TERM_RE.search(title):
+        return False
+    match = _YEAR_RE.search(title)
+    return bool(match and int(match.group(1)) == term // 2 and "학년도" in title)
+
+
 def stale_penalty(row: Dict[str, Any], rpc_name: str, query_text: Optional[str], today: Optional[date] = None) -> float:
     if rpc_name not in FRESHNESS_RPCS:
         return 0.0
+    target = query_term(query_text, today)
+    if target is not None:
+        term = document_term(row)
+        if term is None:
+            return 0.0
+        if term == target or _covers_year_of(row, target):
+            return -CURRENT_TERM_BONUS
+        return min(SCHEDULE_STALE_PENALTY_CAP, abs(term - target) * SCHEDULE_STALE_PENALTY_PER_TERM)
     if query_text and _QUERY_TIME_RE.search(query_text):
         return 0.0
     term = document_term(row)
@@ -156,9 +211,16 @@ OPENING_SOURCES = 3
 OPENING_CHUNKS = 3
 
 
-def is_current_term_notice(row: Dict[str, Any], today: Optional[date] = None) -> bool:
+def is_current_term_notice(row: Dict[str, Any], today: Optional[date] = None, *, query_text: Optional[str] = None) -> bool:
+    """A notice of the term the question is about: the one it names, else
+    the current term or later."""
     term = document_term(row)
-    return term is not None and term >= current_term(today)
+    if term is None:
+        return False
+    target = query_term(query_text, today)
+    if target is not None:
+        return term == target
+    return term >= current_term(today)
 
 
 def seed_slots(rpc_name: str, query_text: Optional[str]) -> int:
