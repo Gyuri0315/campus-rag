@@ -14,6 +14,8 @@ from app.freshness import (
     document_term,
     freshness_adjustment,
     is_current_term_notice,
+    query_term,
+    says_this_term,
     seed_slots,
     term_index,
 )
@@ -57,6 +59,18 @@ class AdjustmentTests(unittest.TestCase):
     def test_question_naming_a_year_turns_staleness_off(self):
         self.assertEqual(0.0, freshness_adjustment(row("2024-1학기 안내"), NOTICE, "2024년 수강신청 기간", TODAY))
 
+    def test_question_naming_a_term_prefers_that_term(self):
+        question = "2025년 1학기 수강신청 기간"
+        named = freshness_adjustment(row("2025-1학기 학부 본수강신청 안내"), NOTICE, question, TODAY)
+        self.assertAlmostEqual(CURRENT_TERM_BONUS, named)
+        current = freshness_adjustment(row("2026-2학기 학부 본수강신청 안내"), NOTICE, question, TODAY)
+        neighbor = freshness_adjustment(row("2025-2학기 학부 본수강신청 안내"), NOTICE, question, TODAY)
+        self.assertLess(current, neighbor)
+        self.assertLess(neighbor, 0.0)
+        # A whole-year notice covers both of the year's terms.
+        calendar = freshness_adjustment(row("2025학년도 학사일정 안내"), NOTICE, question, TODAY)
+        self.assertAlmostEqual(CURRENT_TERM_BONUS, calendar)
+
     def test_schedule_question_boosts_current_term_and_penalizes_old_harder(self):
         current = freshness_adjustment(row("2026-2학기 학부 본수강신청 안내"), NOTICE, "수강신청 기간", TODAY)
         self.assertAlmostEqual(CURRENT_TERM_BONUS, current)
@@ -82,6 +96,31 @@ class CurrentTermNoticeTests(unittest.TestCase):
         self.assertTrue(is_current_term_notice(row("2027-1학기 예비수강신청 안내"), TODAY))
         self.assertFalse(is_current_term_notice(row("2026-1학기 본수강신청 안내"), TODAY))
         self.assertFalse(is_current_term_notice(row("휴ㆍ복학"), TODAY))
+
+    def test_named_term_means_exactly_that_term(self):
+        question = "2025년 1학기 수강신청 기간"
+        self.assertTrue(is_current_term_notice(row("2025-1학기 본수강신청 안내"), TODAY, query_text=question))
+        self.assertFalse(is_current_term_notice(row("2026-2학기 학부 본수강신청 안내"), TODAY, query_text=question))
+
+
+class QueryTermTests(unittest.TestCase):
+    def test_explicit_and_relative_terms(self):
+        self.assertEqual(term_index(2025, 1), query_term("2025년 1학기 수강신청 기간", TODAY))
+        self.assertEqual(term_index(2025, 2), query_term("2025-2학기 등록금", TODAY))
+        self.assertEqual(term_index(2024, 1), query_term("2024학년도 제1학기 휴학", TODAY))
+        self.assertEqual(term_index(2025, 2), query_term("작년 2학기 수강취소", TODAY))
+        self.assertEqual(term_index(2026, 1), query_term("지난 학기 성적 정정 기간", TODAY))
+        self.assertEqual(term_index(2027, 1), query_term("다음 학기 수강신청", TODAY))
+
+    def test_no_named_term(self):
+        self.assertIsNone(query_term("이번 학기 수강신청 기간", TODAY))
+        self.assertIsNone(query_term("2학기 수강신청 변경기간", TODAY))
+        self.assertIsNone(query_term("2024년 수강신청 기간", TODAY))
+
+    def test_this_term_phrase(self):
+        self.assertTrue(says_this_term("이번 학기 캡스톤디자인 지원금은 얼마야?"))
+        self.assertTrue(says_this_term("이번학기 장학금"))
+        self.assertFalse(says_this_term("캡스톤디자인 지원금"))
 
 
 if __name__ == "__main__":

@@ -138,6 +138,7 @@ def _search_one(state: AppState, search_query: str) -> List[Dict[str, Any]]:
         max_chunks_per_url=state.settings.rag_max_chunks_per_url,
         max_lexical_chunks_per_url=state.settings.rag_max_lexical_chunks_per_url,
         query_text=search_query,
+        title_anchor=state.settings.rag_title_anchor_enabled,
     )
 
 

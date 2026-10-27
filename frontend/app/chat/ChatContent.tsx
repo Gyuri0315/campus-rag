@@ -10,6 +10,7 @@ import chatData from "@/data/routes/chat.json";
 import { useQueryContext } from "@/app/context/QueryContext";
 import { displayNameOf, useAuth } from "@/app/context/AuthContext";
 import { askBackend } from "@/app/lib/api";
+import PopularQuestions from "@/app/components/PopularQuestions";
 import {
   createChat,
   deleteChat,
@@ -744,8 +745,20 @@ export default function ChatContent() {
   const inputRef = useRef<HTMLInputElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  // 진행 중인 AI 요청 — 새 요청이 시작되거나 unmount 되면 abort()
-  const aiAbortRef = useRef<AbortController | null>(null);
+  // 지금 보고 있는 화면의 번호. 새 채팅·기록 불러오기마다 1씩 올라간다.
+  // 답변을 기다리는 중에 다른 채팅으로 가도 요청은 취소하지 않고, 도착한 답변은
+  // 원래 채팅에 저장한다. 화면에 붙이는 건 그 채팅을 보고 있을 때뿐이다.
+  const viewRef = useRef(0);
+  // 저장된 대화 불러오기 번호 (showStoredMessages 참고).
+  const loadSeqRef = useRef(0);
+  // 답변을 기다리는 채팅 id. 그 채팅으로 돌아오면 로딩 표시를 다시 보여준다.
+  const pendingChatsRef = useRef<Set<string>>(new Set());
+  const [pendingChats, setPendingChats] = useState<Set<string>>(() => new Set());
+  const setChatPending = (chatId: string, pending: boolean) => {
+    if (pending) pendingChatsRef.current.add(chatId);
+    else pendingChatsRef.current.delete(chatId);
+    setPendingChats(new Set(pendingChatsRef.current));
+  };
 
   // ── 반응형: mount 시 viewport 크기 감지 ────────────────────────
   useEffect(() => {
@@ -809,12 +822,6 @@ export default function ChatContent() {
   }, [authLoading, takePendingQuery]);
 
   useEffect(() => {
-    return () => {
-      if (aiAbortRef.current) aiAbortRef.current.abort();
-    };
-  }, []);
-
-  useEffect(() => {
     if (!isSidebarResizing) return;
 
     const previousCursor = document.body.style.cursor;
@@ -862,11 +869,12 @@ export default function ChatContent() {
   }, [messages, chatState]);
 
   // ── AI 응답 요청 (공통) ───────────────────────────────────────
-  // 진행 중인 요청이 있으면 abort 해 중복 AI 메시지를 방지한다.
   const requestAIReply = async (question: string) => {
-    if (aiAbortRef.current) aiAbortRef.current.abort();
-    const controller = new AbortController();
-    aiAbortRef.current = controller;
+    const view = viewRef.current;
+    // 질문한 화면 그대로인지, 아니면 다른 채팅에 갔다가 이 채팅으로 돌아왔는지.
+    const sameView = () => viewRef.current === view;
+    const returnedTo = (chatId: string | null) =>
+      !sameView() && chatId !== null && persistChatIdRef.current === chatId;
 
     setChatState("loading");
 
@@ -879,9 +887,12 @@ export default function ChatContent() {
             const title = chatTitleFromQuestion(question);
             pendingChatCreateRef.current = createChat(title, user.id)
               .then((row) => {
-                persistChatIdRef.current = row.id;
-                setActiveId(row.id);
-                setChatTitle(title);
+                // 만드는 사이에 다른 채팅으로 갔다면 화면을 이 채팅으로 되돌리지 않는다.
+                if (viewRef.current === view) {
+                  persistChatIdRef.current = row.id;
+                  setActiveId(row.id);
+                  setChatTitle(title);
+                }
                 return row.id;
               })
               .finally(() => {
@@ -890,6 +901,7 @@ export default function ChatContent() {
           }
           persistedChatId = await pendingChatCreateRef.current;
         }
+        setChatPending(persistedChatId, true);
         await insertChatMessage(persistedChatId, "user", question, null);
         const refreshed = await listChats();
         setHistory(refreshed.map((r) => ({ id: r.id, title: r.title })));
@@ -900,21 +912,23 @@ export default function ChatContent() {
     }
 
     try {
-      const { answer, sources } = await askBackend(question, controller.signal);
-      if (controller.signal.aborted) return;
+      const { answer, sources } = await askBackend(question);
       const finalContent = answer || "관련 정보를 찾을 수 없습니다.";
-      const finalSources = sources;
       const assistantLocalId = uid();
-      setMessages((prev) => [
-        ...prev,
-        { id: assistantLocalId, role: "assistant", content: finalContent, attachments: [], sources },
-      ]);
-
-      setChatState("success");
+      // 돌아온 채팅은 기록을 불러오는 중일 수 있어 화면에 직접 붙이지 않고,
+      // 아래에서 저장이 끝난 뒤 다시 불러온다(붙인 답변을 늦게 온 기록이 덮어쓰지 않게).
+      const viewing = sameView();
+      if (viewing) {
+        setMessages((prev) => [
+          ...prev,
+          { id: assistantLocalId, role: "assistant", content: finalContent, attachments: [], sources },
+        ]);
+        setChatState("success");
+      }
 
       if (user?.id && persistedChatId) {
         try {
-          const assistantDbId = await insertChatMessage(persistedChatId, "assistant", finalContent, finalSources ?? null);
+          const assistantDbId = await insertChatMessage(persistedChatId, "assistant", finalContent, sources ?? null);
           // 저장이 끝나야 피드백 버튼이 활성화된다(피드백은 DB 메시지 id 에 연결).
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantLocalId ? { ...m, dbId: assistantDbId } : m)),
@@ -926,12 +940,25 @@ export default function ChatContent() {
           showToast("답변 저장에 실패했습니다.");
         }
       }
+      if (!viewing && persistedChatId) {
+        if (returnedTo(persistedChatId)) {
+          setChatPending(persistedChatId, false);
+          const current = viewRef.current;
+          try {
+            await showStoredMessages(persistedChatId, current);
+          } catch (err) {
+            console.error("[chat] fetchChatMessages failed:", err);
+          }
+          if (viewRef.current === current) setChatState("success");
+        } else {
+          showToast("이전 채팅의 답변이 도착했어요");
+        }
+      }
     } catch (err) {
-      if (controller.signal.aborted) return;
       console.error("[chat] askBackend failed:", err);
-      setChatState("error");
+      if (sameView() || returnedTo(persistedChatId)) setChatState("error");
     } finally {
-      if (aiAbortRef.current === controller) aiAbortRef.current = null;
+      if (persistedChatId) setChatPending(persistedChatId, false);
     }
   };
 
@@ -952,10 +979,8 @@ export default function ChatContent() {
 
   // ── NEW_CHAT ──────────────────────────────────────────────────
   const handleNewChat = () => {
-    // 응답 대기 중 다른 채팅으로 전환하는 경우, 늦게 도착한 이전 질문의 답변이
-    // (controller.signal.aborted 체크를 통과해) 지금 화면의 messages에 잘못
-    // append 되는 것을 막기 위해 진행 중인 요청을 여기서 명시적으로 취소한다.
-    if (aiAbortRef.current) aiAbortRef.current.abort();
+    // 답변을 기다리던 요청은 계속 진행된다(requestAIReply가 원래 채팅에 저장).
+    viewRef.current += 1;
     setMessages([]);
     setChatState("idle");
     setInputValue("");
@@ -970,9 +995,8 @@ export default function ChatContent() {
 
   // ── LOAD_HISTORY ──────────────────────────────────────────────
   const handleLoadHistory = async (item: HistoryItem) => {
-    // handleNewChat과 동일한 이유: 다른 채팅 기록을 불러오는 도중 이전 요청이
-    // 뒤늦게 응답하면 그 답변이 방금 로드한 대화의 messages에 섞여 들어간다.
-    if (aiAbortRef.current) aiAbortRef.current.abort();
+    viewRef.current += 1;
+    const view = viewRef.current;
     pendingChatCreateRef.current = null;
     setActiveId(item.id);
     setChatTitle(item.title);
@@ -980,39 +1004,46 @@ export default function ChatContent() {
     if (isMobile) setSidebarOpen(false);
 
     if (user && isPersistedChatId(item.id)) {
-      setChatState("idle");
+      setMessages([]);
+      setChatState(pendingChatsRef.current.has(item.id) ? "loading" : "idle");
       persistChatIdRef.current = item.id;
       try {
-        const rows = await fetchChatMessages(item.id);
-        // 내가 남긴 피드백을 함께 불러와 버튼 상태를 복원한다. 실패해도 대화는 보여준다.
-        let feedbackByMessage: Record<string, MessageFeedback> = {};
-        try {
-          feedbackByMessage = await fetchFeedbackForMessages(
-            rows.filter((r) => r.role === "assistant").map((r) => r.id),
-          );
-        } catch (err) {
-          console.error("[chat] fetchFeedbackForMessages failed:", err);
-        }
-        const mapped: Message[] = rows.map((r) => {
-          const src =
-            r.role === "assistant" ? parseStoredSources(r.sources) : undefined;
-          return {
-            id: uid(),
-            dbId: r.id,
-            role: r.role,
-            content: r.content,
-            attachments: [],
-            sources: src as Source[] | undefined,
-            feedback: feedbackByMessage[r.id] ?? null,
-          };
-        });
-        setMessages(mapped);
+        await showStoredMessages(item.id, view);
       } catch (err) {
         console.error("[chat] fetchChatMessages failed:", err);
         showToast("대화를 불러오지 못했습니다.");
       }
       return;
     }
+  };
+
+  // 저장된 대화를 불러와 화면에 띄운다. 불러오기가 겹치면(기록을 연달아 클릭,
+  // 또는 돌아온 채팅의 답변이 저장된 직후 다시 불러오기) 마지막에 시작한 것만
+  // 반영한다 — 먼저 시작한 조회가 늦게 도착해 새 답변을 덮어쓰지 않도록.
+  const showStoredMessages = async (chatId: string, view: number) => {
+    const seq = ++loadSeqRef.current;
+    const rows = await fetchChatMessages(chatId);
+    // 내가 남긴 피드백을 함께 불러와 버튼 상태를 복원한다. 실패해도 대화는 보여준다.
+    let feedbackByMessage: Record<string, MessageFeedback> = {};
+    try {
+      feedbackByMessage = await fetchFeedbackForMessages(
+        rows.filter((r) => r.role === "assistant").map((r) => r.id),
+      );
+    } catch (err) {
+      console.error("[chat] fetchFeedbackForMessages failed:", err);
+    }
+    if (seq !== loadSeqRef.current || viewRef.current !== view) return;
+    setMessages(
+      rows.map((r) => ({
+        id: uid(),
+        dbId: r.id,
+        role: r.role,
+        content: r.content,
+        attachments: [],
+        sources: (r.role === "assistant" ? parseStoredSources(r.sources) : undefined) as Source[] | undefined,
+        feedback: feedbackByMessage[r.id] ?? null,
+      })),
+    );
   };
 
   // ── DELETE ────────────────────────────────────────────────────
@@ -1234,6 +1265,14 @@ export default function ChatContent() {
                       }}
                     >
                       <span className="truncate flex-1">{item.title}</span>
+                      {pendingChats.has(item.id) && (
+                        <span
+                          className="ml-1 w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0"
+                          style={{ background: "var(--clr-navy)" }}
+                          aria-label="답변 작성 중"
+                          title="답변 작성 중"
+                        />
+                      )}
 
                       {/* ··· 버튼 — 메뉴가 열린 항목은 항상 표시 */}
                       <span
@@ -1549,10 +1588,11 @@ export default function ChatContent() {
 
           {/* 빈 상태 */}
           {messages.length === 0 && chatState === "idle" && (
-            <div className="flex-1 flex items-center justify-center px-4 text-center">
+            <div className="flex-1 flex flex-col items-center justify-center gap-4 px-4 text-center">
               <p className="text-xs sm:text-sm" style={{ color: "var(--clr-text-muted)" }}>
                 궁금한 내용을 아래 입력창에 입력해 보세요.
               </p>
+              <PopularQuestions onSelect={startConversation} />
             </div>
           )}
 

@@ -16,6 +16,7 @@ from .generation import load_system_prompt
 from .reranking import CrossEncoderReranker
 from .routers import admin as admin_router
 from .routers import ask as ask_router
+from .routers import popular as popular_router
 from .supabase_client import ThreadLocalSupabase
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ def create_app() -> FastAPI:
 
     app.include_router(ask_router.router)
     app.include_router(admin_router.router)
+    app.include_router(popular_router.router)
     return app
 
 

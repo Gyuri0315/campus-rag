@@ -26,7 +26,7 @@ from scripts.rag.file_preprocessing import (  # noqa: E402
     parse_file_exts,
     run_batch as run_file_preprocessing,
 )
-from scripts.crawlers.common.storage import get_dataset_paths, get_dataset_root
+from scripts.crawlers.common.storage import department_datasets, get_dataset_paths, get_dataset_root
 from scripts.rule.preprocessing import (  # noqa: E402
     SUPPORTED_ATTACHMENT_EXTS,
     run_batch as run_rule_preprocessing,
@@ -34,7 +34,11 @@ from scripts.rule.preprocessing import (  # noqa: E402
 
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "preprocessing_pipeline.log"
-DATASET_CHOICES = ("ce", "pknu_notice", "pknu_student_life", "rule", "all")
+# Every department in scripts/crawlers/departments/registry.json can be run on
+# its own (`--dataset me`); "all" stays the four daily datasets until the
+# department rollout is decided (TODO 0.7).
+DEPARTMENT_DATASETS = tuple(sorted(department_datasets(), key=lambda name: (name != "ce", name)))
+DATASET_CHOICES = (*DEPARTMENT_DATASETS, "pknu_notice", "pknu_student_life", "rule", "all")
 TargetMap = dict[str, dict[str, list[Path]]]
 
 log = logging.getLogger(__name__)
@@ -80,11 +84,14 @@ class WebDataset:
 
 
 WEB_DATASETS = {
-    "ce": WebDataset(
-        name="ce",
-        output_root=get_dataset_paths(PROJECT_ROOT, "ce").output,
-        preprocessed_root=get_dataset_root(PROJECT_ROOT, "ce") / "preprocessed",
-    ),
+    **{
+        name: WebDataset(
+            name=name,
+            output_root=get_dataset_paths(PROJECT_ROOT, name).output,
+            preprocessed_root=get_dataset_root(PROJECT_ROOT, name) / "preprocessed",
+        )
+        for name in DEPARTMENT_DATASETS
+    },
     "pknu_notice": WebDataset(
         name="pknu_notice",
         output_root=PROJECT_ROOT / "files" / "pknu_main" / "커뮤니티" / "공지사항",

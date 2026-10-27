@@ -8,7 +8,12 @@ name: Crawl update
 on:
   schedule:
     - cron: "0 0 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      recent_pages:
+        description: "게시판별 최소 몇 페이지를 볼지 (보통 3. 학교 공지는 새 글이 이어지면 최대 20페이지까지 자동으로 더 봄)"
+        required: false
+        default: "3"
 
 permissions:
   contents: write
@@ -20,7 +25,9 @@ concurrency:
 jobs:
   crawl:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    # 60 was enough for a normal day; the first run after an outage also
+    # pages past the usual 3 pages (pknu_notice gap fill).
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -39,7 +46,8 @@ jobs:
       - name: Crawl + preprocess + vectorize + load (all datasets)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python scripts/rag/preprocessing_pipeline_recent.py --dataset all
+        # Scheduled runs have no inputs, so they fall back to 3 pages.
+        run: python scripts/rag/preprocessing_pipeline_recent.py --dataset all --recent-pages "${{ inputs.recent_pages || '3' }}"
 
       - name: Recompute priority scores
         env:
@@ -53,7 +61,11 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          for state_path in files/department/ce/state.json files/rule/state.json files/pknu_main/_state/pknu_notice.json files/pknu_main/_state/pknu_student_life.json; do
+          # Department state lives under the registry storage_path
+          # (files/department/<college>/<department>/<dataset>/state.json), so find it
+          # instead of hardcoding one path.
+          { find files/department -name state.json 2>/dev/null || true; printf '%s\n' files/rule/state.json files/pknu_main/_state/pknu_notice.json files/pknu_main/_state/pknu_student_life.json; } |
+          while IFS= read -r state_path; do
             if [ -f "$state_path" ]; then
               git add -f -- "$state_path"
             fi
