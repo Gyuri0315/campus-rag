@@ -26,7 +26,7 @@ from .freshness import (
     says_this_term,
     seed_slots,
 )
-from . import title_anchor
+from . import department_focus, title_anchor
 from .reranking import normalize_scores
 
 logger = logging.getLogger(__name__)
@@ -1468,25 +1468,40 @@ def _academic_calendar_chunks(
     ]
     if not words:
         return []
-    year = (query_term(query_text) or current_term()) // 2
-    notice = _calendar_notice(client, rpc_names, year)
-    if notice is None:
-        return []
-    rows = _notice_chunk_rows(
-        *notice, embedding, query_text, query_terms,
-        priority_weight, dataset_priority_weight, source_kind_weight,
-    )
-    header = None
-    for row in sorted(rows, key=lambda row: int(row.get("chunk_index") or 0)):
-        match = _CALENDAR_HEADER_RE.search(str(row.get("content") or ""))
-        if match:
-            header = match.group(0)
-            break
-    scored = [(title_anchor.keyword_hits(row.get("content"), words), _similarity(row), row) for row in rows]
+    target = query_term(query_text) or current_term()
+    year, semester = target // 2, target % 2 + 1
+    # A year's calendar runs to the next February, so the dates of a 1st
+    # term's 예비·본 수강신청 (January-February) sit at the end of the
+    # previous year's table: "2027학년도 1학기 수강신청" is in the 2026학년도
+    # 학사일정 (measured 2026-10-26; Google answered it, we said 모름).
+    years = (year, year - 1) if semester == 1 else (year,)
+    term_labels = (f"{year}학년도 제{semester}학기", f"{year}학년도 {semester}학기")
+    scored = []
+    for calendar_year in years:
+        notice = _calendar_notice(client, rpc_names, calendar_year)
+        if notice is None:
+            continue
+        rows = _notice_chunk_rows(
+            *notice, embedding, query_text, query_terms,
+            priority_weight, dataset_priority_weight, source_kind_weight,
+        )
+        header = None
+        for row in sorted(rows, key=lambda row: int(row.get("chunk_index") or 0)):
+            match = _CALENDAR_HEADER_RE.search(str(row.get("content") or ""))
+            if match:
+                header = match.group(0)
+                break
+        for row in rows:
+            content = str(row.get("content") or "")
+            hits = title_anchor.keyword_hits(content, words)
+            # Rows naming the asked term outrank the same event in other terms.
+            if hits and any(label in content for label in term_labels):
+                hits += 1
+            scored.append((hits, _similarity(row), row, header))
     scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
     present = {_dedupe_key(row) for row in candidates}
     extra: List[Dict[str, Any]] = []
-    for hits, _similarity_score, row in scored:
+    for hits, _similarity_score, row, header in scored:
         if hits == 0 or len(extra) >= CALENDAR_CHUNKS:
             break
         key = _dedupe_key(row)
@@ -1498,8 +1513,76 @@ def _academic_calendar_chunks(
             row["content"] = content.replace("\n본문:", f"\n표 열: {header}\n본문:", 1)
         row["_academic_calendar"] = True
         extra.append(row)
-    logger.info("retrieval: academic calendar year=%d words=%s added=%d", year, words, len(extra))
+    logger.info("retrieval: academic calendar years=%s words=%s added=%d", years, words, len(extra))
     return extra
+
+
+# Chunks of the asked department pulled from each per-department table.
+FOCUS_CHUNKS_PER_SOURCE = 2
+FOCUS_MAX_SOURCES = 3
+
+
+def _focus_department(
+    client: Client,
+    embedding: List[float],
+    candidates: List[Dict[str, Any]],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> List[Dict[str, Any]]:
+    """Swap other departments' table slices for the asked department's.
+
+    See department_focus.py. Only notice tables are refetched (that is where
+    the per-department attachments live); a failed fetch keeps the rest.
+    """
+    variants = department_focus.focus_variants(query_text)
+    if not variants:
+        return candidates
+    kept: List[Dict[str, Any]] = []
+    foreign: Dict[Tuple[str, str], None] = {}
+    for row in candidates:
+        if department_focus.is_other_departments_table(row.get("content"), variants):
+            rpc_name = str((row.get("metadata") or {}).get("rpc_name") or "")
+            if rpc_name in TITLE_ANCHOR_TABLES and row.get("source_id"):
+                foreign[(rpc_name, str(row["source_id"]))] = None
+            continue
+        trimmed = department_focus.keep_own_rows(row.get("content"), variants)
+        if trimmed is not None:
+            row = {**row, "content": trimmed, "_department_trimmed": True}
+        kept.append(row)
+    # Keys of the original rows: trimming changed some contents (and keys).
+    present = {_dedupe_key(row) for row in candidates}
+    pulled = 0
+    for rpc_name, source_id in list(foreign)[:FOCUS_MAX_SOURCES]:
+        fetched = _fetch_notice_chunks(client, *TITLE_ANCHOR_TABLES[rpc_name], [source_id])
+        if fetched is None:
+            continue
+        rows = [
+            row for row in _notice_chunk_rows(
+                rpc_name, *fetched, embedding, query_text, query_terms,
+                priority_weight, dataset_priority_weight, source_kind_weight,
+            )
+            if department_focus.mentions(row.get("content"), variants)
+        ]
+        rows.sort(key=_similarity, reverse=True)
+        for row in rows[:FOCUS_CHUNKS_PER_SOURCE]:
+            key = _dedupe_key(row)
+            if key in present:
+                continue
+            present.add(key)
+            trimmed = department_focus.keep_own_rows(row.get("content"), variants)
+            if trimmed is not None:
+                row["content"] = trimmed
+            row["_department_focus"] = True
+            kept.append(row)
+            pulled += 1
+    logger.info(
+        "retrieval: department focus variants=%s dropped=%d pulled=%d",
+        variants[:2], len(candidates) - (len(kept) - pulled), pulled,
+    )
+    return kept
 
 
 def search(
@@ -1821,6 +1904,17 @@ def search(
                 source_kind_weight,
             )
         )
+
+    candidates = _focus_department(
+        client,
+        embedding,
+        candidates,
+        query_text,
+        query_terms,
+        priority_weight,
+        dataset_priority_weight,
+        source_kind_weight,
+    )
 
     selected = _rerank_candidates(
         question=query_text or "",
