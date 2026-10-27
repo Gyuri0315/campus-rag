@@ -84,6 +84,14 @@ class AcademicCalendarTests(unittest.TestCase):
         for row in extra:
             self.assertIn("표 열: 학사내용 | 2026학년도(안) | 2025학년도", row["content"])
 
+    def test_next_years_first_term_is_read_from_this_years_calendar(self):
+        tables = {**TABLES, "rag_chunks": [*TABLES["rag_chunks"],
+            chunk(5, "제2학기 수강신청 변경 | 9. 1.(화) ~ 9. 7.(월) | 9. 1.(월) ~ 9. 5.(금)"),
+            chunk(6, "2027학년도 제1학기 수강신청 | 2027. 2. 15.(월) ~ 2. 17.(수) | 2026. 2. 11.(수) ~ 2. 13.(금)"),
+        ]}
+        _client, extra = self.run_calendar("2027학년도 1학기 수강신청 기간 언제야?", FakeClient(tables))
+        self.assertEqual(6, extra[0]["chunk_index"])
+
     def test_nothing_added_when_no_question_word_is_on_the_calendar(self):
         _client, extra = self.run_calendar("정효택 장학금 신청 기간")
         self.assertEqual([], extra)
