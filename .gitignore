@@ -29,6 +29,7 @@ nav_output.txt
 
 # Python environments, bytecode, tests, and coverage
 .venv/
+.venv312/
 venv/
 __pycache__/
 *.py[cod]

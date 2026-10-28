@@ -1,9 +1,13 @@
 # Scripts layout
 
+메인 홈페이지·학과·단과대학·학칙/규정을 포함한 전체 실행 방법은
+[전체 크롤러 실행 가이드](../crawlers/README.md)를 참고하세요.
+학과·단과대학의 실행 및 수집 대상 관리는 [학과 크롤러 README](../crawlers/DEPARTMENTS.md)에 정리되어 있습니다.
+
 `scripts` is organized by responsibility. New code should import and execute the canonical paths below.
 
-Evaluation commands and datasets live under `eval/`; see `eval/README.md`.
-Main-site page routes and discovery tools live under `scripts/main/`; see [메인 홈페이지 크롤링 명령어](main/README.md) for full, category, page and limited-board runs.
+Evaluation commands and datasets live under `eval/`; see the [evaluation guide](../evaluation/README.md).
+Main-site page routes and discovery tools live under `scripts/main/`; see [메인 홈페이지 크롤링 명령어](../crawlers/MAIN.md) for full, category, page and limited-board runs.
 Main-site collection settings are in `scripts/main/pages.json`. Its results share
 `files/pknu_main/`, organized by site category and then file format. Incremental
 state is in `_state/`; RAG intermediates are in `_derived/<logical-dataset>/`.

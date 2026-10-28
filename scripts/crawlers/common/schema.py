@@ -74,7 +74,7 @@ RUN_STAT_FIELDS = (
     "attachments_failed",
 )
 RUN_STATUSES = {"success", "partial_success", "failed", "cancelled"}
-RUN_MODES = {"full", "incremental", "recent", "smoke"}
+RUN_MODES = {"full", "incremental", "recent", "smoke", "attachment_retry"}
 
 
 @dataclass

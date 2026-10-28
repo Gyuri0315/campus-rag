@@ -2,9 +2,16 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+from scripts.extractors.hwp import (
+    extract_hwp_blocks, _hwp_command,
+)
 
 from scripts.crawlers.common.schema import (
     attachment_error,
@@ -18,6 +25,87 @@ from scripts.crawlers.common.schema import (
 from scripts.rule.preprocessing import extract_rule_json_blocks
 
 class AttachmentSchemaTests(unittest.TestCase):
+    def test_hwp_uses_current_interpreter_instead_of_windows_launcher(self) -> None:
+        with patch("scripts.extractors.hwp.importlib.util.find_spec", return_value=object()), patch(
+            "scripts.extractors.hwp.shutil.which"
+        ) as which:
+            command = _hwp_command("hwp5html")
+        self.assertEqual(command, [sys.executable, "-c", "from hwp5.hwp5html import main; main()"])
+        which.assert_not_called()
+
+    def test_hwp_html_success_does_not_require_text_converter(self) -> None:
+        def convert(command, **kwargs):
+            Path(command[command.index("--output") + 1]).write_text(
+                '<html xmlns="http://www.w3.org/1999/xhtml"><body><p>yearbook</p>'
+                '<table><tr><td>2026</td><td>42</td></tr></table></body></html>', encoding="utf-8"
+            )
+            self.assertIsNone(kwargs["timeout"])
+            return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "yearbook.hwp"
+            path.write_bytes(b"fixture")
+            with patch("scripts.extractors.hwp._hwp_command", side_effect=lambda name: [name] if name == "hwp5html" else None), patch(
+                "scripts.extractors.hwp.subprocess.run", side_effect=convert
+            ) as run:
+                blocks = extract_hwp_blocks(path)
+            self.assertEqual([block["text"] for block in blocks], ["yearbook", "2026 | 42"])
+            self.assertEqual(run.call_count, 1)
+
+    def test_hwp_html_failure_does_not_fall_back_and_cleans_temporary_files(self) -> None:
+        commands = []
+
+        def convert(command, **kwargs):
+            commands.append(command)
+            Path(command[command.index("--output") + 1]).write_text("partial", encoding="utf-8")
+            return subprocess.CompletedProcess(command, 1, stdout="", stderr="conversion failed")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "yearbook.hwp"
+            path.write_bytes(b"fixture")
+            with patch("scripts.extractors.hwp._hwp_command", return_value=["hwp5html"]) as resolve, patch(
+                "scripts.extractors.hwp.subprocess.run", side_effect=convert
+            ) as run:
+                with self.assertRaisesRegex(RuntimeError, "hwp5html failed: conversion failed"):
+                    extract_hwp_blocks(path)
+            self.assertEqual(run.call_count, 1)
+            resolve.assert_called_once_with("hwp5html")
+            self.assertFalse(Path(commands[0][-1]).exists())
+            self.assertFalse(Path(commands[0][commands[0].index("--output") + 1]).exists())
+
+    def test_hwp_missing_html_converter_is_an_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "yearbook.hwp"
+            path.write_bytes(b"fixture")
+            with patch("scripts.extractors.hwp._hwp_command", return_value=None), patch(
+                "scripts.extractors.hwp.subprocess.run"
+            ) as run:
+                with self.assertRaisesRegex(RuntimeError, "hwp5html command not found"):
+                    extract_hwp_blocks(path)
+            run.assert_not_called()
+
+    def test_hwp_missing_or_invalid_html_is_an_error(self) -> None:
+        for output, message in (
+            (None, "did not produce HTML"),
+            ("<html>", "invalid XHTML"),
+            ("<html />", "without a body"),
+        ):
+            with self.subTest(output=output), tempfile.TemporaryDirectory() as temp_dir:
+                path = Path(temp_dir) / "yearbook.hwp"
+                path.write_bytes(b"fixture")
+
+                def convert(command, **kwargs):
+                    if output is not None:
+                        Path(command[command.index("--output") + 1]).write_text(output, encoding="utf-8")
+                    return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+                with patch("scripts.extractors.hwp._hwp_command", return_value=["hwp5html"]), patch(
+                    "scripts.extractors.hwp.subprocess.run", side_effect=convert
+                ) as run:
+                    with self.assertRaisesRegex(RuntimeError, message):
+                        extract_hwp_blocks(path)
+                self.assertEqual(run.call_count, 1)
+
     def test_download_success_has_relative_path_size_and_sha256(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

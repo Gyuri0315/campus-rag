@@ -183,6 +183,7 @@ def fetch(
     params: dict[str, str] | None = None,
     delay: float = REQUEST_DELAY,
 ) -> requests.Response | None:
+    log_event(log, logging.INFO, "request_started", url=url, method="GET", params=params)
     time.sleep(delay)
     try:
         resp = session.get(url, params=params, timeout=REQUEST_TIMEOUT, verify=False)
@@ -215,6 +216,7 @@ def collect_list_items(
     cds: list[str],
     max_pages: int | None,
     full_resync: bool,
+    *, all_pages: bool = False,
 ) -> dict[str, ListItem]:
     index: dict[str, ListItem] = {}
     list_params_base = {
@@ -235,12 +237,14 @@ def collect_list_items(
             delay=LIST_DELAY,
         )
         if first is None:
+            if all_pages:
+                raise RuntimeError(f"notice_list_incomplete: cd={cd}, page=1")
             continue
 
         _, total_pages = parse_page_indicator(first.text)
         if max_pages is not None:
             last_page = min(max_pages, total_pages)
-        elif full_resync:
+        elif full_resync or all_pages:
             last_page = total_pages
         else:
             last_page = min(INCREMENTAL_MAX_PAGES, total_pages)
@@ -259,9 +263,13 @@ def collect_list_items(
                 delay=LIST_DELAY,
             )
             if resp is None:
+                if all_pages:
+                    raise RuntimeError(f"notice_list_incomplete: cd={cd}, page={page}/{last_page}")
                 break
             page_items = parse_list_page(resp.text, cd, label)
             if not page_items:
+                if all_pages:
+                    raise RuntimeError(f"notice_list_empty: cd={cd}, page={page}/{last_page}")
                 break
             for item in page_items:
                 merge_list_item(index, item)
@@ -526,7 +534,10 @@ def run_crawl(
     full_resync: bool = False,
     recent_only: int | None = None,
     only_cd: str | None = None,
+    *, all_pages: bool = False,
 ) -> CrawlStats:
+    if all_pages and recent_only is not None:
+        raise ValueError("all_pages cannot be combined with recent_only")
     cds = CD_ORDER.copy()
     if only_cd:
         if only_cd not in CD_TO_LABEL:
@@ -536,7 +547,7 @@ def run_crawl(
     max_pages = None
     if recent_only is not None:
         max_pages = recent_only
-    elif not full_resync:
+    elif not full_resync and not all_pages:
         max_pages = INCREMENTAL_MAX_PAGES
 
     session = build_session()
@@ -549,11 +560,12 @@ def run_crawl(
         max_pages if max_pages else "ALL",
     )
 
-    index = collect_list_items(session, cds, max_pages, full_resync)
+    index = collect_list_items(session, cds, max_pages, full_resync, all_pages=all_pages)
     log.info("목록 수집 완료: 고유 글 %d건", len(index))
 
     stats, seen_slugs = crawl_details(session, index, state, full_resync)
-    stats.deleted = process_orphans(state, seen_slugs, full_resync)
+    # An archive collection should not retire unseen existing documents.
+    stats.deleted = 0 if all_pages else process_orphans(state, seen_slugs, full_resync)
 
     save_state(state)
 

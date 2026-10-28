@@ -1,5 +1,8 @@
 # Campus RAG Backend
 
+백엔드 코드는 [`backend/`](../../backend)에 있습니다. 아래 설치 명령은 프로젝트 루트,
+서버 실행 명령은 본문의 안내에 따라 `backend/`에서 실행합니다.
+
 FastAPI 백엔드. 단일 엔드포인트 `POST /ask` 를 제공한다.
 
 ```

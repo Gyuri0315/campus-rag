@@ -32,6 +32,7 @@ from scripts.crawlers.departments.preflight import (  # noqa: E402
     build_preflight, render_preflight_table,
 )
 from scripts.crawlers.departments.freshness import add_result_provenance  # noqa: E402
+from scripts.crawlers.departments.coverage import build_coverage  # noqa: E402
 
 
 def safe_site_key(value: str) -> str:
@@ -83,6 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     subparsers.add_parser("validate", help="validate address catalog and crawl registry")
+    subparsers.add_parser("coverage", help="account for every catalog row, including missing or blocked sites")
     list_ready = subparsers.add_parser(
         "list-ready", help="show read-only --all eligibility without network requests",
     )
@@ -303,6 +305,11 @@ def main() -> int:
         else:
             print(render_preflight_table(report))
         return 1 if registry_audit.errors else 0
+    if args.command == "coverage":
+        report = build_coverage(registry_audit.configs, load_site_catalog(args.sites))
+        report["registry_errors"] = list(registry_audit.errors)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 1 if registry_audit.errors or report["status"] == "needs_attention" else 0
     if args.command == "validate":
         try:
             report = validate_catalog(load_site_catalog(args.sites), registry_audit.configs)

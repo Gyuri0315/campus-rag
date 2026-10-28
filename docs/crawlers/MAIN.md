@@ -2,12 +2,12 @@
 
 메인 홈페이지(`https://www.pknu.ac.kr/main/…`)의 수집 명령어를 정리한 문서입니다.
 모든 명령은 프로젝트 루트(`campus-rag/`)에서 실행합니다.
-수집 대상과 저장 경로는 [pages.json](pages.json), 실행 진입점은 [run.py](run.py)입니다.
+수집 대상과 저장 경로는 [pages.json](../../scripts/main/pages.json), 실행 진입점은 [run.py](../../scripts/main/run.py)입니다.
 
 ## 실행 준비
 
 프로젝트 Python 가상환경과 의존성이 설치된 상태에서 실행합니다.
-최초 설치 방법은 [프로젝트 README](../../README.md#백엔드-설치)를 참고하세요.
+최초 설치 방법은 [프로젝트 README](../project/README.md#백엔드-설치)를 참고하세요.
 
 ```powershell
 # 프로젝트 루트에서 가상환경 활성화
@@ -38,7 +38,7 @@ python -m scripts.main.run --category "대학소개" --dry-run
 `needs_review`는 미등록 페이지를 뜻합니다.
 `--list`에는 활성 등록만 표시되므로 제외 여부는 페이지 ID를 지정해 확인합니다.
 
-`--page-ids`, `--category`, `--all`, `--list` 중 하나만 선택할 수 있습니다.
+`--page-ids`, `--category`, `--all`, `--boards`, `--list` 중 하나만 선택할 수 있습니다.
 페이지 ID는 `--page-ids 31 92 95`처럼 공백으로 구분합니다.
 
 ## 수집 명령어
@@ -66,6 +66,26 @@ python -m scripts.main.run --page-ids 31 --year 2026 --months 9 10
 통합 CLI에는 게시글 개수를 지정하는 `--max-posts` 옵션이 없습니다.
 공지사항 #163과 등록금 안내 #102의 FAQ는 별도 수집 경로를 사용하므로
 이 옵션으로 수집량을 제한할 수 없습니다. 공지사항의 제한 수집은 아래 명령을 사용하세요.
+
+### 게시판만 전체 목록 수집
+
+```powershell
+# 실제 요청 없이 대상 페이지 ID 확인
+python -m scripts.main.run --boards --all-board-pages --dry-run
+
+# 등록된 게시판만 선택해 모든 목록 페이지와 게시글 수집
+python -m scripts.main.run --boards --all-board-pages --report files/pknu_main/_runs/main_boards_run_report.json
+
+# 지정 게시판 하나의 전체 목록 수집
+python -m scripts.main.run --page-ids 95 --all-board-pages
+```
+
+`--boards`는 활성 `board`·`notice`·`tuition` 수집기 페이지를 선택합니다.
+등록금 안내는 FAQ를 포함하므로 본문과 FAQ를 함께 수집합니다.
+비활성화된 커뮤니티 게시판이나 다른 안내 페이지는 선택하지 않습니다.
+`--all-board-pages`는 일반 게시판·공지사항의 목록 제한을 해제하며 등록금 FAQ는 기존처럼 전체 목록을 수집합니다.
+기존 성공 결과·첨부파일 재사용은 유지합니다. `--full-resync`를 추가하면 지원하는 수집기의 재사용도 해제합니다.
+`--board-pages N`과 `--all-board-pages`는 함께 사용할 수 없습니다.
 
 ### 전체 및 상단 카테고리별 실행
 
@@ -105,7 +125,8 @@ python -m scripts.crawlers.pknu_notice
 공지사항 분류 코드는 `scripts/crawlers/pknu_notice.py`의 `CD_TO_LABEL`에서 확인합니다.
 통합 명령의 `--page-ids 163` 및 `--category "커뮤니티"`도 이 수집기를 호출하며,
 일반 실행에서는 최근 3개 목록 페이지를 확인합니다.
-통합 명령의 `--board-pages`는 공지사항에 전달되지 않습니다.
+통합 명령의 `--board-pages N`은 공지사항에 전달되지 않습니다.
+`--all-board-pages`를 사용하면 공지사항도 분류별 전체 목록을 확인합니다.
 현재 커뮤니티는 공지사항만 활성화되어 있으며 #51·52·53 등 기존 수집 결과는 보존됩니다.
 
 ### 연구기관만 실행
@@ -119,7 +140,7 @@ python -m scripts.crawlers.pknu_research_institutes --all
 
 `연구/산학/연구기관` 아래 활성 등록된 페이지만 선택합니다.
 `--category "연구/산학"`은 연구기관 외 연구 기사와 산학협력 페이지도 포함합니다.
-학과·단과대학의 독립 홈페이지는 [학과 크롤러](../README.md)를 사용합니다.
+학과·단과대학의 독립 홈페이지는 [학과 크롤러 README](DEPARTMENTS.md)를 참고하세요.
 
 ### 대학생활의 가이드·E-하나로 개별 실행
 
@@ -157,11 +178,13 @@ python -m scripts.main.run --page-ids 481 --report files/pknu_main/_runs/parking
 | `--page-ids ID [ID ...]` | 실행할 페이지 ID. 공백으로 구분 |
 | `--category "카테고리"` | 해당 상단 카테고리의 활성 등록 페이지 선택 |
 | `--all` | 모든 활성 등록 페이지 선택 |
+| `--boards` | 활성 일반 게시판·공지사항·등록금 FAQ 페이지 선택 |
 | `--list` | 활성 등록 목록 출력 |
 | `--dry-run` | 수집 없이 실행 계획 출력 |
 | `--year YEAR` | 학사일정 연도. 기본값은 한국 시간 기준 현재 연도, 범위 2000~2100 |
 | `--months MONTH [MONTH ...]` | 학사일정 월. 기본값 1~12월, #31 선택 시 사용 가능 |
 | `--board-pages N` | 일반 게시판 목록 페이지 수. 기본값 1, 최소 1. 공지사항·등록금 FAQ에는 미적용 |
+| `--all-board-pages` | 일반 게시판·공지사항 전체 목록 수집. 기존 성공 결과는 재사용. `--board-pages`와 함께 사용 불가 |
 | `--full-resync` | 지원하는 수집기에서 기존 결과 재사용 해제 |
 | `--report PATH` | 통합 보고서 경로. 프로젝트 내부 경로만 허용 |
 

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import logging
+import importlib.util
 import os
 import re
 import shutil
@@ -17,8 +17,32 @@ from pathlib import Path
 from scripts.extractors.common import normalize_text
 from scripts.text_cleaning import clean_extracted_text
 
-log = logging.getLogger(__name__)
-HWP_EXTRACT_TIMEOUT = 60
+# Preserve the HTML/table conversion even for very large documents.
+HWP_EXTRACT_TIMEOUT = None
+
+
+def _hwp_command(command_name: str) -> list[str] | None:
+    # Windows console launchers spawn another Python process. Killing the
+    # launcher on timeout leaves that child running (and holding our pipes).
+    # Invoke pyhwp directly in the crawler's interpreter instead.
+    if importlib.util.find_spec("hwp5") is not None:
+        return [sys.executable, "-c", f"from hwp5.{command_name} import main; main()"]
+    resolved = shutil.which(command_name)
+    if resolved:
+        return [resolved]
+    if os.name == "nt":
+        exe_name = f"{command_name}.exe"
+        for directory in (
+            Path(sys.executable).resolve().parent / "Scripts",
+            Path(sys.executable).resolve().parent,
+            Path(sysconfig.get_path("scripts")),
+            Path(site.getuserbase()) / f"Python{sys.version_info.major}{sys.version_info.minor}" / "Scripts",
+        ):
+            candidate = directory / exe_name
+            if candidate.exists():
+                return [str(candidate)]
+    return None
+
 
 def extract_hwpx_blocks(path: Path) -> list[dict]:
     blocks: list[dict] = []
@@ -160,30 +184,10 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
     if is_zip_hwpx_file(path):
         return extract_hwpx_blocks(path)
 
-    def resolve_hwp_command(command_name: str) -> str | None:
-        resolved = shutil.which(command_name)
-        if resolved:
-            return resolved
-
-        if os.name != "nt":
-            return None
-
-        exe_name = f"{command_name}.exe"
-        candidate_paths = [
-            Path(sys.executable).resolve().parent / "Scripts" / exe_name,
-            Path(sys.executable).resolve().parent / exe_name,
-            Path(sysconfig.get_path("scripts")) / exe_name,
-            Path(site.getuserbase()) / "Python313" / "Scripts" / exe_name,
-        ]
-        for candidate in candidate_paths:
-            if candidate.exists():
-                return str(candidate)
-        return None
-
     def extract_hwp_blocks_from_html(path: Path) -> list[dict]:
-        hwp5html = resolve_hwp_command("hwp5html")
+        hwp5html = _hwp_command("hwp5html")
         if not hwp5html:
-            return []
+            raise RuntimeError("hwp5html command not found; install pyhwp in the crawler's Python environment")
 
         tmp_base = Path(tempfile.gettempdir()) / "campus_rag_hwp5html"
         tmp_base.mkdir(parents=True, exist_ok=True)
@@ -194,7 +198,7 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
             shutil.copy2(path, copied_hwp)
             try:
                 proc = subprocess.run(
-                    [hwp5html, "--html", "--output", str(html_file), str(copied_hwp)],
+                    [*hwp5html, "--html", "--output", str(html_file), str(copied_hwp)],
                     capture_output=True,
                     text=True,
                     encoding="utf-8",
@@ -202,20 +206,18 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
                     check=False,
                     timeout=HWP_EXTRACT_TIMEOUT,
                 )
-            except subprocess.TimeoutExpired:
-                log.warning("hwp5html timed out for %s; falling back to hwp5txt", path)
-                return []
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(f"hwp5html interrupted by a timeout for {path}; text fallback is disabled") from exc
             if proc.returncode != 0:
-                log.debug("hwp5html failed for %s: %s", path, format_hwp_runtime_error(proc.stderr))
-                return []
+                raise RuntimeError(f"hwp5html failed: {format_hwp_runtime_error(proc.stderr)}")
 
             if not html_file.exists():
-                return []
+                raise RuntimeError(f"hwp5html did not produce HTML for {path}")
 
             try:
                 root = ET.fromstring(html_file.read_text(encoding="utf-8", errors="ignore"))
-            except ET.ParseError:
-                return []
+            except ET.ParseError as exc:
+                raise RuntimeError(f"hwp5html produced invalid XHTML for {path}: {exc}") from exc
 
             def tag_name(elem: ET.Element) -> str:
                 return elem.tag.rsplit("}", 1)[-1] if "}" in elem.tag else elem.tag
@@ -245,7 +247,7 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
                     body = elem
                     break
             if body is None:
-                return []
+                raise RuntimeError(f"hwp5html produced XHTML without a body for {path}")
 
             blocks: list[dict] = []
 
@@ -298,43 +300,6 @@ def extract_hwp_blocks(path: Path) -> list[dict]:
             except Exception:
                 pass
 
-    hwp5txt = resolve_hwp_command("hwp5txt")
-
-    if not hwp5txt:
-        raise RuntimeError(
-            "hwp5txt command not found in PATH/current Python environment. "
-            "Install pyhwp in the same interpreter and add its Scripts directory to PATH."
-        )
-
-    html_blocks = extract_hwp_blocks_from_html(path)
-    if html_blocks:
-        return html_blocks
-
-    proc = subprocess.run(
-        [hwp5txt, str(path)],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="ignore",
-        check=False,
-        timeout=HWP_EXTRACT_TIMEOUT,
-    )
-    if proc.returncode != 0:
-        raise RuntimeError(f"hwp5txt failed: {format_hwp_runtime_error(proc.stderr)}")
-
-    lines = [normalize_text(line) for line in proc.stdout.splitlines()]
-    lines = [line for line in lines if line]
-
-    blocks = []
-    for idx, line in enumerate(lines, start=1):
-        blocks.append(
-            {
-                "type": "paragraph",
-                "style": "HWP",
-                "line": idx,
-                "text": line,
-            }
-        )
-    return blocks
+    return extract_hwp_blocks_from_html(path)
 
 __all__ = ["extract_hwp_blocks", "extract_hwpml_xml_blocks", "extract_hwpx_blocks"]

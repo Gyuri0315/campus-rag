@@ -1,4 +1,8 @@
+import io
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -6,6 +10,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from scripts.crawlers.departments import engine
+from scripts.crawlers.departments import urls
+from scripts.crawlers.common.logging import configure_crawler_logging, set_run_id
 from scripts.crawlers.departments.access import detect_access_block, ACCESS_BLOCKED
 from scripts.crawlers.departments.adapters.numeric_cms import NumericCMSAdapter
 from scripts.crawlers.departments.config import load_registry
@@ -18,11 +24,43 @@ from scripts.tests._paths import FIXTURES_ROOT
 class URLTests(unittest.TestCase):
     def test_rejects_invalid_urls_before_network(self):
         for url in ('', '#top', 'javascript:;', 'MAILTO:a@example.org', 'https://[broken', 'https://portal.pknu.ac.kr)？/', 'https://example.org:99999/a'):
-            with self.subTest(url=url), patch.object(engine, 'get_with_tls_policy') as request:
+            with (self.subTest(url=url), patch.object(engine, 'get_with_tls_policy') as request,
+                  patch.object(engine, 'log_event') as event):
                 self.assertIsNone(engine.fetch(object(), url, delay=0))
                 request.assert_not_called()
                 self.assertFalse(engine._LAST_FETCH_FAILURE.retryable)
                 self.assertIn(engine._LAST_FETCH_FAILURE.code, ('INVALID_URL', 'NON_FETCHABLE_URL'))
+                self.assertEqual(event.call_args.kwargs['url'], url)
+
+    def test_skipped_links_keep_url_reason_and_run_id_in_dataset_log(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            logger, context = configure_crawler_logging(
+                'url_skip_test', root, console_stream=io.StringIO(), file_logging=True,
+            )
+            set_run_id(context, 'url-skip-test-run')
+            token = urls.set_url_logger(logger)
+            try:
+                base = 'https://example.test/post?token=secret-value'
+                self.assertEqual(urls.resolve_link('mailto:contact@example.test', base), '')
+                self.assertEqual(urls.resolve_link('https://example.test)', base), '')
+                for handler in logger.handlers:
+                    handler.flush()
+                rows = [json.loads(line) for line in
+                        (root / 'logs/crawlers/url_skip_test.jsonl').read_text(encoding='utf-8').splitlines()]
+                self.assertEqual([row['level'] for row in rows], ['INFO', 'WARNING'])
+                self.assertEqual([row['error_code'] for row in rows], ['NON_FETCHABLE_URL', 'INVALID_URL'])
+                self.assertEqual([row['url'] for row in rows], ['mailto:contact@example.test', 'https://example.test)'])
+                self.assertTrue(all(row['run_id'] == 'url-skip-test-run' for row in rows))
+                self.assertTrue(all(row['dataset'] == 'url_skip_test' for row in rows))
+                self.assertTrue(all(row['stage'] == 'link_resolution' for row in rows))
+                self.assertTrue(all(row['reason'] and row['base_url'] for row in rows))
+                self.assertNotIn('secret-value', json.dumps(rows))
+            finally:
+                urls._URL_LOGGER.reset(token)
+                for handler in list(logger.handlers):
+                    handler.close()
+                    logger.removeHandler(handler)
 
     def test_relative_urls_and_html_entities(self):
         base = 'https://pknujob.pknu.ac.kr/main/30'
@@ -46,7 +84,16 @@ class URLTests(unittest.TestCase):
         section = next(s for s in engine.SECTIONS if s['is_board'])
         items = [{'post_url': f'https://ce.pknu.ac.kr/ce/1814?action=view&no={n}', 'post_no': n, 'is_notice': False} for n in (2, 1)]
         detail = {'title': 'ok', 'url': items[1]['post_url'], 'body': 'body', 'attachments': []}
-        with patch.object(engine, 'fetch', return_value=SimpleNamespace(text='<html/>')), patch.object(engine, 'parse_list_page', return_value=items), patch.object(engine, 'parse_view_page', side_effect=[ValueError('bad link'), detail]) as parse, patch.object(engine, 'save_document'), patch.object(engine, 'load_existing_attachments', return_value=[]), patch.object(engine, 'save_attachments', return_value=[]):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(engine, 'fetch', return_value=SimpleNamespace(text='<html/>')),
+            patch.object(engine, 'parse_list_page', return_value=items),
+            patch.object(engine, 'parse_view_page', side_effect=[ValueError('bad link'), detail]) as parse,
+            patch.object(engine, 'existing_document_path', return_value=Path(directory) / 'missing.json'),
+            patch.object(engine, 'save_document'),
+            patch.object(engine, 'load_existing_attachments', return_value=[]),
+            patch.object(engine, 'save_attachments', return_value=[]),
+        ):
             stats, watermark = engine.crawl_board(object(), section, {'items': {}}, True, recent_only=1)
         self.assertEqual(parse.call_count, 2)
         self.assertEqual(stats.failed, 1)

@@ -41,6 +41,25 @@ class CrawlerLoggingTests(unittest.TestCase):
             self.assertIn(field, payload)
         self.assertEqual("123", payload["source_id"])
 
+    def test_page_result_is_readable_and_keeps_structured_fields(self) -> None:
+        log_event(
+            self.logger, logging.WARNING, "page_result", page_id=71,
+            title="대학원 > 경영대학원", url="https://www.pknu.ac.kr/main/71",
+            status="needs_review", status_label="검토 필요", reason="첨부 실패 1건\n확인 필요",
+        )
+        for output in (
+            self.console.getvalue(),
+            (self.root / "logs/crawlers/test_dataset.log").read_text(encoding="utf-8"),
+        ):
+            self.assertIn("[페이지 결과] main/71 대학원 > 경영대학원: 검토 필요", output)
+            self.assertIn("첨부 실패 1건 확인 필요", output)
+            self.assertEqual(len(output.splitlines()), 1)
+        payload = self.json_lines()[0]
+        self.assertEqual(payload["event"], "page_result")
+        self.assertEqual(payload["page_id"], 71)
+        self.assertEqual(payload["status"], "needs_review")
+        self.assertEqual(payload["run_id"], "test_dataset-20260902T153012")
+
     def test_sensitive_context_and_url_query_are_masked(self) -> None:
         log_event(
             self.logger, logging.ERROR, "request_failed",
@@ -52,6 +71,18 @@ class CrawlerLoggingTests(unittest.TestCase):
         self.assertNotIn("Bearer abc", serialized)
         self.assertNotIn("session=abc", serialized)
         self.assertIn("REDACTED", serialized)
+
+    def test_request_start_is_visible_and_flushed_before_completion(self) -> None:
+        log_event(self.logger, logging.INFO, "request_started",
+                  url="https://example.test/page?token=secret-value", method="GET")
+        # Inspect both streams before any response or completion event is emitted.
+        console = self.console.getvalue()
+        text = (self.root / "logs/crawlers/test_dataset.log").read_text(encoding="utf-8")
+        structured = (self.root / "logs/crawlers/test_dataset.jsonl").read_text(encoding="utf-8")
+        for output in (console, text, structured):
+            self.assertIn("request_started", output)
+            self.assertNotIn("secret-value", output)
+        self.assertEqual("GET", json.loads(structured)["method"])
 
     def test_sensitive_key_variants_and_url_credentials_are_masked(self) -> None:
         log_event(

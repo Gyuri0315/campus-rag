@@ -1,5 +1,7 @@
 # Baselines
 
+기준점 파일 저장 위치는 [`eval/baselines/`](../../eval/baselines)입니다.
+
 평가 기준점 파일을 보관합니다. 파일명은 `baseline_YYYYMMDD.json` 형식을 사용하고, Git commit, 데이터 스냅샷, 모델, 검색 설정, 프롬프트 해시와 영역별 평가 점수를 함께 기록합니다.
 
 실제 평가를 실행하지 않은 상태에서 기준 점수를 임의로 만들지 않습니다.

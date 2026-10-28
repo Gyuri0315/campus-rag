@@ -73,6 +73,7 @@ def fetch(
     stream: bool = False,
     allow_redirects: bool = True,
 ) -> requests.Response:
+    log_event(log, logging.INFO, "request_started", url=url, method=method)
     time.sleep(REQUEST_DELAY)
     try:
         resp = session.request(

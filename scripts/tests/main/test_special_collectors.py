@@ -24,6 +24,37 @@ from scripts.main.collectors import boards
 
 
 class BoardSampleTests(unittest.TestCase):
+    def test_all_pages_reads_later_lists_and_deduplicates_pinned_posts(self) -> None:
+        route = replace(ROUTES[228], options={"board_id": "85"})
+        root = Path("board-archive-output").resolve()
+        responses = []
+        for page in range(1, 4):
+            body = '<input name="bbsId" value="85"><ul class="bdWz">' + ''.join(
+                f'<li><a href="?action=view&no={n}"><h5>Post {n}</h5></a></li>'
+                for n in dict.fromkeys((1, page))) + '</ul>'
+            list_url = route.url if page == 1 else f"{route.url}?bbsId=85&pageIndex={page}"
+            responses.append(SimpleNamespace(status_code=200, url=list_url,
+                             headers={"Content-Type": "text/html"}, text=body))
+        responses.append(SimpleNamespace(status_code=200, url=f"{route.url}?action=view&no=1",
+                         headers={"Content-Type": "text/html"}, text='''
+          <form id="frmPost"><input name="bbsId" value="85"><input name="chkNo" value="1"></form>
+          <table><tr class="first_noti"><td class="title_b">Post 1</td></tr></table>
+          <div class="bdvTxt"><p>Original article body.</p></div>'''))
+        paths = Mock()
+        paths.document_json.return_value = root / "post.json"
+        paths.attachment_dir.return_value = root / "files"
+        with (patch.dict(ROUTES, {228: route}), patch.object(boards, "PROJECT_ROOT", root),
+              patch.object(boards, "PATHS", paths), patch.object(boards, "fetch", side_effect=responses) as fetch,
+              patch.object(boards.cms_board, "parse_page_indicator", return_value=(1, 3)),
+              patch.object(boards.cms_board, "save_attachments", return_value=[]),
+              patch.object(boards, "save_json"), patch.object(boards, "write_json")):
+            _, result = boards.crawl_board_page(Mock(), {"items": {}}, 228, False,
+                                                max_pages=None, max_posts=1)
+        self.assertEqual(result["pages_crawled"], 3)
+        self.assertEqual(result["listed_count"], 3)
+        self.assertEqual(fetch.call_count, 4)
+        self.assertIn("pageIndex=3", fetch.call_args_list[2].args[1])
+
     def test_post_limit_bounds_detail_requests_and_keeps_original_language(self) -> None:
         route = replace(ROUTES[228], options={"board_id": "85", "language": "en"})
         list_html = '<input name="bbsId" value="85"><ul class="bdWz">' + ''.join(
@@ -68,6 +99,48 @@ class BoardSampleTests(unittest.TestCase):
         for invalid in (0, -1, True, 1.5):
             with self.assertRaisesRegex(ValueError, "positive integer"):
                 boards.crawl_board_page(Mock(), {"items": {}}, 228, False, max_posts=invalid)
+
+
+class NoticeBoardArchiveTests(unittest.TestCase):
+    def test_incomplete_archive_list_is_not_reported_as_success(self) -> None:
+        from scripts.crawlers import pknu_notice as notice
+
+        with (patch.object(notice, "fetch", side_effect=[SimpleNamespace(text="first"), None]),
+              patch.object(notice, "parse_page_indicator", return_value=(1, 5)),
+              patch.object(notice, "parse_list_page", return_value=[SimpleNamespace(no="1")])):
+            with self.assertRaisesRegex(RuntimeError, "notice_list_incomplete.*page=2/5"):
+                notice.collect_list_items(Mock(), ["10001"], None, False, all_pages=True)
+
+    def test_all_pages_exceeds_incremental_limit_without_forcing_redownloads(self) -> None:
+        from scripts.crawlers import pknu_notice as notice
+        from scripts.crawlers.common.schema import CrawlStats
+
+        responses = [SimpleNamespace(text=str(page)) for page in range(1, 6)]
+        session = Mock()
+        with (patch.object(notice, "build_session", return_value=session),
+              patch.object(notice, "load_state", return_value={"items": {}}),
+              patch.object(notice, "fetch", side_effect=responses) as fetch,
+              patch.object(notice, "parse_page_indicator", return_value=(1, 5)),
+              patch.object(notice, "parse_list_page", side_effect=lambda text, *a: [SimpleNamespace(no=text)]),
+              patch.object(notice, "crawl_details", return_value=(CrawlStats(), set())) as details,
+              patch.object(notice, "process_orphans") as orphans,
+              patch.object(notice, "save_state")):
+            notice.run_crawl(only_cd="10001", all_pages=True)
+        self.assertEqual(fetch.call_count, 5)
+        self.assertEqual(fetch.call_args_list[-1].kwargs["params"]["pageIndex"], "5")
+        self.assertEqual(len(details.call_args.args[1]), 5)
+        self.assertFalse(details.call_args.args[3])
+        orphans.assert_not_called()
+
+    def test_community_passes_all_pages_to_notice_crawler(self) -> None:
+        from scripts.main.categories import community
+        from scripts.crawlers.common.schema import CrawlStats
+
+        with patch("scripts.crawlers.pknu_notice.run_crawl", return_value=CrawlStats()) as crawl:
+            community.execute([{"page_id": 163, "handler": "notice"}], full_resync=False,
+                              all_board_pages=True)
+        self.assertTrue(crawl.call_args.kwargs["all_pages"])
+        self.assertFalse(crawl.call_args.kwargs["full_resync"])
 
 
 class LinkedPageTests(unittest.TestCase):

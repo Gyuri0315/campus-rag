@@ -16,6 +16,25 @@ from scripts.crawlers.departments.tls import NETWORK_REQUEST_FAILED, TLS_CERTIFI
 
 
 class DepartmentTlsTests(unittest.TestCase):
+    def test_verified_hosts_use_intermediate_without_disabling_verification(self) -> None:
+        with patch.object(engine, "ACTIVE_CONFIG", None):
+            session = engine.build_session()
+        self.addCleanup(session.close)
+        default = session.get_adapter("https://unverified.pknu.ac.kr/page")
+        for host in ("ce.pknu.ac.kr", "gic.pknu.ac.kr", "fishsci.pknu.ac.kr",
+                     "cms.pknu.ac.kr", "www.pknu.ac.kr", "libweb.pknu.ac.kr"):
+            with self.subTest(host=host):
+                adapter = session.get_adapter(f"https://{host}/page")
+                self.assertIsNot(adapter, default)
+                self.assertTrue(adapter._context.check_hostname)
+                self.assertEqual(ssl.CERT_REQUIRED, adapter._context.verify_mode)
+                self.assertTrue(any("Sectigo Public Server Authentication CA DV R36" in str(cert['subject'])
+                                    for cert in adapter._context.get_ca_certs()))
+                for url in (f"https://{host}.example.test/", f"https://{host}:444/",
+                            f"https://{host}@example.test/"):
+                    self.assertIs(default, session.get_adapter(url))
+        self.assertTrue(session.verify)
+
     def test_single_dataset_probe_starts_with_registry_https(self) -> None:
         probe = Mock(
             status="unsupported", compatible=False,
