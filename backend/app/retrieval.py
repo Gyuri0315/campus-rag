@@ -18,11 +18,15 @@ from .freshness import (
     FRESHNESS_RPCS,
     OPENING_CHUNKS,
     OPENING_SOURCES,
+    current_term,
     freshness_adjustment,
     is_current_term_notice,
     is_schedule_query,
+    query_term,
+    says_this_term,
     seed_slots,
 )
+from . import department_focus, title_anchor
 from .reranking import normalize_scores
 
 logger = logging.getLogger(__name__)
@@ -1009,7 +1013,7 @@ def _opening_chunks_of_current_notices(
         source_id = row.get("source_id")
         if rpc_name not in CHUNK_TABLES or not source_id or source_id in parents:
             continue
-        if is_current_term_notice(row):
+        if is_current_term_notice(row, query_text=query_text):
             parents[source_id] = row
             if len(parents) >= OPENING_SOURCES:
                 break
@@ -1071,6 +1075,516 @@ def _opening_chunks_of_current_notices(
     return extra
 
 
+# Source/chunk tables behind each notice RPC, for title-anchor lookups.
+TITLE_ANCHOR_TABLES = {
+    "match_rag_documents": ("rag_sources", "rag_chunks"),
+    "match_pknu_notice_documents": ("pknu_notice_sources", "pknu_notice_chunks"),
+}
+
+
+def _fetch_notice_chunks(
+    client: Client,
+    source_table: str,
+    chunk_table: str,
+    source_ids: List[str],
+    first_chunks: Optional[int] = None,
+) -> Optional[Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]]:
+    """Source rows and their chunks (with embeddings; only the first
+    `first_chunks` of each if given), or None on failure."""
+    try:
+        sources = (
+            client.table(source_table)
+            .select("id, source_slug, source_type, title, url, parent_url, metadata, priority_score, priority_details")
+            .in_("id", source_ids)
+            .execute()
+        ).data or []
+        query = (
+            client.table(chunk_table)
+            .select("id, source_id, chunk_id, chunk_index, content, metadata, embedding")
+            .in_("source_id", source_ids)
+        )
+        if first_chunks is not None:
+            query = query.lt("chunk_index", first_chunks)
+        chunks = query.limit(400).execute().data or []
+    except Exception:
+        logger.warning("retrieval: notice chunk fetch failed table=%s", chunk_table, exc_info=True)
+        return None
+    return sources, chunks
+
+
+def _notice_chunk_rows(
+    rpc_name: str,
+    sources: List[Dict[str, Any]],
+    chunks: List[Dict[str, Any]],
+    embedding: List[float],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> List[Dict[str, Any]]:
+    """Chunks shaped like the vector RPC's rows (source columns + chunk, real
+    cosine similarity), run through the normal per-row pipeline."""
+    source_by_id = {source["id"]: source for source in sources}
+    rows: List[Dict[str, Any]] = []
+    for chunk in chunks:
+        source = source_by_id.get(chunk.get("source_id"))
+        vector = title_anchor.parse_vector(chunk.get("embedding"))
+        if source is None or vector is None:
+            continue
+        row = {
+            "id": chunk["id"],
+            "source_id": chunk["source_id"],
+            "source_slug": source.get("source_slug"),
+            "source_type": source.get("source_type"),
+            "title": source.get("title"),
+            "url": source.get("url"),
+            "parent_url": source.get("parent_url"),
+            "chunk_id": chunk.get("chunk_id"),
+            "chunk_index": chunk.get("chunk_index"),
+            "content": chunk.get("content"),
+            "metadata": {
+                **(source.get("metadata") or {}),
+                **(chunk.get("metadata") or {}),
+                "priority_score": source.get("priority_score") or 0.0,
+                "priority_details": source.get("priority_details") or {},
+            },
+            "similarity": title_anchor.cosine(embedding, vector),
+        }
+        processed, outcome = _process_candidate_row(
+            row, rpc_name, query_text, query_terms,
+            priority_weight, dataset_priority_weight, source_kind_weight,
+        )
+        if processed is None or outcome in ("noise", "dataset_mismatch"):
+            continue
+        rows.append(processed)
+    return rows
+
+
+def _title_anchor_chunks(
+    client: Client,
+    rpc_names: List[str],
+    embedding: List[float],
+    candidates: List[Dict[str, Any]],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+    max_workers: int = 1,
+) -> List[Dict[str, Any]]:
+    """Best chunks of the notices a rare query word names in their title.
+
+    See title_anchor.py for why. Rows come out shaped like the vector RPC's
+    (source columns + chunk, real cosine similarity) and go through the
+    normal per-row pipeline; the reranker decides whether they're used. Any
+    failed fetch only logs.
+    """
+    tables = {rpc: TITLE_ANCHOR_TABLES[rpc] for rpc in rpc_names if rpc in TITLE_ANCHOR_TABLES}
+    terms = title_anchor.anchor_terms(query_text, _LEXICAL_STOPWORDS, _LEXICAL_PARTICLE_SUFFIXES)
+    if not tables or not terms:
+        return []
+    rpc_by_source = {source: rpc for rpc, (source, _chunks) in tables.items()}
+
+    def fetch_titles(term: str, source_table: str, rpc_client: Client) -> List[Dict[str, Any]]:
+        try:
+            response = (
+                rpc_client.table(source_table)
+                .select("id, url, title, published_at:metadata->>published_at, date:metadata->>date")
+                .eq("status", "active")
+                .ilike("title", f"%{term}%")
+                .limit(title_anchor.TERM_FETCH_LIMIT)
+                .execute()
+            )
+        except Exception:
+            logger.warning("retrieval: title anchor lookup failed table=%s", source_table, exc_info=True)
+            return []
+        rpc_name = rpc_by_source[source_table]
+        return [{**row, "_rpc_name": rpc_name} for row in response.data or []]
+
+    jobs = [(term, source) for term in terms for source in rpc_by_source]
+    if max_workers <= 1:
+        results = [fetch_titles(term, source, client) for term, source in jobs]
+    else:
+        pool = _get_rpc_pool(max_workers)
+        futures = [
+            pool.submit(lambda t=term, s=source: fetch_titles(t, s, _worker_client(client)))
+            for term, source in jobs
+        ]
+        results = [future.result() for future in futures]
+    term_rows: Dict[str, List[Dict[str, Any]]] = {term: [] for term in terms}
+    for (term, _source), rows in zip(jobs, results):
+        term_rows[term].extend(rows)
+
+    urls = title_anchor.rank_notices(term_rows)
+    if not urls:
+        return []
+    source_ids: Dict[str, List[str]] = {}
+    for rows in term_rows.values():
+        for row in rows:
+            if row.get("url") in urls:
+                ids = source_ids.setdefault(row["_rpc_name"], [])
+                if row["id"] not in ids:
+                    ids.append(row["id"])
+
+    present = {_dedupe_key(row) for row in candidates}
+    extra: List[Dict[str, Any]] = []
+    scored: Dict[str, List[Dict[str, Any]]] = {}
+    for rpc_name, ids in source_ids.items():
+        fetched = _fetch_notice_chunks(client, *tables[rpc_name], ids)
+        if fetched is None:
+            continue
+        for row in _notice_chunk_rows(
+            rpc_name, *fetched, embedding, query_text, query_terms,
+            priority_weight, dataset_priority_weight, source_kind_weight,
+        ):
+            row["_title_anchor"] = True
+            scored.setdefault(str(row.get("url") or ""), []).append(row)
+    for url, quota in zip(urls, title_anchor.ANCHOR_CHUNKS_PER_NOTICE):
+        rows = scored.get(url) or []
+        if not rows:
+            continue
+        # Every chunk repeats the notice title in its header, so cosine
+        # barely tells them apart (blank application forms often win); the
+        # query's other words do. Cosine breaks ties.
+        words = title_anchor.chunk_terms(
+            query_text, str(rows[0].get("title") or ""), _LEXICAL_STOPWORDS, _LEXICAL_PARTICLE_SUFFIXES
+        )
+        rows.sort(
+            key=lambda row: (title_anchor.keyword_hits(row.get("content"), words), _similarity(row)),
+            reverse=True,
+        )
+        taken = 0
+        for row in rows:
+            if taken >= quota:
+                break
+            key = _dedupe_key(row)
+            if key in present:
+                continue
+            present.add(key)
+            extra.append(row)
+            taken += 1
+    logger.info(
+        "retrieval: title anchor terms=%s notices=%s added=%d",
+        terms,
+        [url[-40:] for url in urls],
+        len(extra),
+    )
+    return extra
+
+
+# Recurring notices are re-posted every term ("2025-1학기 본수강신청 안내",
+# "2026학년도 2학기 휴·복학 안내"), and neither search channel can tell the
+# terms apart: keyword search ranks hundreds of 수강신청 notices from 2020-2026
+# by term frequency alone, so "2025년 1학기 수강신청 기간" never fetched the
+# 2025-1 undergraduate notice (one board's title says "본수강신청", one token
+# that doesn't even match "수강신청"), and "휴학 신청 기간" got the 군입대
+# 휴학바구니 notice instead of 휴·복학 안내 (measured 2026-10-24). When the
+# question names a term, or asks for a date (then: this term), titles carrying
+# that term and a query word are looked up directly and their opening chunks
+# join the reranker candidates. "이번 학기 ..." counts as naming this term.
+TERM_TITLE_NOTICES = 8
+TERM_TITLE_CHUNKS = 4
+TERM_TITLE_FIRST_CHUNKS = 2
+# Spellings of a query word that plain substring matching misses (titles
+# and the academic calendar write "휴·복학").
+_WORD_VARIANTS = {"휴학": ("휴학", "휴·복학", "휴ㆍ복학")}
+_TERM_TITLE_SKIP_WORDS = frozenset({"작년", "재작년", "지난", "다음", "학기", "학년도"})
+
+
+def _term_title_patterns(term: int) -> str:
+    """PostgREST or-filter matching titles that name `term` (term_index)."""
+    year, semester = term // 2, term % 2 + 1
+    patterns = (f"{year}-{semester}학기", f"{year}학년도*{semester}학기", f"{year}년*{semester}학기")
+    return ",".join(f"title.ilike.*{pattern}*" for pattern in patterns)
+
+
+def _term_title_chunks(
+    client: Client,
+    rpc_names: List[str],
+    embedding: List[float],
+    candidates: List[Dict[str, Any]],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> List[Dict[str, Any]]:
+    """Opening chunks of the asked term's notices whose title has a query word."""
+    target = query_term(query_text)
+    if target is None:
+        # "이번 학기 캡스톤디자인 지원금" names no date but still means this
+        # term's notice (2026-10-24: the title anchor picked a 1학기 one).
+        if not (is_schedule_query(query_text) or says_this_term(query_text)):
+            return []
+        target = current_term()
+    words = [
+        word
+        for word in title_anchor.anchor_terms(query_text, _LEXICAL_STOPWORDS, _LEXICAL_PARTICLE_SUFFIXES)
+        if not any(char.isdigit() for char in word) and word not in _TERM_TITLE_SKIP_WORDS
+    ]
+    if not words:
+        return []
+    graduate_asked = any(word in (query_text or "") for word in ("대학원", "석사", "박사"))
+    patterns = _term_title_patterns(target)
+    extra: List[Dict[str, Any]] = []
+    present = {_dedupe_key(row) for row in candidates}
+    scored: List[Tuple[int, float, Dict[str, Any]]] = []
+    for rpc_name, (source_table, chunk_table) in TITLE_ANCHOR_TABLES.items():
+        if rpc_name not in rpc_names:
+            continue
+        titles: Dict[str, Dict[str, Any]] = {}
+        for word in words:
+            for variant in _WORD_VARIANTS.get(word, (word,)):
+                try:
+                    rows = (
+                        client.table(source_table)
+                        .select("id, url, title")
+                        .eq("status", "active")
+                        .ilike("title", f"%{variant}%")
+                        .or_(patterns)
+                        .limit(50)
+                        .execute()
+                    ).data or []
+                except Exception:
+                    logger.warning("retrieval: term title lookup failed table=%s", source_table, exc_info=True)
+                    rows = []
+                for row in rows:
+                    titles.setdefault(row["id"], row)
+        if not graduate_asked:
+            titles = {key: row for key, row in titles.items() if "대학원" not in str(row.get("title") or "")}
+        if not titles:
+            continue
+
+        def title_score(url: str) -> Tuple[int, int]:
+            title = next(str(row.get("title") or "") for row in titles.values() if row["url"] == url)
+            return (sum(1 for word in words if word in title), title_anchor.notice_number(url))
+
+        urls = sorted({row["url"] for row in titles.values() if row.get("url")}, key=title_score, reverse=True)
+        urls = urls[:TERM_TITLE_NOTICES]
+        fetched = _fetch_notice_chunks(
+            client, source_table, chunk_table,
+            [key for key, row in titles.items() if row.get("url") in urls],
+            first_chunks=TERM_TITLE_FIRST_CHUNKS,
+        )
+        if fetched is None:
+            continue
+        for row in _notice_chunk_rows(
+            rpc_name, *fetched, embedding, query_text, query_terms,
+            priority_weight, dataset_priority_weight, source_kind_weight,
+        ):
+            chunk_words = title_anchor.chunk_terms(
+                query_text, str(row.get("title") or ""), _LEXICAL_STOPWORDS, _LEXICAL_PARTICLE_SUFFIXES
+            )
+            scored.append((title_anchor.keyword_hits(row.get("content"), chunk_words), _similarity(row), row))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    for _hits, _similarity_score, row in scored:
+        if len(extra) >= TERM_TITLE_CHUNKS:
+            break
+        key = _dedupe_key(row)
+        if key in present:
+            continue
+        present.add(key)
+        row["_term_title"] = True
+        extra.append(row)
+    logger.info("retrieval: term titles term=%d words=%s added=%d", target, words, len(extra))
+    return extra
+
+
+# The academic calendar (학사일정) answers schedule questions no notice title
+# names: "2학기 기말고사 기간" found only a 보건진료소 "기말고사 응원전" notice,
+# while "2026학년도 학사일정 안내" lists 제2학기 기말고사 12.14~12.20 (measured
+# 2026-10-24). On schedule questions its chunks that contain a query word
+# join the reranker candidates. It is posted once a year, so it is cached.
+CALENDAR_CHUNKS = 2
+_CALENDAR_CACHE_SECONDS = 3600.0
+_calendar_cache: Dict[int, Tuple[float, Optional[Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]]]] = {}
+# The calendar is one table whose column header ("학사내용 | 2026학년도(안) |
+# 2025학년도") is only in its first chunk; later chunks list two date ranges
+# per row with nothing saying which year is which.
+_CALENDAR_HEADER_RE = re.compile(r"학사내용\s*\|[^|\n]+\|\s*20\d{2}학년도")
+
+
+def _calendar_notice(
+    client: Client, rpc_names: List[str], year: int
+) -> Optional[Tuple[str, List[Dict[str, Any]], List[Dict[str, Any]]]]:
+    """(rpc_name, sources, chunks) of the newest "{year}학년도 학사일정" notice."""
+    now = time.monotonic()
+    cached = _calendar_cache.get(year)
+    if cached and now - cached[0] < _CALENDAR_CACHE_SECONDS:
+        return cached[1]
+    found = None
+    # The school board first: it is the issuing office's own post.
+    for rpc_name in ("match_pknu_notice_documents", "match_rag_documents"):
+        if rpc_name not in rpc_names:
+            continue
+        source_table, chunk_table = TITLE_ANCHOR_TABLES[rpc_name]
+        try:
+            rows = (
+                client.table(source_table)
+                .select("id, url, title")
+                .eq("status", "active")
+                .ilike("title", f"%{year}학년도%학사일정%")
+                .limit(50)
+                .execute()
+            ).data or []
+        except Exception:
+            logger.warning("retrieval: calendar lookup failed table=%s", source_table, exc_info=True)
+            return None
+        rows = [row for row in rows if row.get("url") and "대학원" not in str(row.get("title") or "")]
+        if not rows:
+            continue
+        url = max({row["url"] for row in rows}, key=title_anchor.notice_number)
+        fetched = _fetch_notice_chunks(
+            client, source_table, chunk_table, [row["id"] for row in rows if row["url"] == url]
+        )
+        if fetched is None:
+            return None
+        found = (rpc_name, *fetched)
+        break
+    _calendar_cache[year] = (now, found)
+    return found
+
+
+def _academic_calendar_chunks(
+    client: Client,
+    rpc_names: List[str],
+    embedding: List[float],
+    candidates: List[Dict[str, Any]],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> List[Dict[str, Any]]:
+    """Calendar chunks naming what a schedule question asks about."""
+    # Rare, specific words only ("기말고사", "수강취소"); "기간"/"신청" or a
+    # term like "2학기" are on every chunk of the calendar.
+    words = [
+        variant
+        for word in title_anchor.anchor_terms(query_text, _LEXICAL_STOPWORDS, _LEXICAL_PARTICLE_SUFFIXES)
+        if not any(char.isdigit() for char in word) and "학사일정" not in word
+        for variant in _WORD_VARIANTS.get(word, (word,))
+    ]
+    if not words:
+        return []
+    target = query_term(query_text) or current_term()
+    year, semester = target // 2, target % 2 + 1
+    # A year's calendar runs to the next February, so the dates of a 1st
+    # term's 예비·본 수강신청 (January-February) sit at the end of the
+    # previous year's table: "2027학년도 1학기 수강신청" is in the 2026학년도
+    # 학사일정 (measured 2026-10-26; Google answered it, we said 모름).
+    years = (year, year - 1) if semester == 1 else (year,)
+    term_labels = (f"{year}학년도 제{semester}학기", f"{year}학년도 {semester}학기")
+    scored = []
+    for calendar_year in years:
+        notice = _calendar_notice(client, rpc_names, calendar_year)
+        if notice is None:
+            continue
+        rows = _notice_chunk_rows(
+            *notice, embedding, query_text, query_terms,
+            priority_weight, dataset_priority_weight, source_kind_weight,
+        )
+        header = None
+        for row in sorted(rows, key=lambda row: int(row.get("chunk_index") or 0)):
+            match = _CALENDAR_HEADER_RE.search(str(row.get("content") or ""))
+            if match:
+                header = match.group(0)
+                break
+        for row in rows:
+            content = str(row.get("content") or "")
+            hits = title_anchor.keyword_hits(content, words)
+            # Rows naming the asked term outrank the same event in other terms.
+            if hits and any(label in content for label in term_labels):
+                hits += 1
+            scored.append((hits, _similarity(row), row, header))
+    scored.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    present = {_dedupe_key(row) for row in candidates}
+    extra: List[Dict[str, Any]] = []
+    for hits, _similarity_score, row, header in scored:
+        if hits == 0 or len(extra) >= CALENDAR_CHUNKS:
+            break
+        key = _dedupe_key(row)
+        if key in present:
+            continue
+        present.add(key)
+        content = str(row.get("content") or "")
+        if header and header not in content:
+            row["content"] = content.replace("\n본문:", f"\n표 열: {header}\n본문:", 1)
+        row["_academic_calendar"] = True
+        extra.append(row)
+    logger.info("retrieval: academic calendar years=%s words=%s added=%d", years, words, len(extra))
+    return extra
+
+
+# Chunks of the asked department pulled from each per-department table.
+FOCUS_CHUNKS_PER_SOURCE = 2
+FOCUS_MAX_SOURCES = 3
+
+
+def _focus_department(
+    client: Client,
+    embedding: List[float],
+    candidates: List[Dict[str, Any]],
+    query_text: Optional[str],
+    query_terms: list[tuple[str, tuple[str, ...]]],
+    priority_weight: float,
+    dataset_priority_weight: float,
+    source_kind_weight: float,
+) -> List[Dict[str, Any]]:
+    """Swap other departments' table slices for the asked department's.
+
+    See department_focus.py. Only notice tables are refetched (that is where
+    the per-department attachments live); a failed fetch keeps the rest.
+    """
+    variants = department_focus.focus_variants(query_text)
+    if not variants:
+        return candidates
+    kept: List[Dict[str, Any]] = []
+    foreign: Dict[Tuple[str, str], None] = {}
+    for row in candidates:
+        if department_focus.is_other_departments_table(row.get("content"), variants):
+            rpc_name = str((row.get("metadata") or {}).get("rpc_name") or "")
+            if rpc_name in TITLE_ANCHOR_TABLES and row.get("source_id"):
+                foreign[(rpc_name, str(row["source_id"]))] = None
+            continue
+        trimmed = department_focus.keep_own_rows(row.get("content"), variants)
+        if trimmed is not None:
+            row = {**row, "content": trimmed, "_department_trimmed": True}
+        kept.append(row)
+    # Keys of the original rows: trimming changed some contents (and keys).
+    present = {_dedupe_key(row) for row in candidates}
+    pulled = 0
+    for rpc_name, source_id in list(foreign)[:FOCUS_MAX_SOURCES]:
+        fetched = _fetch_notice_chunks(client, *TITLE_ANCHOR_TABLES[rpc_name], [source_id])
+        if fetched is None:
+            continue
+        rows = [
+            row for row in _notice_chunk_rows(
+                rpc_name, *fetched, embedding, query_text, query_terms,
+                priority_weight, dataset_priority_weight, source_kind_weight,
+            )
+            if department_focus.mentions(row.get("content"), variants)
+        ]
+        rows.sort(key=_similarity, reverse=True)
+        for row in rows[:FOCUS_CHUNKS_PER_SOURCE]:
+            key = _dedupe_key(row)
+            if key in present:
+                continue
+            present.add(key)
+            trimmed = department_focus.keep_own_rows(row.get("content"), variants)
+            if trimmed is not None:
+                row["content"] = trimmed
+            row["_department_focus"] = True
+            kept.append(row)
+            pulled += 1
+    logger.info(
+        "retrieval: department focus variants=%s dropped=%d pulled=%d",
+        variants[:2], len(candidates) - (len(kept) - pulled), pulled,
+    )
+    return kept
+
+
 def search(
     client: Client,
     *,
@@ -1090,6 +1604,7 @@ def search(
     max_lexical_chunks_per_url: Optional[int] = None,
     query_text: Optional[str] = None,
     metadata_filter: Optional[Dict[str, Any]] = None,
+    title_anchor: bool = False,
 ) -> List[Dict[str, Any]]:
     """Fan out across RPCs, merge rows, then return a diverse top_k set.
 
@@ -1334,7 +1849,50 @@ def search(
             max_lexical_chunks_per_url=max_lexical_chunks_per_url,
         )
 
+    if title_anchor:
+        candidates.extend(
+            _title_anchor_chunks(
+                client,
+                rpc_names,
+                embedding,
+                candidates,
+                query_text,
+                query_terms,
+                priority_weight,
+                dataset_priority_weight,
+                source_kind_weight,
+                max_workers=rpc_concurrency,
+            )
+        )
+
+    candidates.extend(
+        _term_title_chunks(
+            client,
+            rpc_names,
+            embedding,
+            candidates,
+            query_text,
+            query_terms,
+            priority_weight,
+            dataset_priority_weight,
+            source_kind_weight,
+        )
+    )
+
     if is_schedule_query(query_text):
+        candidates.extend(
+            _academic_calendar_chunks(
+                client,
+                rpc_names,
+                embedding,
+                candidates,
+                query_text,
+                query_terms,
+                priority_weight,
+                dataset_priority_weight,
+                source_kind_weight,
+            )
+        )
         candidates.extend(
             _opening_chunks_of_current_notices(
                 client,
@@ -1346,6 +1904,17 @@ def search(
                 source_kind_weight,
             )
         )
+
+    candidates = _focus_department(
+        client,
+        embedding,
+        candidates,
+        query_text,
+        query_terms,
+        priority_weight,
+        dataset_priority_weight,
+        source_kind_weight,
+    )
 
     selected = _rerank_candidates(
         question=query_text or "",

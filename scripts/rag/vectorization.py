@@ -39,7 +39,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.crawlers.common.storage import get_dataset_root
+from scripts.crawlers.common.storage import department_datasets, get_dataset_root
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "vectorization.log"
 
@@ -57,9 +57,13 @@ def configure_logging() -> None:
 
 # CLI 기본값: 입력/출력 경로와 임베딩 방식 설정.
 DATASET_PATHS = {
-    "ce": {
-        "input_root": get_dataset_root(PROJECT_ROOT, "ce") / "preprocessed",
-        "output_root": get_dataset_root(PROJECT_ROOT, "ce") / "vectorized",
+    # Every registry department, ce included (same layout under files/department/...).
+    **{
+        name: {
+            "input_root": get_dataset_root(PROJECT_ROOT, name) / "preprocessed",
+            "output_root": get_dataset_root(PROJECT_ROOT, name) / "vectorized",
+        }
+        for name in sorted(department_datasets())
     },
     "pknu_notice": {
         "input_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "preprocessed",

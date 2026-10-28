@@ -16,6 +16,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from scripts.rag.preprocessing_pipeline import (  # noqa: E402
     DATASET_CHOICES,
+    DEPARTMENT_DATASETS,
     SUPPORTED_EXTS,
     WEB_DATASETS,
     configure_logging,
@@ -148,13 +149,13 @@ def run_command(command: list[str]) -> None:
 
 def crawl_dataset(name: str, args: argparse.Namespace) -> None:
     python = sys.executable
-    if name == "ce":
+    if name in DEPARTMENT_DATASETS:
         run_command(
             [
                 python,
                 "scripts/crawlers/departments/engine.py",
                 "--dataset",
-                "ce",
+                name,
                 "--once",
                 "--recent-only",
                 str(args.recent_pages),

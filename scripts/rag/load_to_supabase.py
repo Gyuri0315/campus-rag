@@ -31,12 +31,18 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts.db import connect_postgres  # noqa: E402
-from scripts.crawlers.common.storage import get_dataset_root
+from scripts.crawlers.common.storage import department_datasets, get_dataset_root
 DATASET_TABLES = {
-    "ce": {
-        "index": get_dataset_root(PROJECT_ROOT, "ce") / "vectorized" / "index.jsonl",
-        "sources": "rag_sources",
-        "chunks": "rag_chunks",
+    # All department notices share rag_sources/rag_chunks; rows are told apart
+    # by url and metadata.source_dataset (ids hash the dataset name, so they
+    # never collide across departments).
+    **{
+        name: {
+            "index": get_dataset_root(PROJECT_ROOT, name) / "vectorized" / "index.jsonl",
+            "sources": "rag_sources",
+            "chunks": "rag_chunks",
+        }
+        for name in sorted(department_datasets())
     },
     "pknu_notice": {
         "index": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized" / "index.jsonl",
@@ -457,7 +463,8 @@ def refresh_priority_scores(dataset: str) -> None:
     """
     from psycopg.rows import dict_row as _dict_row
 
-    if dataset == "ce":
+    if dataset == "ce" or dataset in department_datasets():
+        # Scores every active rag_sources row, so it covers all departments.
         from scripts.ce.update_priorities import update_ce_priorities
 
         with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
