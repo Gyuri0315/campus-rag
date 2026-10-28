@@ -10,7 +10,7 @@
 cd D:\Github\campus-rag\campus-rag
 
 # 최초 한 번만 실행: 기존 .venv가 있으면 생성 단계 생략
-py -3.11 -m venv .venv
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 python -m pip install -r backend/requirements.txt
@@ -177,7 +177,7 @@ python -m scripts.crawlers.departments.engine --dataset ce --once --section $sec
 검증한 Python 3.12 환경에서 전체 실행:
 
 ```powershell
-.\.venv312\Scripts\python.exe -u -m scripts.crawlers.departments.engine --all --once
+.\.venv\Scripts\python.exe -u -m scripts.crawlers.departments.engine --all --once
 ```
 
 학과 크롤러의 실행·저장 구조·TLS 설정·전체 대상 및 보류 사유는

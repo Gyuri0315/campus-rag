@@ -30,7 +30,7 @@ backend/
 
 ## 사전 조건
 
-- Python 3.10+ (현재 venv는 3.13.2 기준 검증)
+- Python 3.12 (프로젝트 기본 가상환경 `.venv`, 현재 3.12.10)
 - Supabase 프로젝트에 다음이 이미 존재:
   - `rag_chunks` (또는 호환 테이블) — `embedding extensions.vector(384)` 컬럼
   - RPC `match_rag_documents(query_embedding extensions.vector(384), match_count int, min_similarity float, metadata_filter jsonb)`
@@ -39,12 +39,19 @@ backend/
 
 ## 설치
 
-프로젝트 루트의 기존 `venv` 를 그대로 사용해도 되고, 백엔드 전용 venv 를 새로 만들어도 된다.
+프로젝트 루트의 Python 3.12 가상환경 `.venv`를 사용합니다. 새로 준비할 때는 다음 명령을 실행합니다.
 
 ```powershell
-# 기존 venv 사용
-.\venv\Scripts\Activate.ps1
-pip install -r backend\requirements.txt
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r backend\requirements.txt
+```
+
+PowerShell에서 활성화 스크립트가 차단되면 현재 터미널에만 실행을 허용한 뒤 활성화합니다.
+
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\.venv\Scripts\Activate.ps1
 ```
 
 `sentence-transformers` 첫 import 시 모델을 HuggingFace 에서 캐시 디렉터리(`%USERPROFILE%\.cache\huggingface`)로 받는다 (약 470MB).

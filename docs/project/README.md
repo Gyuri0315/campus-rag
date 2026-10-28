@@ -36,24 +36,22 @@ fallback policy.
 
 ## 백엔드 설치
 
-Python 가상환경을 생성한 뒤 의존성을 설치합니다.
-
-```bash
-python -m venv .venv
-```
+Python 3.12 가상환경 `.venv`를 생성한 뒤 의존성을 설치합니다.
 
 Windows PowerShell:
 
 ```bash
+py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install -r backend/requirements.txt
+python -m pip install -r backend/requirements.txt
 ```
 
 macOS 또는 Linux:
 
 ```bash
+python3.12 -m venv .venv
 source .venv/bin/activate
-pip install -r backend/requirements.txt
+python -m pip install -r backend/requirements.txt
 ```
 
 ## Supabase SQL 환경 설정

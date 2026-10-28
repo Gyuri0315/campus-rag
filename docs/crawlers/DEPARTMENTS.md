@@ -11,13 +11,13 @@
 ## 실행 준비
 
 Python 3.12.10과 전체 requirements로 검증했습니다.
-기존 검증 환경 `.venv312`가 있으면 설치 과정을 생략할 수 있습니다.
+기존 검증 환경 `.venv`가 있으면 설치 과정을 생략할 수 있습니다.
 새 환경을 준비할 때는 설치된 Python 3.12 실행 파일로 가상환경을 생성하세요.
 
 ```powershell
-py -3.12 -m venv .venv312
-.\.venv312\Scripts\python.exe -m pip install -r backend/requirements.txt
-.\.venv312\Scripts\python.exe -m pip check
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r backend/requirements.txt
+.\.venv\Scripts\python.exe -m pip check
 ```
 
 `requirements-runtime.txt`는 API 서버용이므로 크롤러에는 전체 `requirements.txt`가 필요합니다.
@@ -28,23 +28,23 @@ py -3.12 -m venv .venv312
 
 ```powershell
 # 구성 및 카탈로그 연결 검증
-.\.venv312\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.cli validate
+.\.venv\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.cli validate
 
 # 활성 대상 확인 / 보류·주소 없음까지 포함한 전체 카탈로그 대조
-.\.venv312\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.cli list-ready
-.\.venv312\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.cli coverage
+.\.venv\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.cli list-ready
+.\.venv\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.cli coverage
 
 # 활성 학과 전체 실행
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --all --once
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --all --once
 
 # 특정 학과만 실행: ce를 해당 데이터셋 별칭으로 변경
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --dataset ce --once
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --dataset ce --once
 
 # 전체 학과의 게시판별 최근 목록 1페이지 확인 (정적 페이지도 수집)
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --all --once --recent-only 1
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --all --once --recent-only 1
 
 # 소량 확인: 첫 게시판 1개, 문서 최대 2개, 첨부 다운로드 생략
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --dataset ce --once --recent-only 1 --max-board-sections 1 --max-items 2 --no-download-files
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.engine --dataset ce --once --recent-only 1 --max-board-sections 1 --max-items 2 --no-download-files
 ```
 
 `coverage`는 접근 거부·주소 없음·미등록·미설정이 있으면 종료 코드 1을 반환합니다.
@@ -165,13 +165,13 @@ Get-Content logs/crawlers/ce.log -Tail 20 -Wait
 
 ```powershell
 # 대상 확인: 네트워크 요청이나 문서 변경 없음
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.retry_attachments --all --dry-run
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.retry_attachments --all --dry-run
 
 # 일어일문학부의 일시적 요청 실패만 최대 10건 재수집
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.retry_attachments --dataset japanese --error-code REQUEST_FAILED --limit 10
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.retry_attachments --dataset japanese --error-code REQUEST_FAILED --limit 10
 
 # 여러 오류 유형을 함께 선택하고 별도 실행 폴더에 결과 저장
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.retry_attachments --all --error-code TLS_ERROR --error-code UNSUPPORTED_CONTENT_TYPE --error-code UNSUPPORTED_FILE_TYPE --limit 200 --output-root files/department/_runs/attachment_recovery
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.retry_attachments --all --error-code TLS_ERROR --error-code UNSUPPORTED_CONTENT_TYPE --error-code UNSUPPORTED_FILE_TYPE --limit 200 --output-root files/department/_runs/attachment_recovery
 ```
 
 `--error-code`는 여러 번 지정할 수 있습니다. `--limit`는 데이터셋별 제한입니다.
@@ -296,13 +296,13 @@ files/department/_runs/department_batch_report.json
 
 ```powershell
 # 새 실행마다 output-root에 새 폴더명을 지정
-.\.venv312\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.parallel --prepare --source-report files/department/_runs/department_batch_report.json --workers 4 --output-root files/department/_runs/parallel_RUN
+.\.venv\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.parallel --prepare --source-report files/department/_runs/department_batch_report.json --workers 4 --output-root files/department/_runs/parallel_RUN
 
 # 서로 다른 터미널에서 worker 번호를 1, 2, 3, 4로 지정해 각각 실행
-.\.venv312\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.parallel --manifest files/department/_runs/parallel_RUN/manifest.json --worker 1
+.\.venv\Scripts\python.exe -u -X utf8 -m scripts.crawlers.departments.parallel --manifest files/department/_runs/parallel_RUN/manifest.json --worker 1
 
 # 전체 병렬 작업 현황
-.\.venv312\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.parallel --manifest files/department/_runs/parallel_RUN/manifest.json --status
+.\.venv\Scripts\python.exe -X utf8 -m scripts.crawlers.departments.parallel --manifest files/department/_runs/parallel_RUN/manifest.json --status
 ```
 
 `--host-evidence`는 앞서 검증한 리다이렉트 기록이 있을 때 지정합니다. 기록이 없으면
