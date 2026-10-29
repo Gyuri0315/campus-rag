@@ -99,6 +99,9 @@ class Settings(BaseSettings):
     # blowing up in json.loads. JSON list form (["a","b"]) is still accepted
     # by the validator below.
     cors_origins: Annotated[List[str], NoDecode] = ["http://localhost:3000"]
+    # /docs, /redoc, /openapi.json. 운영 주소(학교 서버·HF)는 공개라 기본은 끈다.
+    # 로컬에서 API를 둘러볼 때만 API_DOCS_ENABLED=true.
+    api_docs_enabled: bool = False
     # 관리자 대시보드(/admin/*)에 접근할 수 있는 계정 이메일 (콤마 구분).
     # 비어 있으면 아무도 접근할 수 없다(기본 거부). 대소문자 무시.
     admin_emails: Annotated[List[str], NoDecode] = []
