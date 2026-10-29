@@ -61,7 +61,7 @@ def run_preprocess_steps(python: str) -> None:
             "preprocess-json",
             [
                 python,
-                "scripts/ce/preprocessing.py",
+                "scripts/preprocessing/file_preprocessing.py",
                 "--input-root",
                 str(json_input),
                 "--output-root",
@@ -80,7 +80,7 @@ def run_preprocess_steps(python: str) -> None:
             "preprocess-files",
             [
                 python,
-                "scripts/ce/preprocessing.py",
+                "scripts/preprocessing/file_preprocessing.py",
                 "--input-root",
                 str(files_input),
                 "--output-root",
@@ -173,7 +173,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Run scripts/crawlers/departments/engine.py --dataset ce -> "
-            "scripts/ce/preprocessing.py -> "
+            "scripts/preprocessing/file_preprocessing.py -> "
             "scripts/rag/vectorization.py -> scripts/rag/load_to_supabase.py every day at 09:00."
         )
     )

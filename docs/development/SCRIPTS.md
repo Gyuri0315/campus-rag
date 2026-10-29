@@ -7,8 +7,8 @@
 `scripts` is organized by responsibility. New code should import and execute the canonical paths below.
 
 Evaluation commands and datasets live under `eval/`; see the [evaluation guide](../evaluation/README.md).
-Main-site page routes and discovery tools live under `scripts/main/`; see [메인 홈페이지 크롤링 명령어](../crawlers/MAIN.md) for full, category, page and limited-board runs.
-Main-site collection settings are in `scripts/main/pages.json`. Its results share
+Main-site page routes and discovery tools live under `scripts/crawlers/main/`; see [메인 홈페이지 크롤링 명령어](../crawlers/MAIN.md) for full, category, page and limited-board runs.
+Main-site collection settings are in `scripts/crawlers/main/pages.json`. Its results share
 `files/pknu_main/`, organized by site category and then file format. Incremental
 state is in `_state/`; RAG intermediates are in `_derived/<logical-dataset>/`.
 
@@ -51,18 +51,20 @@ scripts/
 │  │  ├─ engine.py       # shared PKNU department CMS parser/downloader
 │  │  ├─ sites.csv       # source catalog of colleges, departments, majors, and homepages
 │  │  └─ registry.json   # crawl-ready datasets and verified sections
-│  ├─ ce.py              # CE entry point backed by the shared engine
+│  ├─ main/              # main-site routes, collectors, configuration, and discovery
+│  ├─ syllabus/          # syllabus catalog and PDF collection
 │  ├─ pknu_notice.py
 │  ├─ pknu_student_life.py
 │  └─ pknu_rule.py
 ├─ migrations/
 │  ├─ crawler_documents.py
-│  └─ crawler_storage.py
-├─ extractors/           # attachment/file format extractors
-├─ rag/                  # preprocessing, vectorization, loading, and search
-├─ ce/                   # CE preprocessing and priority commands
-├─ main/                 # main-site category entry points, collectors and shared logic
-├─ rule/                 # rule preprocessing and priority commands
+│  ├─ crawler_storage.py
+│  └─ main_storage.py
+├─ preprocessing/        # text cleaning, chunking, OCR review, and preprocessing CLIs
+│  └─ extractors/        # attachment/file format extractors
+├─ rag/                  # vectorization, loading, search, and orchestration
+├─ ce/                   # CE priority commands
+├─ rule/                 # rule priority commands
 └─ tests/
 ```
 

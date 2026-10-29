@@ -10,10 +10,10 @@ from pathlib import Path
 from scripts.crawlers.common.reader import read_document, remove_redundant_legacy_fields
 from scripts.crawlers.common.schema import apply_common_schema, attachment_text, content_sha256
 from scripts.migrations.crawler_documents import convert_file
-from scripts.rag.file_preprocessing import extract_crawled_json_provenance
+from scripts.preprocessing.file_preprocessing import extract_crawled_json_provenance
 from scripts.rag.vectorization import extract_chunk_records
 from scripts.rag.load_to_supabase import normalize_vector_metadata
-from scripts.rule.preprocessing import extract_rule_json_blocks
+from scripts.preprocessing.rule import extract_rule_json_blocks
 
 
 WORKSPACE_ROOT = PROJECT_ROOT

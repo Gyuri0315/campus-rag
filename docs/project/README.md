@@ -25,7 +25,7 @@ fallback policy.
 ## 프로젝트 구조
 
 - `scripts/crawlers/departments/engine.py`: registry 기반 학과 사이트의 게시글과 첨부파일을 수집합니다.
-- `scripts/ce/preprocessing.py`: 수집된 문서를 RAG에 사용할 수 있는 텍스트 형태로 전처리합니다.
+- `scripts/preprocessing/file_preprocessing.py`: 수집된 문서를 RAG에 사용할 수 있는 텍스트 형태로 전처리합니다.
 - `scripts/rag/vectorization.py`: 전처리된 텍스트를 임베딩 벡터로 변환합니다.
 - `scripts/rag/load_to_supabase.py`: 벡터화된 데이터를 Supabase PostgreSQL에 적재합니다.
 - `scripts/rag/query_supabase.py`: Supabase에 저장된 데이터를 대상으로 검색을 테스트합니다.
@@ -106,7 +106,7 @@ Supabase Dashboard에서 SQL을 실행하는 방법은 다음과 같습니다.
 전체 RAG 파이프라인은 다음 순서로 실행됩니다.
 
 1. `scripts/crawlers/departments/engine.py --dataset ce`: CE 게시글과 첨부파일 수집
-2. `scripts/ce/preprocessing.py`: 수집 문서 전처리
+2. `scripts/preprocessing/file_preprocessing.py`: 수집 문서 전처리
 3. `scripts/rag/vectorization.py`: 텍스트 임베딩 생성
 4. `scripts/rag/load_to_supabase.py`: Supabase에 데이터 적재
 
@@ -114,8 +114,8 @@ Supabase Dashboard에서 SQL을 실행하는 방법은 다음과 같습니다.
 
 ```bash
 python scripts/crawlers/departments/engine.py --dataset ce --once
-python scripts/ce/preprocessing.py --input-root files/ce/output/json --output-root files/ce/preprocessed/json --output-json-root files/ce/output/json --layout flat
-python scripts/ce/preprocessing.py --input-root files/ce/output/files --output-root files/ce/preprocessed/files --output-json-root files/ce/output/json
+python scripts/preprocessing/file_preprocessing.py --input-root files/ce/output/json --output-root files/ce/preprocessed/json --output-json-root files/ce/output/json --layout flat
+python scripts/preprocessing/file_preprocessing.py --input-root files/ce/output/files --output-root files/ce/preprocessed/files --output-json-root files/ce/output/json
 python scripts/rag/vectorization.py --dataset ce --backend sentence-transformers
 python scripts/rag/load_to_supabase.py --dataset ce
 ```

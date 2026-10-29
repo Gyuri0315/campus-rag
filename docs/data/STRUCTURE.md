@@ -197,8 +197,8 @@ files/ce/output/files/<category>/<slug>/<attachment>
 Preprocessing can be run separately for page JSON and attachments.
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\ce\preprocessing.py --input-root files\ce\output\json --output-root files\ce\preprocessed\json --output-json-root files\ce\output\json --layout flat
-.\.venv\Scripts\python.exe scripts\ce\preprocessing.py --input-root files\ce\output\files --output-root files\ce\preprocessed\files --output-json-root files\ce\output\json
+.\.venv\Scripts\python.exe scripts\preprocessing\preprocess_files.py --input-root files\ce\output\json --output-root files\ce\preprocessed\json --output-json-root files\ce\output\json --layout flat
+.\.venv\Scripts\python.exe scripts\preprocessing\preprocess_files.py --input-root files\ce\output\files --output-root files\ce\preprocessed\files --output-json-root files\ce\output\json
 ```
 
 Typical preprocessed layout:
@@ -324,7 +324,7 @@ Notes:
 
 - `/main/434` guide PDFs are downloaded into `output/files`.
 - Image-only or hard-to-extract PDFs may have short or skipped text content.
-- `scripts/main/student_life_stats.py` summarizes text extraction status for this dataset.
+- `scripts/crawlers/main/student_life_stats.py` summarizes text extraction status for this dataset.
 - This dataset does not currently have a dedicated preprocessing/vectorization preset in `scripts/rag/vectorization.py`.
 
 ## Vectorized Index Records

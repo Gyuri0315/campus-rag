@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from scripts.extractors.hwp import (
+from scripts.preprocessing.extractors.hwp import (
     extract_hwp_blocks, _hwp_command,
 )
 
@@ -22,12 +22,12 @@ from scripts.crawlers.common.schema import (
     unique_attachment_filename,
     validate_attachment,
 )
-from scripts.rule.preprocessing import extract_rule_json_blocks
+from scripts.preprocessing.rule import extract_rule_json_blocks
 
 class AttachmentSchemaTests(unittest.TestCase):
     def test_hwp_uses_current_interpreter_instead_of_windows_launcher(self) -> None:
-        with patch("scripts.extractors.hwp.importlib.util.find_spec", return_value=object()), patch(
-            "scripts.extractors.hwp.shutil.which"
+        with patch("scripts.preprocessing.extractors.hwp.importlib.util.find_spec", return_value=object()), patch(
+            "scripts.preprocessing.extractors.hwp.shutil.which"
         ) as which:
             command = _hwp_command("hwp5html")
         self.assertEqual(command, [sys.executable, "-c", "from hwp5.hwp5html import main; main()"])
@@ -45,8 +45,8 @@ class AttachmentSchemaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "yearbook.hwp"
             path.write_bytes(b"fixture")
-            with patch("scripts.extractors.hwp._hwp_command", side_effect=lambda name: [name] if name == "hwp5html" else None), patch(
-                "scripts.extractors.hwp.subprocess.run", side_effect=convert
+            with patch("scripts.preprocessing.extractors.hwp._hwp_command", side_effect=lambda name: [name] if name == "hwp5html" else None), patch(
+                "scripts.preprocessing.extractors.hwp.subprocess.run", side_effect=convert
             ) as run:
                 blocks = extract_hwp_blocks(path)
             self.assertEqual([block["text"] for block in blocks], ["yearbook", "2026 | 42"])
@@ -63,8 +63,8 @@ class AttachmentSchemaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "yearbook.hwp"
             path.write_bytes(b"fixture")
-            with patch("scripts.extractors.hwp._hwp_command", return_value=["hwp5html"]) as resolve, patch(
-                "scripts.extractors.hwp.subprocess.run", side_effect=convert
+            with patch("scripts.preprocessing.extractors.hwp._hwp_command", return_value=["hwp5html"]) as resolve, patch(
+                "scripts.preprocessing.extractors.hwp.subprocess.run", side_effect=convert
             ) as run:
                 with self.assertRaisesRegex(RuntimeError, "hwp5html failed: conversion failed"):
                     extract_hwp_blocks(path)
@@ -77,8 +77,8 @@ class AttachmentSchemaTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "yearbook.hwp"
             path.write_bytes(b"fixture")
-            with patch("scripts.extractors.hwp._hwp_command", return_value=None), patch(
-                "scripts.extractors.hwp.subprocess.run"
+            with patch("scripts.preprocessing.extractors.hwp._hwp_command", return_value=None), patch(
+                "scripts.preprocessing.extractors.hwp.subprocess.run"
             ) as run:
                 with self.assertRaisesRegex(RuntimeError, "hwp5html command not found"):
                     extract_hwp_blocks(path)
@@ -99,8 +99,8 @@ class AttachmentSchemaTests(unittest.TestCase):
                         Path(command[command.index("--output") + 1]).write_text(output, encoding="utf-8")
                     return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
 
-                with patch("scripts.extractors.hwp._hwp_command", return_value=["hwp5html"]), patch(
-                    "scripts.extractors.hwp.subprocess.run", side_effect=convert
+                with patch("scripts.preprocessing.extractors.hwp._hwp_command", return_value=["hwp5html"]), patch(
+                    "scripts.preprocessing.extractors.hwp.subprocess.run", side_effect=convert
                 ) as run:
                     with self.assertRaisesRegex(RuntimeError, message):
                         extract_hwp_blocks(path)

@@ -475,7 +475,7 @@ def refresh_priority_scores(dataset: str) -> None:
         with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
             count = update_rule_priorities(conn, False, 10)
     elif dataset in ("pknu_notice", "pknu_student_life"):
-        from scripts.main.update_priorities import fetch_rule_contents, update_dataset_priorities
+        from scripts.rag.update_main_priorities import fetch_rule_contents, update_dataset_priorities
         from scripts.rag.priority import build_rule_feature_set
 
         with connect_postgres(row_factory=_dict_row, prepare_threshold=None) as conn:
