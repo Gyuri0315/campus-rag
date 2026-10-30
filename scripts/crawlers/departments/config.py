@@ -160,6 +160,8 @@ class DepartmentConfig:
     request_delay_seconds: float = 0.8
     list_delay_seconds: float = 0.5
     request_timeout_seconds: int = 20
+    attachment_connect_timeout_seconds: float = 10.0
+    attachment_read_timeout_seconds: float = 60.0
     crawl_all_board_pages: bool = True
     reuse_existing_attachments: bool = True
     initial_max_pages: int = 10
@@ -171,6 +173,8 @@ class DepartmentConfig:
     tls_legacy_server_hosts: tuple[str, ...] = ()
     adapter: str = "numeric_cms"
     storage_path: tuple[str, ...] = ()
+    inactive_reason: str | None = None
+    covered_by: tuple[str, ...] = ()
 
     @classmethod
     def from_dict(cls, payload: dict[str, Any]) -> "DepartmentConfig":
@@ -192,6 +196,8 @@ class DepartmentConfig:
             request_delay_seconds=float(payload.get("request_delay_seconds", 0.8)),
             list_delay_seconds=float(payload.get("list_delay_seconds", 0.5)),
             request_timeout_seconds=int(payload.get("request_timeout_seconds", 20)),
+            attachment_connect_timeout_seconds=float(payload.get("attachment_connect_timeout_seconds", 10)),
+            attachment_read_timeout_seconds=float(payload.get("attachment_read_timeout_seconds", 60)),
             crawl_all_board_pages=bool(payload.get("crawl_all_board_pages", True)),
             reuse_existing_attachments=bool(payload.get("reuse_existing_attachments", True)),
             initial_max_pages=int(payload.get("initial_max_pages", 10)),
@@ -203,11 +209,15 @@ class DepartmentConfig:
             tls_legacy_server_hosts=tuple(payload.get("tls_legacy_server_hosts") or []),
             adapter=str(payload.get("adapter") or "numeric_cms").strip(),
             storage_path=tuple(raw_storage_path),
+            inactive_reason=payload.get("inactive_reason"),
+            covered_by=tuple(payload.get("covered_by") or []),
         )
         config.validate()
         return config
 
     def validate(self) -> None:
+        if self.inactive_reason not in {None, "access_blocked", "link_hub", "user_excluded"}:
+            raise ValueError("unsupported inactive_reason")
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", self.dataset):
             raise ValueError(f"invalid dataset: {self.dataset!r}")
         validate_path_component(self.dataset, "dataset")
@@ -247,6 +257,8 @@ class DepartmentConfig:
             raise ValueError("request delays must not be negative")
         if min(self.request_timeout_seconds, self.initial_max_pages, self.incremental_max_pages) <= 0:
             raise ValueError("timeouts and page limits must be positive")
+        if min(self.attachment_connect_timeout_seconds, self.attachment_read_timeout_seconds) <= 0:
+            raise ValueError("attachment timeouts must be positive")
 
     @property
     def active_sections(self) -> tuple[SectionConfig, ...]:

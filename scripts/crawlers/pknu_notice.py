@@ -192,6 +192,7 @@ def fetch(
     params: dict[str, str] | None = None,
     delay: float = REQUEST_DELAY,
 ) -> requests.Response | None:
+    log_event(log, logging.INFO, "request_started", url=url, method="GET", params=params)
     time.sleep(delay)
     try:
         resp = session.get(url, params=params, timeout=REQUEST_TIMEOUT, verify=False)
@@ -225,6 +226,7 @@ def collect_list_items(
     max_pages: int | None,
     full_resync: bool,
     newest_known_no: dict[str, int] | None = None,
+    *, all_pages: bool = False,
 ) -> tuple[dict[str, ListItem], dict[str, int]]:
     """List items of the first `max_pages` pages per category, plus each
     category's oldest regular (non-pinned) post number seen.
@@ -256,12 +258,14 @@ def collect_list_items(
             delay=LIST_DELAY,
         )
         if first is None:
+            if all_pages:
+                raise RuntimeError(f"notice_list_incomplete: cd={cd}, page=1")
             continue
 
         _, total_pages = parse_page_indicator(first.text)
         if max_pages is not None:
             last_page = min(max_pages, total_pages)
-        elif full_resync:
+        elif full_resync or all_pages:
             last_page = total_pages
         else:
             last_page = min(INCREMENTAL_MAX_PAGES, total_pages)
@@ -284,7 +288,7 @@ def collect_list_items(
         # Gap fill only when the state knows this category; a first run (empty
         # state) reads just `max_pages`.
         newest = (newest_known_no or {}).get(label)
-        gap_fill = max_pages is not None and not full_resync and newest is not None
+        gap_fill = max_pages is not None and not full_resync and not all_pages and newest is not None
         page_cap = min(total_pages, max(last_page, GAP_FILL_MAX_PAGES) if gap_fill else last_page)
         page = 1
         while page < page_cap:
@@ -300,9 +304,13 @@ def collect_list_items(
                 delay=LIST_DELAY,
             )
             if resp is None:
+                if all_pages:
+                    raise RuntimeError(f"notice_list_incomplete: cd={cd}, page={page}/{last_page}")
                 break
             page_items = parse_list_page(resp.text, cd, label)
             if not page_items:
+                if all_pages:
+                    raise RuntimeError(f"notice_list_empty: cd={cd}, page={page}/{last_page}")
                 break
             take(page_items)
             log_event(log, logging.INFO, "list_fetched", section=label, page=page, total_pages=total_pages)
@@ -585,7 +593,10 @@ def run_crawl(
     full_resync: bool = False,
     recent_only: int | None = None,
     only_cd: str | None = None,
+    *, all_pages: bool = False,
 ) -> CrawlStats:
+    if all_pages and recent_only is not None:
+        raise ValueError("all_pages cannot be combined with recent_only")
     cds = CD_ORDER.copy()
     if only_cd:
         if only_cd not in CD_TO_LABEL:
@@ -595,7 +606,7 @@ def run_crawl(
     max_pages = None
     if recent_only is not None:
         max_pages = recent_only
-    elif not full_resync:
+    elif not full_resync and not all_pages:
         max_pages = INCREMENTAL_MAX_PAGES
 
     session = build_session()
@@ -614,12 +625,13 @@ def run_crawl(
         if str(post_no).isdigit() and label:
             newest_known_no[label] = max(newest_known_no.get(label, 0), int(post_no))
     index, windows = collect_list_items(
-        session, cds, max_pages, full_resync, newest_known_no=newest_known_no
+        session, cds, max_pages, full_resync, newest_known_no=newest_known_no, all_pages=all_pages
     )
     log.info("목록 수집 완료: 고유 글 %d건", len(index))
 
     stats, seen_slugs = crawl_details(session, index, state, full_resync)
-    stats.deleted = process_orphans(state, seen_slugs, full_resync, windows)
+    # Archive collection must not retire existing documents outside its scope.
+    stats.deleted = 0 if all_pages else process_orphans(state, seen_slugs, full_resync, windows)
 
     save_state(state)
 

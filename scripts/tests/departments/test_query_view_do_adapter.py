@@ -56,6 +56,22 @@ class QueryViewDoAdapterTests(unittest.TestCase):
         self.assertEqual(["1262", "1257"], [item["source_id"] for item in items])
         self.assertIn("idx=1262", items[0]["post_url"])
 
+    def test_detail_urls_do_not_change_with_list_page_index(self) -> None:
+        for name, fixture, base in (
+            ("query_view_do", ROOT / "board.html", BASE_URL + "kor/view.do?no=44"),
+            ("query_view_legacy", FIXTURES_ROOT / "departments/mpsm/board.html",
+             "https://mpsm.pknu.ac.kr/view.do?no=303"),
+        ):
+            with self.subTest(adapter=name):
+                adapter = get_adapter(name)
+                soup = BeautifulSoup(fixture.read_text(encoding="utf-8"), "lxml")
+                first = adapter.parse_list(soup, base + "&pageIndex=1")
+                later = adapter.parse_list(soup, base + "&pageIndex=1200")
+                self.assertEqual([item["source_id"] for item in first], [item["source_id"] for item in later])
+                self.assertEqual([item["post_url"] for item in first], [item["post_url"] for item in later])
+                self.assertTrue(all("pageIndex=" not in item["post_url"] for item in later))
+                self.assertTrue(all("no=" in item["post_url"] and "idx=" in item["post_url"] for item in later))
+
     def test_numeric_adapter_remains_separate(self) -> None:
         self.assertEqual("numeric_cms", get_adapter("numeric_cms").name)
         self.assertEqual("query_view_do", self.adapter.name)

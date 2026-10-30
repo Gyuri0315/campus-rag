@@ -1,10 +1,20 @@
 """Validate and resolve crawl links without guessing malformed destinations."""
+from contextvars import ContextVar
 from html import unescape
 import logging
 import re
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from scripts.crawlers.common.logging import log_event
+
+_URL_LOGGER: ContextVar[logging.Logger] = ContextVar(
+    "department_url_logger", default=logging.getLogger("crawler.department"),
+)
+
+
+def set_url_logger(logger: logging.Logger):
+    """Use the active dataset's handlers and run ID while resolving links."""
+    return _URL_LOGGER.set(logger)
 
 
 def resolve_url(value: object, base: str = "") -> str:
@@ -34,6 +44,9 @@ def resolve_link(value: object, base: str) -> str:
     try:
         return resolve_url(value, base)
     except ValueError as exc:
-        log_event(logging.getLogger('crawler.department'), logging.WARNING, 'url_skipped',
-                  reason=str(exc), error_code=str(exc).split(':', 1)[0], retryable=False)
+        code = str(exc).split(':', 1)[0]
+        level = logging.INFO if code == 'NON_FETCHABLE_URL' else logging.WARNING
+        log_event(_URL_LOGGER.get(), level, 'url_skipped',
+                  url=str(value or ''), base_url=base, stage='link_resolution',
+                  reason=str(exc), error_code=code, retryable=False)
         return ''

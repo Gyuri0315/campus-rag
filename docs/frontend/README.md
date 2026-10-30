@@ -1,3 +1,7 @@
+# 프론트엔드
+
+코드는 [`frontend/`](../../frontend)에 있습니다. 아래 명령은 `frontend/` 폴더에서 실행합니다.
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

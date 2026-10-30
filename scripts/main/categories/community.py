@@ -5,13 +5,15 @@ import requests
 from scripts.main.common.storage import PROJECT_ROOT
 
 
-def execute(items, *, full_resync, **_options):
+def execute(items, *, full_resync, all_board_pages=False, **_options):
     collectors = {}
     notices = [item for item in items if item["handler"] == "notice"]
     if notices:
         from scripts.crawlers import pknu_notice
         try:
-            stats = pknu_notice.run_crawl(full_resync=full_resync, recent_only=None, only_cd=None)
+            stats = pknu_notice.run_crawl(
+                full_resync=full_resync, recent_only=None, only_cd=None, all_pages=all_board_pages,
+            )
             status = "failed" if stats.failed else "completed"
             for item in notices:
                 item.update(status=status, stats=stats.to_dict())

@@ -32,6 +32,7 @@ from urllib.parse import parse_qsl, unquote, urlencode, urljoin, urlsplit, urlun
 import requests
 from bs4 import BeautifulSoup
 from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 BASE_URL = "https://www.pknu.ac.kr"
 RULE_URL = f"{BASE_URL}/rule"
@@ -72,6 +73,8 @@ OUTPUT_TREE = PATHS.output / "tree"
 STATE_FILE = PATHS.state
 REQUEST_TIMEOUT = 30
 REQUEST_DELAY = 0.25
+PKNU_INTERMEDIATES = Path(__file__).with_name("certificates") / "pknu-intermediates.pem"
+RETRY_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
 
 DOWNLOAD_PATH_MARKERS = (
     "download",
@@ -113,22 +116,35 @@ STATIC_EXTENSIONS = {
 }
 
 
+class RuleRetry(Retry):
+    """Record bounded retries in the crawler's operational logs."""
+
+    def increment(self, method=None, url=None, response=None, error=None, *args, **kwargs):
+        retry = super().increment(method, url, response, error, *args, **kwargs)
+        log_event(
+            log, logging.WARNING, "retry_scheduled", method=method, url=url,
+            status_code=getattr(response, "status", None), error=str(error) if error else None,
+            attempt=len(retry.history), retries_remaining=retry.total,
+        )
+        return retry
+
+
 class PknuSslAdapter(HTTPAdapter):
-    """Allow the current PKNU rule server TLS configuration with OpenSSL 3."""
+    """Support PKNU's older cipher suite and incomplete certificate chain."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self._context = ssl.create_default_context()
+        self._context.load_verify_locations(cafile=str(PKNU_INTERMEDIATES))
+        self._context.set_ciphers("DEFAULT@SECLEVEL=1")
+        super().__init__(*args, **kwargs)
 
     def init_poolmanager(self, *args: Any, **kwargs: Any) -> None:
-        context = ssl.create_default_context()
-        context.set_ciphers("DEFAULT@SECLEVEL=1")
-        # requests' verify=False (see fetch()) tells urllib3 to set
-        # context.verify_mode = CERT_NONE at request time, which newer Python
-        # ssl module versions reject while check_hostname is still True
-        # ("Cannot set verify_mode to CERT_NONE when check_hostname is
-        # enabled"). Disable both up front on the context itself instead of
-        # relying on requests to do it dynamically later.
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
-        kwargs["ssl_context"] = context
+        kwargs["ssl_context"] = self._context
         return super().init_poolmanager(*args, **kwargs)
+
+    def proxy_manager_for(self, proxy: str, **kwargs: Any):
+        kwargs["ssl_context"] = self._context
+        return super().proxy_manager_for(proxy, **kwargs)
 
 
 GENERIC_ATTACHMENT_NAMES = {
@@ -171,7 +187,17 @@ def configure_logging() -> None:
 
 def build_session() -> requests.Session:
     session = requests.Session()
-    session.mount(BASE_URL, PknuSslAdapter())
+    retry = RuleRetry(
+        total=3, connect=3, read=3, status=3, other=0,
+        allowed_methods=frozenset({"GET", "HEAD"}), status_forcelist=RETRY_STATUS_CODES,
+        backoff_factor=1, backoff_max=30, retry_after_max=60,
+        respect_retry_after_header=True, raise_on_status=False,
+    )
+    session.mount("https://", HTTPAdapter(max_retries=retry))
+    session.mount("http://", HTTPAdapter(max_retries=retry))
+    # Keep PKNU's compatibility settings on its exact host, including redirects
+    # and attachments; law.go.kr and other hosts retain normal TLS settings.
+    session.mount(f"{BASE_URL}/", PknuSslAdapter(max_retries=retry))
     session.headers.update(
         {
             "User-Agent": (
@@ -187,16 +213,21 @@ def build_session() -> requests.Session:
 
 
 def fetch(session: requests.Session, url: str, **kwargs: Any) -> requests.Response:
-    # www.pknu.ac.kr sends only its leaf cert, no intermediate (missing chain,
-    # confirmed via `openssl s_client -showcerts`) -> "unable to get local
-    # issuer certificate". notice_crawler.py already works around this same
-    # server misconfiguration with verify=False; match that here.
-    kwargs.setdefault("verify", False)
+    if kwargs.get("verify") is False or session.verify is False:
+        raise ValueError("rule requests require HTTPS certificate verification")
+    # Preserve Requests' session/REQUESTS_CA_BUNDLE settings for custom CAs.
+    kwargs.setdefault("timeout", REQUEST_TIMEOUT)
+    log_event(log, logging.INFO, "request_started", url=url, method="GET")
     try:
-        resp = session.get(url, timeout=REQUEST_TIMEOUT, **kwargs)
+        resp = session.get(url, **kwargs)
         resp.raise_for_status()
     except requests.RequestException as exc:
-        log_event(log, logging.ERROR, "request_failed", url=url, error=exc, retryable=True)
+        status = exc.response.status_code if exc.response is not None else None
+        retryable = (status in RETRY_STATUS_CODES if status is not None else
+                     isinstance(exc, (requests.Timeout, requests.ConnectionError))
+                     and not isinstance(exc, requests.exceptions.SSLError))
+        log_event(log, logging.ERROR, "request_failed", url=url, error=exc,
+                  status_code=status, retryable=retryable)
         raise
     content_type = resp.headers.get("Content-Type", "").lower()
     host = urlsplit(resp.url or url).netloc.lower()

@@ -4,19 +4,15 @@ from __future__ import annotations
 
 import re
 from typing import Any
-from urllib.parse import parse_qs, urlencode, urljoin, urlsplit, urlunsplit
+from urllib.parse import parse_qs, urlencode, urljoin, urlsplit
 
 from bs4 import BeautifulSoup
 
-from .query_view_do import QueryViewDoAdapter
+from .query_view_do import QueryViewDoAdapter, _query_url
 
 
 def _detail_url(board_url: str, item_id: str) -> str:
-    parsed = urlsplit(board_url)
-    query = parse_qs(parsed.query)
-    query.update({"idx": [item_id], "view": ["view"]})
-    flat = [(key, value) for key, values in query.items() for value in values]
-    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(flat), ""))
+    return _query_url(board_url, idx=item_id, view="view")
 
 
 class QueryViewLegacyAdapter(QueryViewDoAdapter):

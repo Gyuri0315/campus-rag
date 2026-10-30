@@ -7,9 +7,11 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+from dataclasses import replace
 
 from scripts.crawlers.departments import cli, engine
-from scripts.crawlers.departments.config import DepartmentConfig, load_registry
+from scripts.crawlers.departments.config import DepartmentConfig, DepartmentSite, load_registry
+from scripts.crawlers.departments.coverage import build_coverage
 from scripts.crawlers.departments.engine import crawl_ready_configs
 from scripts.crawlers.departments.preflight import build_preflight, classify_preflight
 from scripts.crawlers.departments.registry_ops import safe_site_key
@@ -21,6 +23,20 @@ DISCOVERY_ROOT = ROOT / "files" / "_discovery"
 
 
 class DepartmentPreflightTests(unittest.TestCase):
+    def test_catalog_rows_cannot_silently_disappear_from_coverage(self) -> None:
+        active = next(c for c in load_registry().values() if c.crawl_ready)
+        blocked = replace(active, dataset="blocked", enabled=False, inactive_reason="access_blocked")
+        hub = replace(active, dataset="hub", enabled=False, inactive_reason="link_hub", covered_by=(active.dataset,))
+        registry = {c.dataset: c for c in (active, blocked, hub)}
+        def site(dataset, homepage=active.base_url):
+            return DepartmentSite(None, None, None, homepage, None, None, dataset)
+        sites = [site(active.dataset), site("blocked"), site("hub"), site("newsite"), site(None, None)]
+        report = build_coverage(registry, sites)
+        self.assertEqual(len(sites), len(report["rows"]))
+        self.assertEqual(["ready", "blocked", "link_hub", "unregistered", "missing_homepage"],
+                         [row["status"] for row in report["rows"]])
+        registry.pop(active.dataset)
+        self.assertEqual("unconfigured", build_coverage(registry, [site("hub")])["rows"][0]["status"])
     def test_ready_matches_all_crawl_targets(self) -> None:
         registry = load_registry()
         report = build_preflight(registry, discovery_root=DISCOVERY_ROOT)

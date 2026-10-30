@@ -1,5 +1,7 @@
 # Test layout
 
+아래 디렉터리는 [`scripts/tests/`](../../scripts/tests) 기준입니다.
+
 Tests are grouped by the feature they verify:
 
 | Directory | Purpose |

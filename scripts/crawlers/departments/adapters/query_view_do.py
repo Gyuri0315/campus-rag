@@ -17,6 +17,8 @@ _EXCLUDED_NAMES = {"HOME", "SITEMAP", "LOGIN", "LOGOUT", "홈", "사이트맵", 
 def _query_url(url: str, **values: str) -> str:
     parsed = urlsplit(url)
     query = parse_qs(parsed.query)
+    # A detail's identity is its menu/idx, not the list page it appeared on.
+    query.pop("pageIndex", None)
     query.update({key: [value] for key, value in values.items()})
     flat = [(key, value) for key, items in query.items() for value in items]
     return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, urlencode(flat), ""))

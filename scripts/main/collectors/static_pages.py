@@ -488,7 +488,7 @@ def crawl_static_pages(
 
     for page_id in selected:
         url = f"{BASE_URL}/main/{page_id}"
-        log_event(log, logging.DEBUG, "document_discovered", source_id=f"page:{page_id}", url=url)
+        log_event(log, logging.INFO, "document_discovered", source_id=f"page:{page_id}", url=url)
         stats.requested += 1
         try:
             fetched = prepared[page_id] if prepared and page_id in prepared else fetch_static_page(session, page_id)
@@ -596,6 +596,7 @@ def crawl_static_pages(
             if route_results is not None:
                 route_results.append({"page_id": page_id, "route": "static", "url": url,
                                       "status": "unchanged",
+                                      "warnings": (existing_doc or {}).get("extraction_warnings", []),
                                       "output": output_path.relative_to(PROJECT_ROOT).as_posix(),
                                       "table_count": fetched.structure["table_count"],
                                       "flow_count": fetched.structure["flow_count"],
@@ -707,6 +708,7 @@ def crawl_static_pages(
         if route_results is not None:
             route_results.append({"page_id": page_id, "route": "static", "url": url,
                                   "status": outcome,
+                                  "warnings": extraction_warnings,
                                   "output": saved_path.relative_to(PROJECT_ROOT).as_posix(),
                                   "table_count": fetched.structure["table_count"],
                                   "flow_count": fetched.structure["flow_count"],

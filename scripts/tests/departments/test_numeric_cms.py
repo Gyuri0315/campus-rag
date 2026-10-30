@@ -183,6 +183,86 @@ class NumericCMSTableTests(unittest.TestCase):
         soup = BeautifulSoup('<div class="container"></div><div id="sbCont"><table><tr><td>AI</td><td>3</td></tr></table></div>', 'lxml')
         self.assertEqual(NumericCMSAdapter().parse_static(soup, fallback_title='AI')['content'], 'AI | 3')
 
+    def test_verified_layout_prefers_a_bdcont_over_earlier_containers(self):
+        adapter = NumericCMSAdapter()
+        soup = BeautifulSoup('''<div class="container"></div>
+          <div class="c_bdCont"><div class="bdvEdit">다른 영역</div></div>
+          <div class="a_bdCont"><div class="bdvEdit">학과 안내</div></div>''', 'lxml')
+        page_url = 'https://control.pknu.ac.kr/control/3867'
+        guide = adapter.parse_static(soup, fallback_title='안내', page_url=page_url)
+        detail = adapter.parse_detail(soup, page_url + '?action=view&no=1', {},
+                                      base_url='https://control.pknu.ac.kr', site_prefix='control')
+        self.assertEqual('학과 안내', guide['content'])
+        self.assertEqual('학과 안내', detail['body'])
+
+    def test_verified_c_bdcont_detail_keeps_body_and_attachments(self):
+        soup = BeautifulSoup('''<div class="bdvTitle">신청 안내</div>
+          <div class="c_bdCont"><table>
+          <tr><th>작성자</th><td>관리자</td></tr>
+          <tr><td><a class="c_bdvFile" href="/boardDownload.do?no=2">신청서.hwp</a></td></tr>
+          <tr><td class="bdvEdit">신청 본문<table><tr><td>기간</td><td>9월</td></tr></table></td></tr>
+          </table><div class="c_bdvNav">이전 글</div></div>''', 'lxml')
+        parsed = NumericCMSAdapter().parse_detail(
+            soup, 'https://control.pknu.ac.kr/control/6229?action=view&no=1', {},
+            base_url='https://control.pknu.ac.kr', site_prefix='control',
+        )
+        self.assertEqual('신청 안내', parsed['title'])
+        self.assertIn('신청 본문', parsed['body'])
+        self.assertIn('기간 | 9월', parsed['body'])
+        self.assertNotIn('관리자', parsed['body'])
+        self.assertNotIn('이전 글', parsed['body'])
+        self.assertEqual([{'name': '신청서.hwp', 'url': 'https://control.pknu.ac.kr/boardDownload.do?no=2'}],
+                         parsed['attachments'])
+
+    def test_verified_c_bdcont_retains_empty_body_evidence(self):
+        adapter = NumericCMSAdapter()
+        for body, state in [('<div class="bdvEdit"><img src="/poster.png"></div>', 'image_only'),
+                            ('<div class="bdvEdit"></div><a href="/download/form.pdf">신청서.pdf</a>', 'attachment_only')]:
+            with self.subTest(state=state):
+                soup = BeautifulSoup(f'<div class="c_bdCont">{body}</div>', 'lxml')
+                parsed = adapter.parse_detail(
+                    soup, 'https://fashion.pknu.ac.kr/fashion/2129?action=view&no=1', {},
+                    base_url='https://fashion.pknu.ac.kr', site_prefix='fashion',
+                )
+                self.assertEqual(state, parsed['content_state'])
+                if state == 'image_only':
+                    self.assertEqual(['/poster.png'], parsed['content_images'])
+                else:
+                    self.assertEqual(1, len(parsed['attachments']))
+
+    def test_configured_department_layout_applies_to_shared_cms_links(self):
+        adapter = NumericCMSAdapter()
+        soup = BeautifulSoup('''<div class="bdvTitle">학과 공지</div>
+          <div class="c_bdCont"><div class="bdvEdit"><img src="/poster.png"></div>
+          <a href="/boardDownload.do?no=2">신청서.hwp</a></div>''', 'lxml')
+        page_url = 'https://icms.pknu.ac.kr/semiconductor/5517?action=view&no=1'
+        parsed = adapter.parse_detail(soup, page_url, {},
+                                      base_url='https://semiconductor.pknu.ac.kr', site_prefix='semiconductor')
+        self.assertEqual('attachment_only', parsed['content_state'])
+        self.assertEqual(['/poster.png'], parsed['content_images'])
+        self.assertEqual('https://icms.pknu.ac.kr/boardDownload.do?no=2', parsed['attachments'][0]['url'])
+        guide = adapter.parse_static(
+            BeautifulSoup('<div class="container"></div><div class="a_bdCont">학과 안내</div>', 'lxml'),
+            fallback_title='안내', page_url=page_url, base_url='https://semiconductor.pknu.ac.kr',
+        )
+        self.assertEqual('학과 안내', guide['content'])
+
+    def test_alternate_layout_is_limited_to_verified_hosts(self):
+        adapter = NumericCMSAdapter()
+        soup = BeautifulSoup('<div class="bdvTitle">안내</div><div class="c_bdCont"><div class="bdvEdit">다른 영역</div></div>', 'lxml')
+        for host in ['ce.pknu.ac.kr', 'control.pknu.ac.kr.example.test']:
+            with self.subTest(host=host):
+                parsed = adapter.parse_detail(soup, f'https://{host}/dept/100?action=view&no=1', {},
+                                              base_url=f'https://{host}', site_prefix='dept')
+                self.assertEqual('', parsed['body'])
+
+    def test_verified_static_page_without_layout_keeps_existing_fallback(self):
+        soup = BeautifulSoup('<div class="container"></div><div id="sbCont">기존 안내</div>', 'lxml')
+        parsed = NumericCMSAdapter().parse_static(
+            soup, fallback_title='안내', page_url='https://control.pknu.ac.kr/control/3867',
+        )
+        self.assertEqual('기존 안내', parsed['content'])
+
     def test_empty_body_states(self):
         from scripts.crawlers.departments.engine import validate_body_content, CrawlDiagnostics
         for state, status, failed in [('empty', 'failed', True), ('image_only', 'partial_success', False), ('attachment_only', 'success', False)]:
@@ -201,6 +281,16 @@ class NumericCMSTableTests(unittest.TestCase):
     def test_attachment_only_detail(self):
         parsed = NumericCMSAdapter().parse_detail(BeautifulSoup('<div class="bdvTitle">title</div><div class="a_bdCont"><div class="bdvEdit"></div><a href="/download/a.pdf">a.pdf</a></div>', 'lxml'), 'https://example.test/1', {}, base_url='https://example.test', site_prefix='ce')
         self.assertEqual(parsed['content_state'], 'attachment_only')
+
+    def test_file_named_cms_post_is_preserved_as_a_reference(self):
+        url='https://cms.pknu.ac.kr/dept/view.do?idx=1&view=view'
+        soup=BeautifulSoup(f'<div class="bdvTitle">안내</div><div class="a_bdCont"><div class="bdvEdit"><a href="{url}">공고.hwp</a></div></div>','lxml')
+        parsed=NumericCMSAdapter().parse_detail(soup,'https://ce.pknu.ac.kr/ce/1814?action=view&no=1',{},
+                                              base_url='https://ce.pknu.ac.kr',site_prefix='ce')
+        self.assertEqual(parsed['attachments'],[])
+        self.assertEqual(parsed['reference_links'][0]['url'],url)
+        self.assertEqual(parsed['reference_links'][0]['label'],'공고.hwp')
+        self.assertFalse(parsed['reference_links'][0]['followed'])
 
     def test_static_relative_attachments_are_kept(self):
         html = ('<div class="container"></div><div id="sbCont"><p>guide</p>'

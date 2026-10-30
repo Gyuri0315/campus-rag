@@ -1,5 +1,8 @@
 # Evaluation datasets
 
+아래 데이터 경로(`cases/`, `baselines/`, `results/` 등)는 코드·데이터 폴더
+[`eval/`](../../eval) 기준입니다. 기준점 관리 방법은 [BASELINES.md](BASELINES.md)를 참고하세요.
+
 Evaluation commands are in `eval/tools/` and run from the repository root with
 `python -m eval.tools.<command>`.
 

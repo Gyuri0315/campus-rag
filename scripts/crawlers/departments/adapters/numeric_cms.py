@@ -18,6 +18,17 @@ _NAV_TEXTS = {"목록보기", "다음", "이전", "next", "prev"}
 _NAV_PHRASE_RE = re.compile(
     r"(다음\s*게시글이?\s*없습니다\.?|이전\s*게시글이?\s*없습니다\.?)", re.IGNORECASE,
 )
+# These sites use .a_bdCont for guides and .c_bdCont for board details.
+# Keep the existing selector first and limit the alternate layout to verified hosts.
+_A_BDCONT_FIRST_HOSTS = frozenset({
+    "control.pknu.ac.kr",
+    "fashion.pknu.ac.kr",
+    "materials.pknu.ac.kr",
+    "college.pknu.ac.kr",
+    "ref.pknu.ac.kr",
+    "fisheries.pknu.ac.kr",
+    "semiconductor.pknu.ac.kr",
+})
 
 
 def _text(element) -> str:
@@ -251,7 +262,18 @@ def extract_body_content(content_el) -> str:
     return re.sub(r"\n{3,}", "\n\n", text).strip()
 
 
-def _content_root(soup):
+def _detail_content_root(soup, site_url: str):
+    root = soup.select_one(".a_bdCont")
+    if root is None and urlparse(site_url).hostname in _A_BDCONT_FIRST_HOSTS:
+        root = soup.select_one(".c_bdCont")
+    return root
+
+
+def _content_root(soup, site_url: str = ""):
+    if urlparse(site_url).hostname in _A_BDCONT_FIRST_HOSTS:
+        root = _detail_content_root(soup, site_url)
+        if root is not None:
+            return root
     # select_one with a comma-separated selector uses document order, not
     # selector priority. CE has an empty layout .container before #sbCont.
     return soup.select_one("#sbCont") or select_content_container(soup)
@@ -270,10 +292,26 @@ def _attachment_candidate(href: str, name: str = "") -> bool:
     return attachment_candidate(href, name)
 
 
+def _body_reference_links(content, page_url: str) -> list[dict[str, Any]]:
+    if content is None:
+        return []
+    root = content.select_one('.bdvEdit') or content
+    references = {}
+    for anchor in root.select('a[href]'):
+        href = str(anchor.get('href') or '').strip()
+        if not href or href.startswith(('#', 'javascript:', 'mailto:', 'tel:')):
+            continue
+        name = _text(anchor)
+        url = resolve_link(href, page_url)
+        if url and not _attachment_candidate(url, name):
+            references.setdefault(url, {'url': url, 'label': name, 'source': 'body_link', 'followed': False})
+    return list(references.values())
+
+
 class NumericCMSAdapter(DepartmentCMSAdapter):
     uses_numeric_post_order = True
     name = "numeric_cms"
-    version = "1.2"
+    version = "1.4"
 
     def discover_menus(self, html: str, base_url: str) -> list[dict[str, str]]:
         return numeric_menu_links(html, base_url)
@@ -400,7 +438,10 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
             return {"title": _text(title), "author": _text(author), "date": dates[0] if dates else item.get("date", ""),
                     "url": post_url, "body": text, "is_notice": item.get("is_notice", False),
                     "attachments": attachments, **_empty_content_info(body, text, attachments)}
-        title_el, content_el = soup.select_one(".bdvTitle"), soup.select_one(".a_bdCont")
+        title_el = soup.select_one(".bdvTitle")
+        # Some menu/detail links use the shared icms host. Keep the layout
+        # policy bound to the configured department rather than the link host.
+        content_el = _detail_content_root(soup, base_url or post_url)
         if not title_el and not content_el:
             return None
         title = _text(title_el)
@@ -409,7 +450,7 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
             match = re.search(r"\d{4}-\d{2}-\d{2}", _text(content_el))
             date = match.group() if match else date
         body = extract_body_content(content_el)
-        media_links = _embedded_media_links(content_el, post_url)
+        media_links = _embedded_media_links(content_el, post_url) + _body_reference_links(content_el, post_url)
         attachments = self.parse_attachments(content_el, page_url=post_url, base_url=base_url,
                                              site_prefix=site_prefix)
         root = content_el.select_one(".bdvEdit") if content_el else None
@@ -425,8 +466,10 @@ class NumericCMSAdapter(DepartmentCMSAdapter):
         breadcrumb = soup.select(".a_sbtNav dd")
         title = breadcrumb[-1].get_text(strip=True) if breadcrumb else fallback_title
         title = title or _text(soup.select_one("title")) or fallback_title
-        content = _content_root(soup)
+        content = _content_root(soup, base_url or page_url)
         text = extract_body_content(content)
         attachments = self.parse_attachments(content, page_url=page_url, base_url=base_url, site_prefix=site_prefix)
+        references = _body_reference_links(content, page_url or base_url)
         return {"title": title, "content": text, "attachments": attachments,
+                **({'reference_links': references} if references else {}),
                 **_empty_content_info(content, text, attachments)}

@@ -110,7 +110,7 @@ Get-Content logs\main_student_life_crawler.log -Wait -Tail 30
 .\.venv\Scripts\python.exe -m scripts.main.run --page-ids 95
 ```
 
-전체 등록 페이지 실행은 `--all`을 명시합니다. 자세한 구조는 `scripts/main/README.md`를 참고하세요.
+전체 등록 페이지 실행은 `--all`을 명시합니다. 자세한 구조는 [메인 홈페이지 가이드](../crawlers/MAIN.md)를 참고하세요.
 
 기존 정적 크롤러는 문단·목록, 표의 행·열 및 병합 셀, 절차도의 카드 순서를
 공통 파서로 구조화합니다. `/main/92`, `/main/94`, `/main/230`–`232`도

@@ -59,13 +59,16 @@ from scripts.crawlers.departments.config import (  # noqa: E402
 from scripts.crawlers.departments.probe import select_content_container  # noqa: E402
 from scripts.crawlers.departments.adapters import get_adapter  # noqa: E402
 from scripts.crawlers.departments.access import ACCESS_BLOCKED, detect_access_block  # noqa: E402
-from scripts.crawlers.departments.urls import resolve_url, resolve_link
+from scripts.crawlers.departments.coverage import build_coverage
+from scripts.crawlers.departments.registry_ops import save_json_atomic
+from scripts.crawlers.departments.urls import resolve_url, resolve_link, set_url_logger
 from scripts.crawlers.departments.tls import (  # noqa: E402
     NETWORK_REQUEST_FAILED,
     TLS_CERTIFICATE_VERIFY_FAILED,
     classify_request_error,
     get_with_tls_policy,
     mount_verified_legacy_tls,
+    mount_verified_pknu_tls,
 )
 
 ACTIVE_CONFIG: DepartmentConfig | None = None
@@ -191,6 +194,7 @@ def configure_department(config: DepartmentConfig) -> None:
     INITIAL_MAX_PAGES = config.initial_max_pages
     INCREMENTAL_MAX_PAGES = config.incremental_max_pages
     log, log_context = configure_crawler_logging(config.dataset, PROJECT_ROOT)
+    set_url_logger(log)
     TLS_SYSTEM_TRUST_FALLBACK_USED = False
 
 class _LegacySSLAdapter(HTTPAdapter):
@@ -242,6 +246,7 @@ def build_session() -> requests.Session:
         mount_verified_legacy_tls(session, ACTIVE_CONFIG.base_url)
         for host in ACTIVE_CONFIG.tls_legacy_server_hosts:
             mount_verified_legacy_tls(session, f"https://{host}/")
+    mount_verified_pknu_tls(session)
     return session
 
 
@@ -337,8 +342,10 @@ def fetch(
         url = resolve_url(url)
     except ValueError as exc:
         _LAST_FETCH_FAILURE = RequestFailure(code=str(exc).split(':', 1)[0], url=str(url), message=str(exc), retryable=False)
-        log_event(log, logging.WARNING, "url_skipped", error_code=_LAST_FETCH_FAILURE.code, reason=str(exc), retryable=False)
+        log_event(log, logging.WARNING, "url_skipped", url=str(url), stage="request",
+                  error_code=_LAST_FETCH_FAILURE.code, reason=str(exc), retryable=False)
         return None
+    log_event(log, logging.INFO, "request_started", url=url, method="GET")
     time.sleep(delay)
     try:
         resp, fallback_used = get_with_tls_policy(
@@ -381,7 +388,8 @@ def fetch(
                   retryable=_LAST_FETCH_FAILURE.retryable)
     except ValueError as exc:
         _LAST_FETCH_FAILURE = RequestFailure(code="INVALID_URL", url=url, message=str(exc), retryable=False)
-        log_event(log, logging.WARNING, "url_skipped", error_code="INVALID_URL", reason=str(exc), retryable=False)
+        log_event(log, logging.WARNING, "url_skipped", url=url, stage="request",
+                  error_code="INVALID_URL", reason=str(exc), retryable=False)
     except requests.RequestException as exc:
         _LAST_FETCH_FAILURE = _exception_failure(exc, url)
         log_event(log, logging.ERROR, "request_failed", url=url, error=exc,
@@ -437,7 +445,7 @@ def save_attachments(
             if error.get("code") not in {"REQUEST_FAILED", "STREAM_FAILED", "HTTP_429", "HTTP_500", "HTTP_502", "HTTP_503", "HTTP_504"} or attempt == 2:
                 break
             log_event(log, logging.INFO, "retry_scheduled", url=key, attempt=attempt + 2, error_code=error["code"])
-            time.sleep(0.5 * (attempt + 1))
+            time.sleep(2 ** attempt)
         result["id"] = f"attachment-{len(results) + 1:03d}"
         results.append(result)
     return results
@@ -485,7 +493,8 @@ def _save_attachment_attempt(
             resp, fallback_used = get_with_tls_policy(
                 session,
                 file_url,
-                timeout=REQUEST_TIMEOUT,
+                timeout=(getattr(ACTIVE_CONFIG, 'attachment_connect_timeout_seconds', 10),
+                         getattr(ACTIVE_CONFIG, 'attachment_read_timeout_seconds', 60)),
                 stream=True,
                 headers={"Referer": source_page_url or BASE_URL},
                 system_trust_fallback=bool(
@@ -499,14 +508,16 @@ def _save_attachment_attempt(
                 )
         except requests.RequestException as exc:
             log.warning("첨부파일 다운로드 실패 %s: %s", file_url, exc)
+            dns_error = 'NameResolutionError' in str(exc) or 'getaddrinfo failed' in str(exc)
             results.append(
                 build_attachment(
                     index=idx,
                     name=attachment.get("name") or f"attachment-{idx}",
                     url=file_url,
                     project_root=PROJECT_ROOT,
-                    error=attachment_error("TLS_ERROR" if isinstance(exc, requests.exceptions.SSLError) else "REQUEST_FAILED",
-                                           exc, not isinstance(exc, requests.exceptions.SSLError)),
+                    error=attachment_error("TLS_ERROR" if isinstance(exc, requests.exceptions.SSLError)
+                                           else "DNS_RESOLUTION_FAILED" if dns_error else "REQUEST_FAILED",
+                                           exc, not isinstance(exc, requests.exceptions.SSLError) and not dns_error),
                     legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL},
                 )
             )
@@ -544,8 +555,13 @@ def _save_attachment_attempt(
             results.append(build_attachment(index=idx, name=filename, url=file_url, project_root=PROJECT_ROOT,
                 error=attachment_error("STREAM_FAILED", exc, True)))
             continue
-        from scripts.crawlers.departments.attachments import html_response
-        if html_response(content_type, prefix):
+        from scripts.crawlers.departments.attachments import (
+            HTML_EXTENSIONS, explicit_html_attachment, html_download_error, html_response,
+        )
+        is_html = html_response(content_type, prefix) or filename.lower().endswith(HTML_EXTENSIONS)
+        html_file = explicit_html_attachment(filename, resp.headers.get('Content-Disposition', ''))
+        html_error = html_download_error(prefix, final_url) if is_html else None
+        if is_html and (not html_file or html_error):
             log.info("HTML 응답은 첨부로 저장하지 않음: %s", file_url)
             resp.close()
             results.append(
@@ -556,24 +572,7 @@ def _save_attachment_attempt(
                     final_url=final_url,
                     project_root=PROJECT_ROOT,
                     content_type=content_type,
-                    error=attachment_error("UNSUPPORTED_CONTENT_TYPE", content_type, False),
-                    legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL},
-                )
-            )
-            continue
-
-        if filename.lower().endswith((".html", ".htm", ".shtml")):
-            log.info("HTML 파일명은 첨부로 저장하지 않음: %s", filename)
-            resp.close()
-            results.append(
-                build_attachment(
-                    index=idx,
-                    name=filename,
-                    url=file_url,
-                    final_url=final_url,
-                    project_root=PROJECT_ROOT,
-                    content_type=content_type,
-                    error=attachment_error("UNSUPPORTED_FILE_TYPE", Path(filename).suffix, False),
+                    error=attachment_error(html_error or "UNSUPPORTED_CONTENT_TYPE", content_type, False),
                     legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL},
                 )
             )
@@ -620,9 +619,11 @@ def _save_attachment_attempt(
                 saved_path=saved_path,
                 downloaded=downloaded,
                 project_root=PROJECT_ROOT,
-                content_type=content_type,
+                content_type='text/html' if html_file else content_type,
                 error=save_error,
-                legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL},
+                legacy={**attachment, "source_page_url": source_page_url, "source_site": BASE_URL,
+                        **({'representation': 'html_attachment', 'response_content_type': content_type}
+                           if html_file else {})},
             )
         )
 
@@ -819,6 +820,16 @@ def _legacy_parse_view_page(soup: BeautifulSoup, post_url: str, item: dict) -> d
 
 
 # ─── 게시판 크롤러 ────────────────────────────────────────────────────────────
+def _board_item_key(item: dict) -> tuple[str, str]:
+    """Identify a post within its board independently of list-page URL params."""
+    source_id = str(item.get("source_id") or "").strip()
+    if source_id:
+        return "source_id", source_id
+    if item.get("post_no") is not None:
+        return "post_no", str(item["post_no"])
+    return "url", item["post_url"]
+
+
 def crawl_board(
     session: requests.Session,
     section: dict,
@@ -864,7 +875,7 @@ def crawl_board(
     if retry_items is not None:
         last_known_no, max_pages = -1, 1
     new_max_no = stored_last_no
-    seen_post_urls: set[str] = set()
+    seen_post_keys: set[tuple[str, str]] = set()
 
     page = 1
     while max_pages is None or page <= max_pages:
@@ -946,8 +957,15 @@ def crawl_board(
             )
             break
 
-        if page > 1 and all(item["post_url"] in seen_post_urls for item in processable):
-            log.info("  p%d: 이전 페이지와 동일한 게시글 → 종료", page)
+        if page > 1 and all(_board_item_key(item) in seen_post_keys for item in processable):
+            stats.skipped += len(processable)
+            log_event(
+                log, logging.INFO, "pagination_stopped", section=name, page=page, url=board_url,
+                reason="no_new_post_ids", duplicate_count=len(processable),
+                pinned_only=all(item.get("is_notice", False) for item in processable),
+                unique_posts=len(seen_post_keys),
+            )
+            log.info("  p%d: 새 게시글 없이 이미 처리한 게시글만 반환 → 종료", page)
             break
 
         numbered = [it for it in processable if it.get("post_no") is not None]
@@ -986,11 +1004,12 @@ def crawl_board(
             if retry_items is not None:
                 source_id = item["retry_source_id"]
             log_event(log, logging.DEBUG, "document_discovered", source_id=source_id, url=item.get("post_url"))
-            if item["post_url"] in seen_post_urls:
+            post_key = _board_item_key(item)
+            if post_key in seen_post_keys:
                 stats.skipped += 1
                 log_event(log, logging.INFO, "document_skipped", source_id=source_id, url=item["post_url"], reason="duplicate")
                 continue
-            seen_post_urls.add(item["post_url"])
+            seen_post_keys.add(post_key)
 
             # 고정글(NOTICE) 포함 수집
             if numeric_incremental and post_no is not None and int(post_no) <= last_known_no:
@@ -1384,6 +1403,7 @@ def _run_config(config: DepartmentConfig, args: argparse.Namespace) -> int:
     )
     mode = "smoke" if smoke else ("recent" if args.recent_only is not None else "incremental")
     result = RunResult(dataset=config.dataset, mode=mode)
+    args._last_run_result = result
     try:
         configure_department(config)
     except Exception as exc:
@@ -1510,6 +1530,9 @@ def main(default_dataset: str | None = None) -> int:
         action="store_true",
         help="keep attachment metadata without downloading files",
     )
+    parser.add_argument("--batch-report", type=Path,
+                        default=PROJECT_ROOT / "files/department/_runs/department_batch_report.json",
+                        help="--all batch coverage and per-dataset results (updated after each dataset)")
     args = parser.parse_args()
 
     if args.recent_only is not None and args.recent_only <= 0:
@@ -1540,7 +1563,8 @@ def main(default_dataset: str | None = None) -> int:
         return 1
     registry = registry_audit.configs
     try:
-        validate_registry_catalog_links(registry, load_site_catalog(args.sites))
+        sites = load_site_catalog(args.sites)
+        validate_registry_catalog_links(registry, sites)
     except (OSError, ValueError) as exc:
         print(json.dumps({
             "status": "invalid_registry", "code": "REGISTRY_CATALOG_ERROR",
@@ -1554,7 +1578,47 @@ def main(default_dataset: str | None = None) -> int:
         if not configs:
             print("department batch failed: no crawl-ready datasets")
             return 1
-        exit_codes = [_run_config(config, args) for config in configs]
+        coverage = build_coverage(registry, sites)
+        report = {"started_at": now_kst(), "status": "running", "coverage": coverage,
+                  "expected_datasets": [config.dataset for config in configs], "results": []}
+        save_json_atomic(args.batch_report, report)
+        print("catalog coverage: " + json.dumps(coverage["summary"], ensure_ascii=False), flush=True)
+        for config in registry.values():
+            if not config.crawl_ready:
+                print(f"[수집 보류] {config.dataset}: {config.inactive_reason or 'not_configured'} "
+                      f"covered_by={list(config.covered_by)}", flush=True)
+        for row in coverage["rows"]:
+            if row["status"] in {"missing_homepage", "unregistered", "unconfigured"}:
+                print(f"[대상 확인 필요] catalog row={row['row']} dataset={row['dataset']} "
+                      f"status={row['status']}", flush=True)
+        exit_codes = []
+        for index, config in enumerate(configs, 1):
+            print(f"[학과 {index}/{len(configs)}] 시작: {config.name} ({config.dataset})", flush=True)
+            args._last_run_result = None
+            try:
+                code = _run_config(config, args)
+                result = args._last_run_result
+                item = result.to_dict() if result else {"dataset": config.dataset, "status": "finished"}
+                if item["status"] == "cancelled":
+                    code = 130
+            except KeyboardInterrupt:
+                code, item = 130, {"dataset": config.dataset, "status": "cancelled"}
+            except Exception as exc:
+                code, item = 1, {"dataset": config.dataset, "status": "failed", "error": str(exc)}
+            item["exit_code"] = code
+            report["results"].append(item)
+            exit_codes.append(code)
+            save_json_atomic(args.batch_report, report)
+            print(f"[학과 {index}/{len(configs)}] 종료: {config.dataset} exit_code={code}", flush=True)
+            if item["status"] == "cancelled":
+                report.update(status="cancelled", finished_at=now_kst())
+                save_json_atomic(args.batch_report, report)
+                return 130
+        report.update(finished_at=now_kst(), status="needs_attention" if coverage["status"] == "needs_attention"
+                      or any(item["status"] in {"failed", "partial_success"} for item in report["results"])
+                      else "completed")
+        save_json_atomic(args.batch_report, report)
+        print(f"batch status={report['status']} report={args.batch_report}", flush=True)
         return 1 if any(code != 0 for code in exit_codes) else 0
     if not args.dataset:
         parser.error("one of --dataset or --all is required")

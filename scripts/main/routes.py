@@ -98,6 +98,8 @@ def _build_routes() -> dict[int, MainRoute]:
 
 
 ROUTES = _build_routes()
+# Tuition has its own FAQ board, collected together with the tuition page.
+BOARD_COLLECTION_HANDLERS = frozenset({"board", "notice", "tuition"})
 STUDENT_LIFE_PAGE_IDS = frozenset(i for i, route in ROUTES.items()
                                  if route.category_path[0] == "대학생활")
 CONFIGURED_PAGE_IDS = frozenset(ROUTES)

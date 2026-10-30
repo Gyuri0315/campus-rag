@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import ssl
+import json
+from pathlib import Path
 from urllib.parse import urlsplit
 
 import requests
@@ -12,6 +14,25 @@ from requests.adapters import HTTPAdapter
 TLS_CERTIFICATE_VERIFY_FAILED = "TLS_CERTIFICATE_VERIFY_FAILED"
 TLS_HANDSHAKE_FAILED = "TLS_HANDSHAKE_FAILED"
 NETWORK_REQUEST_FAILED = "NETWORK_REQUEST_FAILED"
+
+PKNU_INTERMEDIATES = Path(__file__).resolve().parents[1] / "certificates" / "pknu-intermediates.pem"
+VERIFIED_HOSTS_FILE = PKNU_INTERMEDIATES.with_name("department-tls-hosts.json")
+# Exact hosts only; False keeps the default ciphers and adds the intermediate.
+VERIFIED_PKNU_HOSTS = json.loads(VERIFIED_HOSTS_FILE.read_text(encoding="utf-8"))["hosts"]
+
+
+def mount_verified_pknu_tls(session: requests.Session) -> None:
+    """Apply verified policies to exact HTTPS hosts, including redirect targets."""
+    contexts = {}
+    for host, legacy_ciphers in VERIFIED_PKNU_HOSTS.items():
+        if legacy_ciphers not in contexts:
+            context = ssl.create_default_context()
+            context.load_verify_locations(cafile=str(PKNU_INTERMEDIATES))
+            if legacy_ciphers:
+                context.set_ciphers("DEFAULT@SECLEVEL=1")
+            contexts[legacy_ciphers] = context
+        session.mount(f"https://{host}/", _SSLContextAdapter(contexts[legacy_ciphers]))
+    session._pknu_tls_mounted = True
 
 
 def classify_request_error(exc: requests.RequestException) -> str:
@@ -69,6 +90,10 @@ def build_system_trust_session(source: requests.Session, url: str) -> requests.S
     host = urlsplit(url).hostname
     if not host:
         raise ValueError("TLS fallback requires an absolute URL")
+    if host in VERIFIED_PKNU_HOSTS:
+        context.load_verify_locations(cafile=str(PKNU_INTERMEDIATES))
+        if VERIFIED_PKNU_HOSTS[host]:
+            context.set_ciphers("DEFAULT@SECLEVEL=1")
     fallback.mount(f"https://{host}/", _SSLContextAdapter(context))
     return fallback
 
@@ -77,6 +102,11 @@ def get_with_tls_policy(
     client: requests.Session, url: str, *, system_trust_fallback: bool = False, **kwargs,
 ) -> tuple[requests.Response, bool]:
     """GET normally, retrying only certificate verification failures with system CAs."""
+    # Probe/discovery sessions also need the same exact-host policies. Avoid
+    # replacing an already configured adapter (and its connection pools).
+    if isinstance(client, requests.Session) and not getattr(client, "_pknu_tls_mounted", False):
+        mount_verified_pknu_tls(client)
+        client._pknu_tls_mounted = True
     try:
         return client.get(url, **kwargs), False
     except requests.exceptions.SSLError as exc:

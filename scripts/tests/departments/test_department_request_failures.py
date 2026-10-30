@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import Mock, patch
 
 import requests
 
 from scripts.crawlers.common.schema import CrawlStats, RunResult
 from scripts.crawlers.departments import engine
+from scripts.crawlers.departments.adapters import get_adapter
 from scripts.crawlers.departments.access import ACCESS_BLOCKED
 from scripts.crawlers.departments.config import get_department
 from scripts.crawlers.departments.tls import NETWORK_REQUEST_FAILED, TLS_CERTIFICATE_VERIFY_FAILED
@@ -256,6 +259,48 @@ class DepartmentRequestFailureTests(unittest.TestCase):
             )
         self.assertEqual(1, stats.requested)
         self.assertEqual(3, fetch.call_count)  # page 1, detail, repeated page 2
+
+    def test_page_index_changes_do_not_repeat_pinned_posts_or_hide_new_posts(self) -> None:
+        section = engine.SECTIONS[0]
+
+        def item(source_id, page, pinned=False):
+            return {"source_id": source_id, "post_no": None if pinned else int(source_id),
+                    "post_url": f"https://example.test/view?idx={source_id}&pageIndex={page}",
+                    "is_notice": pinned, "date": "2026-10-27"}
+
+        pages = [[item("90", 1, True), item("2", 1)],
+                 [item("90", 2, True), item("1", 2)], [item("90", 3, True)]]
+        requested = []
+
+        def fetch(_session, url, **options):
+            if options.get("params") is not None:
+                if options["params"]["pageIndex"] > 3:
+                    raise AssertionError("crawler passed the pinned-only end of the board")
+            else:
+                requested.append(url)
+            return response(url=url)
+
+        def parse(_soup, url, original):
+            return {"title": "fixture", "date": original["date"], "url": url,
+                    "is_notice": original["is_notice"], "body": "fixture article content", "attachments": []}
+
+        with (
+            TemporaryDirectory() as directory,
+            patch.object(engine, "ACTIVE_ADAPTER", get_adapter("query_view_do")),
+            patch.object(engine, "fetch", side_effect=fetch),
+            patch.object(engine, "parse_list_page", side_effect=pages),
+            patch.object(engine, "parse_view_page", side_effect=parse),
+            patch.object(engine, "existing_document_path", return_value=Path(directory) / "missing.json"),
+            patch.object(engine, "save_document"), patch.object(engine, "log_event") as event,
+            patch.object(engine, "CRAWL_ALL_BOARD_PAGES", True),
+        ):
+            stats, _ = engine.crawl_board(Mock(), section, {"items": {}}, True, no_download_files=True)
+        self.assertEqual(len(requested), 3)
+        self.assertEqual(stats.requested, 3)
+        self.assertEqual(stats.failed, 0)
+        self.assertEqual(sum("idx=90" in url for url in requested), 1)
+        stopped = [call for call in event.call_args_list if call.args[2] == "pagination_stopped"]
+        self.assertEqual(stopped[0].kwargs["page"], 3)
 
     def test_success_and_unchanged_status_are_unchanged(self) -> None:
         result = RunResult(dataset="ce", mode="incremental", stats=CrawlStats(unchanged=3))

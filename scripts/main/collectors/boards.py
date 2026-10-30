@@ -53,9 +53,11 @@ def parse_board_intro_html(html: str, page_id: int) -> StaticPageExtraction:
 
 def crawl_board_page(
     session: requests.Session, state: dict[str, Any], page_id: int,
-    full_resync: bool, max_pages: int = 1, *, max_posts: int | None = None,
+    full_resync: bool, max_pages: int | None = 1, *, max_posts: int | None = None,
 ) -> tuple[CrawlStats, dict[str, Any]]:
-    """Collect a board's fixed introduction and its linked detail posts."""
+    """Collect a board and its posts; max_pages=None visits every list page."""
+    if max_pages is not None and (type(max_pages) is not int or max_pages < 1):
+        raise ValueError("max_pages must be a positive integer or None")
     if max_posts is not None and (type(max_posts) is not int or max_posts < 1):
         raise ValueError("max_posts must be a positive integer")
     url = f"{BASE_URL}/main/{page_id}"
@@ -73,7 +75,7 @@ def crawl_board_page(
         if bbs_id != expected_bbs_id:
             raise ValueError(f"board_id_changed: {bbs_id!r}")
         _, total_pages = cms_board.parse_page_indicator(first.text)
-        pages = min(max_pages, total_pages)
+        pages = total_pages if max_pages is None else min(max_pages, total_pages)
         items: dict[str, cms_board.ListItem] = {}
         for page in range(1, pages + 1):
             response = first if page == 1 else fetch(session, f"{url}?bbsId={bbs_id}&pageIndex={page}")

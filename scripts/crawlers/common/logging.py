@@ -16,13 +16,15 @@ from scripts.crawlers.common.schema import KST
 
 
 COMMON_EVENTS = {
+    "pagination_stopped",
+    "page_result",
     "content_validation",
     "url_skipped",
     "run_started", "run_finished", "section_started", "section_finished",
     "list_fetched", "document_discovered", "document_saved",
     "document_unchanged", "document_skipped", "document_deleted",
     "document_failed", "attachment_downloaded", "attachment_failed",
-    "state_loaded", "state_saved", "retry_scheduled", "request_failed",
+    "state_loaded", "state_saved", "retry_scheduled", "request_started", "request_failed",
     "tls_fallback_used",
     "batch_started", "batch_progress", "batch_finished",
     "probe_started", "probe_finished", "discovery_started", "discovery_finished",
@@ -124,6 +126,14 @@ class ConsoleFormatter(logging.Formatter):
     def format(self, record: logging.LogRecord) -> str:
         message = sanitize_log_value(record.getMessage())
         context = dict(getattr(record, "context", {}) or {})
+        if record.event == "page_result":
+            summary = (
+                f"[페이지 결과] main/{context['page_id']} {context['title']}: "
+                f"{context['status_label']} ({context['status']})"
+            )
+            if context.get("reason"):
+                summary += " — " + " ".join(str(context["reason"]).split())
+            return f"{_timestamp(record)} {record.levelname} {record.dataset} {summary}"
         context.setdefault("run_id", record.run_id)
         pairs = " ".join(
             f"{key}={json.dumps(value, ensure_ascii=False, separators=(',', ':'))}"

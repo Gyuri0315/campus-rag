@@ -4,17 +4,49 @@ import json
 import sys
 import tempfile
 import unittest
+import copy
+from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
 from scripts.crawlers.departments import engine
 from scripts.crawlers.departments.config import DEFAULT_REGISTRY_PATH, DepartmentConfig, SectionConfig, audit_registry, load_registry
 from scripts.crawlers.departments.engine import crawl_ready_configs
+from scripts.crawlers.departments.parallel import build_plan, exclusive_lock
 from scripts.migrations.department_registry_categories import plan_registry
 from scripts.tests._paths import FIXTURES_ROOT
 
 
 class DepartmentConfigTests(unittest.TestCase):
+
+    def test_parallel_plan_refuses_a_live_sequential_batch(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Stop the existing"):
+            build_plan({"status": "running"}, {}, 4)
+
+    def test_parallel_plan_preserves_pending_targets_and_shared_redirect_hosts(self) -> None:
+        base = next(config for config in load_registry().values() if config.crawl_ready)
+        registry = {name: replace(base, dataset=name, base_url=f"https://{name}.example.test",
+                                  tls_legacy_server_hosts=()) for name in ["finished", "paused", "shared", "newsite"]}
+        source = {"status": "cancelled", "expected_datasets": ["finished", "paused", "shared"],
+                  "results": [{"dataset": "finished", "status": "partial_success"},
+                              {"dataset": "paused", "status": "cancelled"}]}
+        evidence = {"results": [{"dataset": name, "hops": [{"host": "cms.example.test"}]}
+                                for name in ["paused", "shared"]]}
+        plan = build_plan(source, registry, 2, evidence)
+        assigned = [name for group in plan["groups"] for name in group["datasets"]]
+        self.assertCountEqual(["paused", "shared", "newsite"], assigned)
+        self.assertEqual(len(assigned), len(set(assigned)))
+        self.assertTrue(any({"paused", "shared"}.issubset(group["datasets"]) for group in plan["groups"]))
+        self.assertEqual([{"dataset": "finished", "status": "partial_success"}], plan["previous_results"])
+
+    def test_parallel_duplicate_claim_is_rejected_and_released(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            with exclusive_lock(Path(tmp), "dataset:sample"):
+                with self.assertRaises(OSError):
+                    with exclusive_lock(Path(tmp), "dataset:sample"):
+                        self.fail("Duplicate worker acquired the same dataset")
+            with exclusive_lock(Path(tmp), "dataset:sample"):
+                pass
 
 
     def test_all_selects_only_crawl_ready_datasets(self) -> None:
@@ -28,9 +60,47 @@ class DepartmentConfigTests(unittest.TestCase):
     def test_all_runs_every_ready_dataset_without_network(self) -> None:
         expected = [config.dataset for config in crawl_ready_configs(load_registry())]
         argv = ["engine.py", "--all", "--once"]
-        with patch.object(sys, "argv", argv), patch.object(engine, "_run_config", return_value=0) as run:
+        with patch.object(sys, "argv", argv), patch.object(engine, "save_json_atomic"), patch.object(engine, "_run_config", return_value=0) as run:
             self.assertEqual(0, engine.main())
         self.assertEqual(expected, [call.args[0].dataset for call in run.call_args_list])
+
+    def test_batch_keeps_later_targets_and_report_after_dataset_exception(self) -> None:
+        expected = [config.dataset for config in crawl_ready_configs(load_registry())]
+        snapshots = []
+        def capture(_path, report):
+            snapshots.append(copy.deepcopy(report))
+        calls = 0
+        def run(_config, _args):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise RuntimeError("unexpected parser error")
+            return 0
+        with patch.object(sys, "argv", ["engine.py", "--all", "--once"]), \
+             patch.object(engine, "save_json_atomic", side_effect=capture), \
+             patch.object(engine, "_run_config", side_effect=run), \
+             patch("sys.stdout"):
+            self.assertEqual(1, engine.main())
+        final = snapshots[-1]
+        self.assertEqual(expected, final["expected_datasets"])
+        self.assertEqual(expected, [row["dataset"] for row in final["results"]])
+        self.assertEqual("failed", final["results"][0]["status"])
+        self.assertEqual("needs_attention", final["status"])
+        self.assertEqual("running", snapshots[1]["status"])
+
+    def test_batch_cancellation_keeps_remaining_targets_visible(self) -> None:
+        expected = [config.dataset for config in crawl_ready_configs(load_registry())]
+        snapshots = []
+        with patch.object(sys, "argv", ["engine.py", "--all", "--once"]), \
+             patch.object(engine, "save_json_atomic", side_effect=lambda _p, r: snapshots.append(copy.deepcopy(r))), \
+             patch.object(engine, "_run_config", side_effect=KeyboardInterrupt) as run, \
+             patch("sys.stdout"):
+            self.assertEqual(130, engine.main())
+        run.assert_called_once()
+        final = snapshots[-1]
+        self.assertEqual(expected, final["expected_datasets"])
+        self.assertEqual("cancelled", final["status"])
+        self.assertEqual(130, final["results"][0]["exit_code"])
 
 
     def test_damaged_or_path_unsafe_category_is_rejected(self) -> None:
