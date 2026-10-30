@@ -84,6 +84,9 @@ def create_app() -> FastAPI:
         description="RAG question-answering API for campus-rag.",
         version="0.1.0",
         lifespan=lifespan,
+        docs_url="/docs" if settings.api_docs_enabled else None,
+        redoc_url="/redoc" if settings.api_docs_enabled else None,
+        openapi_url="/openapi.json" if settings.api_docs_enabled else None,
     )
 
     cors_origins = list(settings.cors_origins)

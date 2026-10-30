@@ -58,8 +58,12 @@ function normalizeAuthError(message: string | undefined | null): string {
   if (m.includes("user already registered")) {
     return ALREADY_REGISTERED_MESSAGE;
   }
-  if (m.includes("password should be at least")) {
-    return "비밀번호는 6자 이상이어야 합니다.";
+  // Supabase Auth 비밀번호 기준(Password requirements)에 걸린 경우
+  if (m.includes("password should be at least") || m.includes("password should contain")) {
+    return "비밀번호는 8자 이상, 영문과 숫자를 모두 포함해야 합니다.";
+  }
+  if (m.includes("weak") || m.includes("pwned") || m.includes("known to be")) {
+    return "너무 흔하거나 유출된 적 있는 비밀번호예요. 다른 비밀번호를 써 주세요.";
   }
   if (m.includes("rate limit") || m.includes("too many")) {
     return "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.";
