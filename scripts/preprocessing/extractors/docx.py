@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from scripts.preprocessing.extractors.common import normalize_text
 
@@ -14,16 +15,20 @@ def extract_docx_like_blocks(path: Path) -> list[dict]:
         except Exception as exc:
             raise RuntimeError(f".doc conversion requires pywin32: {exc}") from exc
 
-        converted = path.with_suffix(".docx")
-        word = win32com.client.Dispatch("Word.Application")
-        word.Visible = False
-        try:
-            doc = word.Documents.Open(str(path.resolve()))
-            doc.SaveAs(str(converted.resolve()), FileFormat=16)
-            doc.Close()
-        finally:
-            word.Quit()
-        work_path = converted
+        with TemporaryDirectory(prefix="campus_rag_doc_") as directory:
+            converted = Path(directory) / "converted.docx"
+            word = win32com.client.DispatchEx("Word.Application")
+            word.Visible = False
+            word.DisplayAlerts = 0
+            try:
+                doc = word.Documents.Open(str(path.resolve()), ReadOnly=True)
+                try:
+                    doc.SaveAs(str(converted), FileFormat=16)
+                finally:
+                    doc.Close(False)
+                return extract_docx_like_blocks(converted)
+            finally:
+                word.Quit()
 
     try:
         from docx import Document

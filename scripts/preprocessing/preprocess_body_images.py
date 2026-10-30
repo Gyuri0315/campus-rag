@@ -14,6 +14,7 @@ import shutil
 import subprocess
 
 from bs4 import BeautifulSoup
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.crawlers.common.body_images import collect_body_images, save_body_images
 from scripts.crawlers.departments.engine import build_session
 from scripts.preprocessing.extractors.image_ocr import VERSION, extract_image
@@ -69,7 +70,7 @@ def main():
                     continue
                 if args.limit is not None and len(report) >= args.limit:
                     break
-                target = get_dataset_root(ROOT, dataset)/'preprocessed/body_images'/path.relative_to(output/'json')
+                target = get_preprocessed_root(ROOT, dataset) / 'body_images'/path.relative_to(output/'json')
                 entry = {'source_path': path.relative_to(ROOT).as_posix(), 'url': doc.get('url'), 'images': [],
                          'processed_at': datetime.now(timezone.utc).isoformat(), 'ocr_version': VERSION,
                          'language': args.language, 'status': 'needs_review'}

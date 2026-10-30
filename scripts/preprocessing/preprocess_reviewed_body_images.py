@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.preprocessing.file_preprocessing import (  # noqa: E402
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
@@ -41,7 +42,7 @@ def main() -> int:
     from scripts.crawlers.common.storage import get_dataset_paths
     input_root = get_dataset_paths(PROJECT_ROOT, args.dataset).json.resolve()
     output_root = (args.output_root if args.output_root else
-                   PROJECT_ROOT / "files" / "_reviewed" / "body_image_ocr" / "rag_inputs" / args.dataset).resolve()
+                   get_preprocessed_root(PROJECT_ROOT, args.dataset) / "json").resolve()
     sources: list[Path] = []
     for value in args.source:
         path = (PROJECT_ROOT / value).resolve()

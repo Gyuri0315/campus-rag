@@ -36,13 +36,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.preprocessing.text_cleaning import clean_extracted_text
 from scripts.crawlers.common.reader import read_document
 
 DEFAULT_INPUT_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "json"
 DEFAULT_HTML_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "html"
 DEFAULT_FILES_ROOT = PROJECT_ROOT / "files" / "rule" / "output" / "files"
-DEFAULT_OUTPUT_ROOT = PROJECT_ROOT / "files" / "rule" / "preprocessed"
+DEFAULT_OUTPUT_ROOT = get_preprocessed_root(PROJECT_ROOT, "rule")
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "rule_preprocessing.log"
 
@@ -757,7 +758,9 @@ def run_batch(
     log.info("Found rule artifacts: %s", ", ".join(f"{key}={value}" for key, value in sorted(counts.items())))
 
     ok = skipped = unchanged = failed = 0
-    for source_kind, input_file, input_root in tasks:
+    for position, (source_kind, input_file, input_root) in enumerate(tasks, 1):
+        log.info("[PROGRESS:rule] %d/%d ok=%d failed=%d skipped=%d unchanged=%d next=%s",
+                 position - 1, len(tasks), ok, failed, skipped, unchanged, input_file.name)
         rel = rel_project_path(input_file)
         if changed_only and is_output_current(
             source_kind,
@@ -813,6 +816,8 @@ def run_batch(
             failed += 1
             log.warning("[FAIL:%s] %s (%s)", source_kind, rel, exc)
 
+    log.info("[PROGRESS:rule] %d/%d (100%%) ok=%d failed=%d skipped=%d unchanged=%d",
+             len(tasks), len(tasks), ok, failed, skipped, unchanged)
     if dry_run:
         log.info("Dry run complete")
     else:

@@ -16,6 +16,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.preprocessing.file_preprocessing import (  # noqa: E402
     DEFAULT_CHUNK_OVERLAP,
     DEFAULT_CHUNK_SIZE,
@@ -88,19 +89,19 @@ WEB_DATASETS = {
         name: WebDataset(
             name=name,
             output_root=get_dataset_paths(PROJECT_ROOT, name).output,
-            preprocessed_root=get_dataset_root(PROJECT_ROOT, name) / "preprocessed",
+            preprocessed_root=get_preprocessed_root(PROJECT_ROOT, name),
         )
         for name in DEPARTMENT_DATASETS
     },
     "pknu_notice": WebDataset(
         name="pknu_notice",
         output_root=PROJECT_ROOT / "files" / "pknu_main" / "커뮤니티" / "공지사항",
-        preprocessed_root=PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "preprocessed",
+        preprocessed_root=get_preprocessed_root(PROJECT_ROOT, "pknu_notice"),
     ),
     "pknu_student_life": WebDataset(
         name="pknu_student_life",
         output_root=PROJECT_ROOT / "files" / "pknu_main" / "대학생활",
-        preprocessed_root=PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "preprocessed",
+        preprocessed_root=get_preprocessed_root(PROJECT_ROOT, "pknu_student_life"),
     ),
 }
 
@@ -187,7 +188,7 @@ def run_rule_dataset(
         json_root=PROJECT_ROOT / "files" / "rule" / "output" / "json",
         html_root=PROJECT_ROOT / "files" / "rule" / "output" / "html",
         files_root=PROJECT_ROOT / "files" / "rule" / "output" / "files",
-        output_root=PROJECT_ROOT / "files" / "rule" / "preprocessed",
+        output_root=get_preprocessed_root(PROJECT_ROOT, "rule"),
         source_scope=source_scope,
         failed_from_log=None,
         dry_run=dry_run,

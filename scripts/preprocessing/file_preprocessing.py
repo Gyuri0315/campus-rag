@@ -130,12 +130,30 @@ def ensure_output_path(
     raise ValueError(f"unsupported layout: {layout}")
 
 
+def decoded_archive_member_name(info: zipfile.ZipInfo) -> str:
+    """Recover legacy Korean ZIP names while preserving explicitly marked UTF-8."""
+    if info.flag_bits & 0x800 or info.filename.isascii():
+        return info.filename
+    try:
+        raw = info.filename.encode("cp437")
+    except UnicodeEncodeError:
+        return info.filename
+    for encoding in ("utf-8", "cp949"):
+        try:
+            decoded = raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+        if encoding == "utf-8" or re.search(r"[\uac00-\ud7a3]", decoded):
+            return decoded
+    return info.filename
+
+
 def is_safe_archive_member(name: str) -> bool:
     normalized = name.replace("\\", "/")
     path = PurePosixPath(normalized)
     if not normalized or normalized.endswith("/"):
         return False
-    if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
+    if path.is_absolute() or any(part in {"", ".", ".."} or ":" in part or "\x00" in part for part in path.parts):
         return False
     if any(part == "__MACOSX" for part in path.parts):
         return False
@@ -678,11 +696,12 @@ def save_preprocessed_archive(
         for info in zf.infolist():
             if info.is_dir():
                 continue
-            if not is_safe_archive_member(info.filename):
+            member_name = decoded_archive_member_name(info).replace("\\", "/")
+            if not is_safe_archive_member(member_name):
                 skipped += 1
-                log.info("[SKIP:zip] %s!/%s (unsafe archive member)", archive_rel, info.filename)
+                log.info("[SKIP:zip] %s!/%s (unsafe archive member)", archive_rel, member_name)
                 continue
-            member_ext = PurePosixPath(info.filename.replace("\\", "/")).suffix.lower()
+            member_ext = PurePosixPath(member_name).suffix.lower()
             if member_ext not in EXTRACTABLE_EXTS:
                 skipped += 1
                 continue
@@ -693,7 +712,7 @@ def save_preprocessed_archive(
                 break
             if info.file_size > MAX_ARCHIVE_MEMBER_BYTES:
                 skipped += 1
-                log.warning("[SKIP:zip] %s!/%s (member too large: %d bytes)", archive_rel, info.filename, info.file_size)
+                log.warning("[SKIP:zip] %s!/%s (member too large: %d bytes)", archive_rel, member_name, info.file_size)
                 continue
             total_size += info.file_size
             if total_size > MAX_ARCHIVE_TOTAL_BYTES:
@@ -701,7 +720,7 @@ def save_preprocessed_archive(
                 log.warning("[SKIP:zip] %s (archive total size limit exceeded: %d bytes)", archive_rel, MAX_ARCHIVE_TOTAL_BYTES)
                 break
 
-            member_path = PurePosixPath(info.filename.replace("\\", "/"))
+            member_path = PurePosixPath(member_name)
             temp_member = temp_root / Path(*member_path.parts)
             temp_member.parent.mkdir(parents=True, exist_ok=True)
             try:
@@ -710,11 +729,11 @@ def save_preprocessed_archive(
                 saved, info_text = save_preprocessed_archive_member(
                     archive_file=archive_file,
                     member_file=temp_member,
-                    member_name=info.filename.replace("\\", "/"),
+                    member_name=member_name,
                     input_root=input_root,
                     output_root=output_root,
                     project_root=project_root,
-                    archive_provenance=archive_provenance,
+                    archive_provenance={**archive_provenance, "archive_member_original_name": info.filename},
                     chunk_size=chunk_size,
                     chunk_overlap=chunk_overlap,
                     pdf_ocr_mode=pdf_ocr_mode,
@@ -724,20 +743,41 @@ def save_preprocessed_archive(
                 )
                 if saved:
                     ok += 1
-                    log.info("[OK:zip] %s!/%s -> %s", archive_rel, info.filename, info_text)
+                    log.info("[OK:zip] %s!/%s -> %s", archive_rel, member_name, info_text)
+                    # Remove only a verified old result after its corrected replacement exists.
+                    original_name = info.filename.replace("\\", "/")
+                    if member_name != original_name and is_safe_archive_member(original_name):
+                        old_output = archive_member_output_path(archive_file, input_root, output_root, original_name, layout=layout)
+                        new_output = Path(info_text)
+                        if old_output != new_output and old_output.is_file() and new_output.is_file():
+                            try:
+                                previous = json.loads(old_output.read_text(encoding="utf-8"))
+                                if previous.get("source_path") == f"{archive_rel}!/{original_name}":
+                                    old_output.unlink()
+                                    log.info("[RENAME:zip] %s -> %s", old_output, new_output)
+                                    parent = old_output.parent
+                                    boundary = output_root.resolve()
+                                    while parent.resolve() != boundary and parent.resolve().is_relative_to(boundary):
+                                        try:
+                                            parent.rmdir()
+                                        except OSError:
+                                            break
+                                        parent = parent.parent
+                            except (OSError, ValueError):
+                                log.warning("[RENAME:zip] Could not remove old result: %s", old_output)
                 else:
                     skipped += 1
-                    log.info("[SKIP:zip] %s!/%s (%s)", archive_rel, info.filename, info_text)
+                    log.info("[SKIP:zip] %s!/%s (%s)", archive_rel, member_name, info_text)
             except RuntimeError as exc:
                 failed += 1
                 message = str(exc)
                 if "password required" in message.lower() or "encrypted" in message.lower():
-                    log.warning("[FAIL:zip] %s!/%s (encrypted member)", archive_rel, info.filename)
+                    log.warning("[FAIL:zip] %s!/%s (encrypted member)", archive_rel, member_name)
                 else:
-                    log.warning("[FAIL:zip] %s!/%s (%s)", archive_rel, info.filename, exc)
+                    log.warning("[FAIL:zip] %s!/%s (%s)", archive_rel, member_name, exc)
             except Exception as exc:
                 failed += 1
-                log.warning("[FAIL:zip] %s!/%s (%s)", archive_rel, info.filename, exc)
+                log.warning("[FAIL:zip] %s!/%s (%s)", archive_rel, member_name, exc)
 
     if ok:
         return True, f"archive members processed: ok={ok}, skipped={skipped}, failed={failed}"
@@ -867,8 +907,11 @@ def run_batch(
     unchanged = 0
     failed = 0
 
-    for file_path in files:
+    for position, file_path in enumerate(files, 1):
         rel = rel_project_path(file_path, project_root)
+        log.info("[PROGRESS] %d/%d (%.1f%%) ok=%d failed=%d skipped=%d unchanged=%d root=%s next=%s",
+                 position - 1, len(files), 100 * (position - 1) / len(files),
+                 ok, failed, skipped, unchanged, input_root, file_path.name)
         if changed_only and is_preprocessed_current(
             file_path,
             input_root,
@@ -907,6 +950,8 @@ def run_batch(
             failed += 1
             log.warning("[FAIL] %s (%s)", rel, exc)
 
+    log.info("[PROGRESS] %d/%d (100%%) ok=%d failed=%d skipped=%d unchanged=%d root=%s",
+             len(files), len(files), ok, failed, skipped, unchanged, input_root)
     if dry_run:
         log.info("DRY-RUN 완료")
     else:

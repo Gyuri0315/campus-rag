@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -23,8 +24,51 @@ from scripts.crawlers.common.schema import (
     validate_attachment,
 )
 from scripts.preprocessing.rule import extract_rule_json_blocks
+from scripts.preprocessing.file_preprocessing import (
+    decoded_archive_member_name, is_safe_archive_member, archive_member_output_path,
+    save_preprocessed_archive,
+)
 
 class AttachmentSchemaTests(unittest.TestCase):
+    def test_zip_replaces_verified_mojibake_result_after_successful_extraction(self):
+        class KoreanZipInfo(zipfile.ZipInfo):
+            def _encodeFilenameFlags(self):
+                return self.filename.encode("cp949"), self.flag_bits & ~0x800
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            archive = root / "sample.zip"
+            output = root / "preprocessed"
+            name = "첨부/수강신청.txt"
+            original = name.encode("cp949").decode("cp437")
+            with zipfile.ZipFile(archive, "w") as zf:
+                zf.writestr(KoreanZipInfo(name), "수강신청 안내입니다.".encode("utf-8"))
+            stale = archive_member_output_path(archive, root, output, original)
+            stale.parent.mkdir(parents=True)
+            stale.write_text(json.dumps({"source_path": f"sample.zip!/{original}"}), encoding="utf-8")
+            saved, _ = save_preprocessed_archive(archive, root, output, root, {},
+                                                900, 120, "never", "kor+eng", 200)
+            corrected = archive_member_output_path(archive, root, output, name)
+            self.assertTrue(saved)
+            self.assertTrue(corrected.is_file())
+            self.assertFalse(stale.exists())
+            result = json.loads(corrected.read_text(encoding="utf-8"))
+            self.assertEqual(f"sample.zip!/{name}", result["source_path"])
+            self.assertGreater(result["num_chunks"], 0)
+
+    def test_zip_restores_korean_legacy_names_and_preserves_utf8(self):
+        name = "첨부/수강신청 안내.hwp"
+        legacy = zipfile.ZipInfo(name.encode("cp949").decode("cp437"))
+        self.assertEqual(name, decoded_archive_member_name(legacy))
+        utf8 = zipfile.ZipInfo(name)
+        utf8.flag_bits |= 0x800
+        self.assertEqual(name, decoded_archive_member_name(utf8))
+        plain = zipfile.ZipInfo("guide.txt")
+        self.assertEqual("guide.txt", decoded_archive_member_name(plain))
+        for unsafe in ("../첨부.hwp", "C:/첨부.hwp", "/첨부.hwp"):
+            info = zipfile.ZipInfo(unsafe.encode("cp949").decode("cp437"))
+            self.assertFalse(is_safe_archive_member(decoded_archive_member_name(info)))
+
     def test_hwp_uses_current_interpreter_instead_of_windows_launcher(self) -> None:
         with patch("scripts.preprocessing.extractors.hwp.importlib.util.find_spec", return_value=object()), patch(
             "scripts.preprocessing.extractors.hwp.shutil.which"

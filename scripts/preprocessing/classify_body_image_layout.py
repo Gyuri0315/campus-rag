@@ -7,6 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
+from scripts.preprocessing.storage import get_preprocessed_root
 from typing import Any
 
 import numpy as np
@@ -164,14 +165,14 @@ def classify(image: dict[str, Any], features: dict[str, Any]) -> dict[str, Any]:
 
 def iter_entries(datasets: list[str] | None) -> list[tuple[str, Path]]:
     from scripts.crawlers.common.storage import get_dataset_root, iter_dataset_roots
-    roots = [get_dataset_root(PROJECT_ROOT, dataset) / "preprocessed" / "body_images" for dataset in datasets] if datasets else [
-        path / "preprocessed" / "body_images" for path in iter_dataset_roots(PROJECT_ROOT)
-        if (path / "preprocessed" / "body_images").is_dir()
+    roots = [get_preprocessed_root(PROJECT_ROOT, dataset) / "body_images" for dataset in datasets] if datasets else [
+        get_preprocessed_root(PROJECT_ROOT, path.name) / "body_images" for path in iter_dataset_roots(PROJECT_ROOT)
+        if (get_preprocessed_root(PROJECT_ROOT, path.name) / "body_images").is_dir()
     ]
     result = []
     for root in sorted(roots):
         if root.is_dir():
-            dataset = root.parents[1].name
+            dataset = root.parent.name
             result.extend((dataset, path) for path in sorted(root.rglob("*.json")))
     return result
 

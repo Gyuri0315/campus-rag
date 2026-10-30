@@ -11,6 +11,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import json
 from pathlib import Path
+from scripts.preprocessing.storage import get_preprocessed_root
 from typing import Any
 
 
@@ -252,10 +253,10 @@ def _paths(args: argparse.Namespace) -> list[Path]:
         if args.all_datasets:
             from scripts.crawlers.common.storage import iter_dataset_roots
             datasets = [path.name for path in iter_dataset_roots(PROJECT_ROOT)
-                        if (path / "preprocessed" / "body_images").is_dir()]
+                        if (get_preprocessed_root(PROJECT_ROOT, path.name) / "body_images").is_dir()]
         for dataset in datasets:
             from scripts.crawlers.common.storage import get_dataset_root
-            root = get_dataset_root(PROJECT_ROOT, dataset) / "preprocessed" / "body_images"
+            root = get_preprocessed_root(PROJECT_ROOT, dataset) / "body_images"
             if root.is_dir():
                 selected.extend(sorted(root.rglob("*.json")))
     if not selected:

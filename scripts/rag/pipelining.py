@@ -15,6 +15,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.crawlers.common.storage import get_dataset_root
 
 DEFAULT_RUN_AT = "09:00"
@@ -52,8 +53,8 @@ def run_preprocess_steps(python: str) -> None:
     """게시글 JSON 본문과 첨부파일을 각각 전처리한다."""
     json_input = CE_DATA_ROOT / "output" / "json"
     files_input = CE_DATA_ROOT / "output" / "files"
-    json_output = CE_DATA_ROOT / "preprocessed" / "json"
-    files_output = CE_DATA_ROOT / "preprocessed" / "files"
+    json_output = get_preprocessed_root(PROJECT_ROOT, "ce") / "json"
+    files_output = get_preprocessed_root(PROJECT_ROOT, "ce") / "files"
     crawl_json_root = json_input
 
     if json_input.exists():

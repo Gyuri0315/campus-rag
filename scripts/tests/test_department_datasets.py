@@ -9,11 +9,47 @@ from scripts.crawlers.common.storage import department_datasets, get_dataset_pat
 from scripts.rag import load_to_supabase, vectorization
 from scripts.preprocessing import preprocessing_pipeline
 from scripts.preprocessing import collected
+from scripts.preprocessing.storage import get_preprocessed_root
 
 ROOT = preprocessing_pipeline.PROJECT_ROOT
 
 
 class DepartmentDatasetTests(unittest.TestCase):
+    def test_force_reprocesses_current_files_and_rules(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "source"
+            source.mkdir()
+            (source / "sample.txt").write_text("content", encoding="utf-8")
+            entries = [("ce", source, root / "preprocessed/ce"),
+                       ("rule", source, root / "preprocessed/rule")]
+            with patch.object(collected, "scopes", return_value=entries), patch.object(collected, "run_batch") as batch, patch.object(collected, "run_rule_dataset") as rule:
+                collected.run(root, dry_run=True, pdf_ocr="auto", force=True)
+            self.assertFalse(batch.call_args.kwargs["changed_only"])
+            self.assertFalse(rule.call_args.kwargs["changed_only"])
+
+    def test_parallel_workers_cover_each_dataset_once(self):
+        scopes = [(name, Path(name), Path("preprocessed") / name)
+                  for name in ("ce", "me", "pknu_main", "pknu_syllabus", "rule")]
+        with patch.object(collected, "scopes", return_value=scopes):
+            assignments = [scope[0] for index in range(4)
+                           for scope in collected.worker_scopes(ROOT, 4, index)]
+        self.assertCountEqual([scope[0] for scope in scopes], assignments)
+        self.assertEqual(len(assignments), len(set(assignments)))
+
+    def test_preprocessing_outputs_and_vectorization_inputs_use_central_storage(self):
+        from scripts.crawlers.common.reader import infer_dataset_from_path
+        for name, dataset in preprocessing_pipeline.WEB_DATASETS.items():
+            expected = ROOT / "files" / "preprocessed" / name
+            self.assertEqual(expected, dataset.preprocessed_root)
+            self.assertEqual(expected, vectorization.DATASET_PATHS[name]["input_root"])
+            self.assertEqual(name, infer_dataset_from_path(expected / "json/sample.json"))
+        for name, _, output in collected.scopes(ROOT):
+            self.assertEqual(ROOT / "files/preprocessed" / name, output)
+        for name in ("..", "../outside", "C:\\outside"):
+            with self.assertRaises(ValueError):
+                get_preprocessed_root(ROOT, name)
+
     def test_collected_scan_excludes_derived_and_operational_files(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -45,7 +81,7 @@ class DepartmentDatasetTests(unittest.TestCase):
     def test_ce_paths_and_tables_are_unchanged(self):
         web = preprocessing_pipeline.WEB_DATASETS["ce"]
         self.assertEqual(get_dataset_paths(ROOT, "ce").output, web.output_root)
-        self.assertEqual(get_dataset_root(ROOT, "ce") / "preprocessed", web.preprocessed_root)
+        self.assertEqual(get_preprocessed_root(ROOT, "ce"), web.preprocessed_root)
         self.assertEqual(get_dataset_root(ROOT, "ce") / "vectorized", vectorization.DATASET_PATHS["ce"]["output_root"])
         self.assertEqual("rag_sources", load_to_supabase.DATASET_TABLES["ce"]["sources"])
 

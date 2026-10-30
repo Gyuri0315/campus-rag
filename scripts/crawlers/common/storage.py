@@ -154,7 +154,7 @@ def iter_dataset_roots(project_root: Path):
                         else:
                             yield from leaves(child)
                 yield from leaves(root)
-            elif root.is_dir() and not root.name.startswith("_"):
+            elif root.is_dir() and not root.name.startswith("_") and root.name != "preprocessed":
                 yield root
 
 

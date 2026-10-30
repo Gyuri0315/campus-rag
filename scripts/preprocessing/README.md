@@ -1,5 +1,7 @@
 # 수집 자료 전처리
 
+전체 실행 절차는 [전체 전처리 가이드](../../docs/preprocessing/PREPROCESSING.md)에 정리되어 있습니다.
+
 텍스트 추출(`extractors/`), 정제(`text_cleaning.py`), 청크 생성
 (`file_preprocessing.py`), 규정 처리(`rule.py`), 이미지 검토 및 레이아웃 구현을
 이 패키지에서 관리합니다. 이전 전처리 경로의 호환 파일은 제거했습니다. 벡터화와 DB 적재는
@@ -37,8 +39,8 @@ JSON·HTML·첨부를 처리합니다. 독립 이미지 OCR은 별도 검토 대
 뜻하며 모든 파일의 내용 추출 성공을 보증하지 않습니다.
 
 학과 결과는 각 데이터셋의 `preprocessed/`, 본교 전체 결과는
-`files/pknu_main/_derived/all_collected/preprocessed/`, 강의계획서는
-`files/pknu_syllabus/preprocessed/`에 저장합니다. 강의계획서는 PDF 경로 기반
+`files/preprocessed/pknu_main/`, 강의계획서는
+`files/preprocessed/pknu_syllabus/`에 저장합니다. 강의계획서는 PDF 경로 기반
 출처를 보존하며 과목 목록 메타데이터 조인은 아직 없습니다. 새 본교 전체 및
 강의계획서 결과의 벡터화·DB 등록은 별도 작업입니다.
 
@@ -47,6 +49,20 @@ CE·공지사항·대학생활·규정 4개 범위를 유지합니다. 전체 �
 사용하세요. `preprocessing_pipeline_recent`는 크롤링·벡터화·DB 적재도 포함합니다.
 
 ## 의존성과 처리 한계
+
+스캔 PDF 처리를 위해 **Tesseract OCR을 별도로 설치**해야 합니다. 기본 OCR 언어는
+`kor+eng`이므로 두 언어 데이터가 모두 필요합니다. Python 패키지 설치와는 별개입니다.
+
+```powershell
+winget install --id UB-Mannheim.TesseractOCR --exact --source winget
+# 설치 후 새 터미널에서 실행 파일과 언어 데이터 확인
+tesseract --version
+tesseract --list-langs
+```
+
+설치 폴더(일반적으로 `C:\Program Files\Tesseract-OCR`)를 PATH에 추가해야 합니다.
+언어 목록에 `kor`가 없으면 [공식 한국어 언어 데이터](https://github.com/tesseract-ocr/tessdata_fast/blob/main/kor.traineddata)를
+설치 폴더의 `tessdata/kor.traineddata`에 저장하세요.
 
 - JSON, PDF, DOCX, HWP/HWPX, CSV, XLS/XLSX, PPTX, TXT, ZIP을 지원합니다.
 - PDF는 PyMuPDF, DOCX는 python-docx, XLS는 xlrd, PPTX는 python-pptx,

@@ -15,6 +15,7 @@ import shutil
 import subprocess
 import sys
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.preprocessing.extractors.diagram_ocr import VERSION, extract_diagram_image
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,7 +51,7 @@ def _ocr_sidecar_path(source_path: str, dataset: str) -> Path | None:
         relative = source.relative_to(base)
     except ValueError:
         return None
-    return base.parent.parent / 'preprocessed' / 'body_images' / relative
+    return get_preprocessed_root(ROOT, dataset) / 'body_images' / relative
 
 
 def _existing_ocr(row: dict) -> tuple[list[dict], str | None, str | None, bool]:

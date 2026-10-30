@@ -39,6 +39,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.crawlers.common.storage import department_datasets, get_dataset_root
 LOG_DIR = PROJECT_ROOT / "logs"
 LOG_FILE = LOG_DIR / "vectorization.log"
@@ -60,21 +61,21 @@ DATASET_PATHS = {
     # Every registry department, ce included (same layout under files/department/...).
     **{
         name: {
-            "input_root": get_dataset_root(PROJECT_ROOT, name) / "preprocessed",
+            "input_root": get_preprocessed_root(PROJECT_ROOT, name),
             "output_root": get_dataset_root(PROJECT_ROOT, name) / "vectorized",
         }
         for name in sorted(department_datasets())
     },
     "pknu_notice": {
-        "input_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "preprocessed",
+        "input_root": get_preprocessed_root(PROJECT_ROOT, "pknu_notice"),
         "output_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_notice" / "vectorized",
     },
     "pknu_student_life": {
-        "input_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "preprocessed",
+        "input_root": get_preprocessed_root(PROJECT_ROOT, "pknu_student_life"),
         "output_root": PROJECT_ROOT / "files" / "pknu_main" / "_derived" / "pknu_student_life" / "vectorized",
     },
     "rule": {
-        "input_root": PROJECT_ROOT / "files" / "rule" / "preprocessed",
+        "input_root": get_preprocessed_root(PROJECT_ROOT, "rule"),
         "output_root": PROJECT_ROOT / "files" / "rule" / "vectorized",
     },
 }

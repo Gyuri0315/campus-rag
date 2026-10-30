@@ -14,6 +14,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.preprocessing.preprocessing_pipeline import (  # noqa: E402
     DATASET_CHOICES,
     DEPARTMENT_DATASETS,
@@ -319,7 +320,7 @@ def collect_web_preprocessed_targets(
 
 def collect_rule_preprocessed_targets(target_kinds: dict[str, list[Path]]) -> list[Path]:
     rule_root = PROJECT_ROOT / "files" / "rule"
-    output_root = rule_root / "preprocessed"
+    output_root = get_preprocessed_root(PROJECT_ROOT, "rule")
     roots = {
         "json": rule_root / "output" / "json",
         "html": rule_root / "output" / "html",

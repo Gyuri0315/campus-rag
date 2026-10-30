@@ -197,15 +197,15 @@ files/ce/output/files/<category>/<slug>/<attachment>
 Preprocessing can be run separately for page JSON and attachments.
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\preprocessing\preprocess_files.py --input-root files\ce\output\json --output-root files\ce\preprocessed\json --output-json-root files\ce\output\json --layout flat
-.\.venv\Scripts\python.exe scripts\preprocessing\preprocess_files.py --input-root files\ce\output\files --output-root files\ce\preprocessed\files --output-json-root files\ce\output\json
+.\.venv\Scripts\python.exe scripts\preprocessing\preprocess_files.py --input-root files\ce\output\json --output-root files\preprocessed\ce\json --output-json-root files\ce\output\json --layout flat
+.\.venv\Scripts\python.exe scripts\preprocessing\preprocess_files.py --input-root files\ce\output\files --output-root files\preprocessed\ce\files --output-json-root files\ce\output\json
 ```
 
 Typical preprocessed layout:
 
 ```text
-files/ce/preprocessed/json/<category>/<slug>.json
-files/ce/preprocessed/files/<ext>/<category>/<slug>/<attachment>.json
+files/preprocessed/ce/json/<category>/<slug>.json
+files/preprocessed/ce/files/<ext>/<category>/<slug>/<attachment>.json
 ```
 
 Vectorized output:
@@ -252,9 +252,9 @@ legacy files, and preserves a field whenever its text is not represented by
 Preprocessed output:
 
 ```text
-files/rule/preprocessed/json/
-files/rule/preprocessed/html/
-files/rule/preprocessed/file/
+files/preprocessed/rule/json/
+files/preprocessed/rule/html/
+files/preprocessed/rule/file/
 ```
 
 Every chunk keeps `source_kind` metadata so JSON, HTML, and attachment-derived records can be distinguished even when text overlaps.
@@ -334,8 +334,8 @@ Each line represents one chunk with content, metadata, embedding, and source ide
 
 Supported built-in dataset presets:
 
-- `ce`: `files/ce/preprocessed` -> `files/ce/vectorized`
-- `rule`: `files/rule/preprocessed` -> `files/rule/vectorized`
+- `ce`: `files/preprocessed/ce` -> `files/ce/vectorized`
+- `rule`: `files/preprocessed/rule` -> `files/rule/vectorized`
 
 `pknu_notice` and `pknu_student_life` are crawled datasets, but they are not yet included as built-in vectorization/load presets.
 

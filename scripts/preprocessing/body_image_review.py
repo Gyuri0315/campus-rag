@@ -10,6 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from scripts.preprocessing.storage import get_preprocessed_root
 from scripts.preprocessing.text_cleaning import clean_extracted_text
 from scripts.crawlers.common.storage import department_legacy_roots, get_dataset_root
 from scripts.crawlers.common.reader import infer_dataset_from_path
@@ -33,7 +34,7 @@ def _document_paths(source_file: Path, project_root: Path) -> tuple[str, str, Pa
         return None
     document_relative = Path(*parts[marker + 2:])
     source_path = relative.as_posix()
-    ocr_path = get_dataset_root(project_root, dataset) / "preprocessed" / "body_images" / document_relative
+    ocr_path = get_preprocessed_root(project_root, dataset) / "body_images" / document_relative
     for root in department_legacy_roots(project_root, dataset):
         legacy_ocr = root / "preprocessed" / "body_images" / document_relative
         if not ocr_path.is_file() and legacy_ocr.is_file():
